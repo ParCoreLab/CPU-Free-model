@@ -8,7 +8,10 @@ get_filename_component(CUDA_INSTALL_DIR ${CUDA_INSTALL_DIR} DIRECTORY)
 
 include_directories("${CUDA_INSTALL_DIR}/samples/common/inc/")
 
-add_executable(2D_Stencil src/main.cu)
+add_executable(
+        2D_Stencil
+        src/main.cu src/single-gpu-naive.cu include/single-gpu-naive.cuh
+)
 
 set_target_properties(2D_Stencil PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)

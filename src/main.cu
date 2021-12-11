@@ -1,6 +1,8 @@
 #include <iostream>
 
-int main() {
-    std::cout << "Hello, World!" << std::endl;
-    return 0;
+#include "../include/single-gpu-naive.cuh"
+
+int main(int argc, char* argv[]) {
+    std::cout << "Running Single GPU Naive version" << std::endl;
+    return init(argc, argv);
 }
