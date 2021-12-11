@@ -1,0 +1,14 @@
+.idea/
+
+*.cmake
+*.o
+*.out
+
+CMakeFiles/
+Testing/
+cmake-build-debug
+cmake-build-debug-remote
+CMakeCache.txt
+*.cbp
+Makefile
+
