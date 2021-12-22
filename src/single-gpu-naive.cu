@@ -24,7 +24,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include <algorithm>
 #include <array>
 #include <climits>
@@ -34,11 +33,13 @@
 #include <iterator>
 #include <sstream>
 
+#include <omp.h>
+
 #include "../include/single-gpu-naive.cuh"
 
-#ifdef HAVE_CUB
-#include <cub/block/block_reduce.cuh>
-#endif  // HAVE_CUB
+//#ifdef HAVE_CUB
+//#include <cub/block/block_reduce.cuh>
+//#endif  // HAVE_CUB
 
 #ifdef USE_NVTX
 #include <nvToolsExt.h>
