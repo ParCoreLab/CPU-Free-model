@@ -286,9 +286,11 @@ int init(int argc, char* argv[]) {
     int numThreads = THREADS_PER_BLOCK;
 
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSm, jacobi_kernel<dim_block_x, dim_block_y>, numThreads, sMemSize));
+        &numBlocksPerSm, jacobi_kernel<dim_block_x, dim_block_y>, numThreads, 0));
 
-    dim3 dimGrid(numSms * numBlocksPerSm), dimBlock(THREADS_PER_BLOCK);
+    // This is stupid
+    int blocks_each = (int) sqrt(numSms * numBlocksPerSm);
+    dim3 dimGrid(blocks_each, blocks_each), dimBlock(2, 2);
 
     //   dim3 threads(2, 2);
     //   dim3 blocks(5, 5);
