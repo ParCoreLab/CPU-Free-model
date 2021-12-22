@@ -290,7 +290,8 @@ int init(int argc, char* argv[]) {
 
     // This is stupid
     int blocks_each = (int) sqrt(numSms * numBlocksPerSm);
-    dim3 dimGrid(blocks_each, blocks_each), dimBlock(2, 2);
+    int threads_each = (int) sqrt(THREADS_PER_BLOCK);
+    dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
 
     //   dim3 threads(2, 2);
     //   dim3 blocks(5, 5);
