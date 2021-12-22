@@ -67,6 +67,9 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
 #define POP_RANGE
 #endif
 
+#include <cooperative_groups.h>
+namespace cg = cooperative_groups;
+
 #define CUDA_RT_CALL(call)                                                                  \
     {                                                                                       \
         cudaError_t cudaStatus = call;                                                      \
@@ -95,43 +98,62 @@ __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __re
 }
 
 template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
-__global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
-                              real* __restrict__ const l2_norm, const int iy_start,
-                              const int iy_end, const int nx) {
-#ifdef HAVE_CUB
-    typedef cub::BlockReduce<real, BLOCK_DIM_X, cub::BLOCK_REDUCE_WARP_REDUCTIONS, BLOCK_DIM_Y>
-        BlockReduce;
-    __shared__ typename BlockReduce::TempStorage temp_storage;
-#endif  // HAVE_CUB
+__global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__ a,
+                              const int iy_start, const int iy_end, const int nx, const int niter) {
+    //#ifdef HAVE_CUB
+    //    typedef cub::BlockReduce<real, BLOCK_DIM_X, cub::BLOCK_REDUCE_WARP_REDUCTIONS,
+    //    BLOCK_DIM_Y>
+    //        BlockReduce;
+    //    __shared__ typename BlockReduce::TempStorage temp_storage;
+    //#endif  // HAVE_CUB
+
+    cg::thread_block cta = cg::this_thread_block();
+    cg::grid_group grid = cg::this_grid();
+
     const int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+
     real local_l2_norm = 0.0;
 
-    if (iy < iy_end) {
-        if (ix >= 1 && ix < (nx - 1)) {
-            const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                         a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-            a_new[iy * nx + ix] = new_val;
+    int i = 0;
 
-            // apply boundary conditions
-            if (iy_start == iy) {
-                a_new[iy_end * nx + ix] = new_val;
+    while (i < niter) {
+        if (iy < iy_end) {
+            if (ix >= 1 && ix < (nx - 1)) {
+                const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                             a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                a_new[iy * nx + ix] = new_val;
+
+                printf("%f\n", new_val);
+
+                // apply boundary conditions
+                if (iy_start == iy) {
+                    a_new[iy_end * nx + ix] = new_val;
+                }
+
+                if ((iy_end - 1) == iy) {
+                    a_new[(iy_start - 1) * nx + ix] = new_val;
+                }
+
+                real residue = new_val - a[iy * nx + ix];
+                local_l2_norm = residue * residue;
             }
-
-            if ((iy_end - 1) == iy) {
-                a_new[(iy_start - 1) * nx + ix] = new_val;
-            }
-
-            real residue = new_val - a[iy * nx + ix];
-            local_l2_norm = residue * residue;
         }
+
+        real* temp_pointer = a_new;
+        a = a_new;
+        a_new = temp_pointer;
+
+        i++;
+        grid.sync();
     }
-#ifdef HAVE_CUB
-    real block_l2_norm = BlockReduce(temp_storage).Sum(local_l2_norm);
-    if (0 == threadIdx.y && 0 == threadIdx.x) atomicAdd(l2_norm, block_l2_norm);
-#else
-    atomicAdd(l2_norm, local_l2_norm);
-#endif  // HAVE_CUB
+
+    //#ifdef HAVE_CUB
+    //    real block_l2_norm = BlockReduce(temp_storage).Sum(local_l2_norm);
+    //    if (0 == threadIdx.y && 0 == threadIdx.x) atomicAdd(l2_norm, block_l2_norm);
+    //#else
+    //    atomicAdd(l2_norm, local_l2_norm);
+    //#endif  // HAVE_CUB
 }
 
 double noopt(const int nx, const int ny, const int iter_max, real* const a_ref_h, const int nccheck,
@@ -204,20 +226,20 @@ int init(int argc, char* argv[]) {
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    CUDA_RT_CALL(cudaStreamCreate(&compute_stream));
-    CUDA_RT_CALL(cudaStreamCreate(&copy_l2_norm_stream));
-    CUDA_RT_CALL(cudaStreamCreate(&reset_l2_norm_stream));
-    CUDA_RT_CALL(cudaEventCreateWithFlags(&compute_done, cudaEventDisableTiming));
-    CUDA_RT_CALL(cudaEventCreateWithFlags(&reset_l2_norm_done[0], cudaEventDisableTiming));
-    CUDA_RT_CALL(cudaEventCreateWithFlags(&reset_l2_norm_done[1], cudaEventDisableTiming));
+    //    CUDA_RT_CALL(cudaStreamCreate(&compute_stream));
+    //    CUDA_RT_CALL(cudaStreamCreate(&copy_l2_norm_stream));
+    //    CUDA_RT_CALL(cudaStreamCreate(&reset_l2_norm_stream));
+    //    CUDA_RT_CALL(cudaEventCreateWithFlags(&compute_done, cudaEventDisableTiming));
+    //    CUDA_RT_CALL(cudaEventCreateWithFlags(&reset_l2_norm_done[0], cudaEventDisableTiming));
+    //    CUDA_RT_CALL(cudaEventCreateWithFlags(&reset_l2_norm_done[1], cudaEventDisableTiming));
 
-    for (int i = 0; i < 2; ++i) {
-        CUDA_RT_CALL(cudaEventCreateWithFlags(&l2_norm_bufs[i].copy_done, cudaEventDisableTiming));
-        CUDA_RT_CALL(cudaMalloc(&l2_norm_bufs[i].d, sizeof(real)));
-        CUDA_RT_CALL(cudaMemset(l2_norm_bufs[i].d, 0, sizeof(real)));
-        CUDA_RT_CALL(cudaMallocHost(&l2_norm_bufs[i].h, sizeof(real)));
-        (*l2_norm_bufs[i].h) = 1.0;
-    }
+    //    for (int i = 0; i < 2; ++i) {
+    //        CUDA_RT_CALL(cudaEventCreateWithFlags(&l2_norm_bufs[i].copy_done,
+    //        cudaEventDisableTiming)); CUDA_RT_CALL(cudaMalloc(&l2_norm_bufs[i].d, sizeof(real)));
+    //        CUDA_RT_CALL(cudaMemset(l2_norm_bufs[i].d, 0, sizeof(real)));
+    //        CUDA_RT_CALL(cudaMallocHost(&l2_norm_bufs[i].h, sizeof(real)));
+    //        (*l2_norm_bufs[i].h) = 1.0;
+    //    }
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -236,82 +258,122 @@ int init(int argc, char* argv[]) {
         l2_norms[i] = 0.0;
     }
 
-    //    double start = omp_get_wtime();
+    double start = omp_get_wtime();
 
     PUSH_RANGE("Jacobi solve", 0)
 
     bool l2_norm_greater_than_tol = true;
-    while (l2_norm_greater_than_tol && iter < iter_max) {
-        // on new iteration: old current vars are now previous vars, old
-        // previous vars are no longer needed
-        int prev = iter % 2;
-        int curr = (iter + 1) % 2;
+    void* kernelArgs[] = {
+        (void*)&a_new,
+        (void*)&a,
+        //        (void *)&l2_norm_bufs[curr].d,
+        (void*)&iy_start,
+        (void*)&iy_end,
+        (void*)&nx,
+        (void*)&iter_max,
+    };
 
-        // wait for memset from old previous iteration to complete
-        CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, reset_l2_norm_done[curr], 0));
+    // This will pick the best possible CUDA capable device
+    cudaDeviceProp deviceProp{};
+    int devID = 0;  // findCudaDevice(argc, (const char **)argv);
+    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, devID));
+    int numSms = deviceProp.multiProcessorCount;
 
-        jacobi_kernel<dim_block_x, dim_block_y>
-            <<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
-                a_new, a, l2_norm_bufs[curr].d, iy_start, iy_end, nx);
-        CUDA_RT_CALL(cudaGetLastError());
-        CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));
+    constexpr int THREADS_PER_BLOCK = 512;
 
-        // perform L2 norm calculation
-        if ((iter % nccheck) == 0 || (!csv && (iter % 100) == 0)) {
-            CUDA_RT_CALL(cudaStreamWaitEvent(copy_l2_norm_stream, compute_done, 0));
-            CUDA_RT_CALL(cudaMemcpyAsync(l2_norm_bufs[curr].h, l2_norm_bufs[curr].d, sizeof(real),
-                                         cudaMemcpyDeviceToHost, copy_l2_norm_stream));
-            CUDA_RT_CALL(cudaEventRecord(l2_norm_bufs[curr].copy_done, copy_l2_norm_stream));
+    int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
+    int numBlocksPerSm = 0;
+    int numThreads = THREADS_PER_BLOCK;
 
-            // make sure D2H copy is complete before using the data for
-            // calculation
-            CUDA_RT_CALL(cudaEventSynchronize(l2_norm_bufs[prev].copy_done));
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &numBlocksPerSm, jacobi_kernel<dim_block_x, dim_block_y>, numThreads, sMemSize));
 
-            l2_norms[prev] = *(l2_norm_bufs[prev].h);
-            l2_norms[prev] = std::sqrt(l2_norms[prev]);
-            l2_norm_greater_than_tol = (l2_norms[prev] > tol);
+    dim3 dimGrid(numSms * numBlocksPerSm), dimBlock(THREADS_PER_BLOCK);
 
-            if (!csv && (iter % 100) == 0) {
-                printf("%5d, %0.6f\n", iter, l2_norms[prev]);
-            }
+    //   dim3 threads(2, 2);
+    //   dim3 blocks(5, 5);
 
-            // reset everything for next iteration
-            l2_norms[prev] = 0.0;
-            *(l2_norm_bufs[prev].h) = 0.0;
-            CUDA_RT_CALL(
-                cudaMemsetAsync(l2_norm_bufs[prev].d, 0, sizeof(real), reset_l2_norm_stream));
-            CUDA_RT_CALL(cudaEventRecord(reset_l2_norm_done[prev], reset_l2_norm_stream));
-        }
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel<dim_block_x, dim_block_y>,
+                                             dimGrid, dimBlock, kernelArgs, 0, nullptr));
 
-        std::swap(a_new, a);
-        iter++;
-    }
-    CUDA_RT_CALL(cudaDeviceSynchronize());
-    POP_RANGE
+    cudaDeviceSynchronize();
+
+    //    cudaMemcpy()
+
+    //    return;
+    //
+    //    while (l2_norm_greater_than_tol && iter < iter_max) {
+    //        // on new iteration: old current vars are now previous vars, old
+    //        // previous vars are no longer needed
+    //        int prev = iter % 2;
+    //        int curr = (iter + 1) % 2;
+    //
+    //        // wait for memset from old previous iteration to complete
+    //        CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, reset_l2_norm_done[curr], 0));
+    //
+    //        jacobi_kernel<dim_block_x, dim_block_y>
+    //            <<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
+    //                a_new, a, l2_norm_bufs[curr].d, iy_start, iy_end, nx);
+    //        CUDA_RT_CALL(cudaGetLastError());
+    //        CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));
+    //
+    //        // perform L2 norm calculation
+    //        if ((iter % nccheck) == 0 || (!csv && (iter % 100) == 0)) {
+    //            CUDA_RT_CALL(cudaStreamWaitEvent(copy_l2_norm_stream, compute_done, 0));
+    //            CUDA_RT_CALL(cudaMemcpyAsync(l2_norm_bufs[curr].h, l2_norm_bufs[curr].d,
+    //            sizeof(real),
+    //                                         cudaMemcpyDeviceToHost, copy_l2_norm_stream));
+    //            CUDA_RT_CALL(cudaEventRecord(l2_norm_bufs[curr].copy_done, copy_l2_norm_stream));
+    //
+    //            // make sure D2H copy is complete before using the data for
+    //            // calculation
+    //            CUDA_RT_CALL(cudaEventSynchronize(l2_norm_bufs[prev].copy_done));
+    //
+    //            l2_norms[prev] = *(l2_norm_bufs[prev].h);
+    //            l2_norms[prev] = std::sqrt(l2_norms[prev]);
+    //            l2_norm_greater_than_tol = (l2_norms[prev] > tol);
+    //
+    //            if (!csv && (iter % 100) == 0) {
+    //                printf("%5d, %0.6f\n", iter, l2_norms[prev]);
+    //            }
+    //
+    //            // reset everything for next iteration
+    //            l2_norms[prev] = 0.0;
+    //            *(l2_norm_bufs[prev].h) = 0.0;
+    //            CUDA_RT_CALL(
+    //                cudaMemsetAsync(l2_norm_bufs[prev].d, 0, sizeof(real), reset_l2_norm_stream));
+    //            CUDA_RT_CALL(cudaEventRecord(reset_l2_norm_done[prev], reset_l2_norm_stream));
+    //        }
+    //
+    //        std::swap(a_new, a);
+    //        iter++;
+    //    }
+    //    CUDA_RT_CALL(cudaDeviceSynchronize());
+    //    POP_RANGE
     //    double stop = omp_get_wtime();
-
+    //
     //    if (csv) {
     //        printf("single_gpu, %d, %d, %d, %d, %f\n", nx, ny, iter_max, nccheck, (stop - start));
     //    } else {
     //        printf("%dx%d: 1 GPU: %8.4f s\n", ny, nx, (stop - start));
     //    }
-
-    for (int i = 0; i < 2; ++i) {
-        CUDA_RT_CALL(cudaFreeHost(l2_norm_bufs[i].h));
-        CUDA_RT_CALL(cudaFree(l2_norm_bufs[i].d));
-        CUDA_RT_CALL(cudaEventDestroy(l2_norm_bufs[i].copy_done));
-    }
-
-    CUDA_RT_CALL(cudaEventDestroy(reset_l2_norm_done[1]));
-    CUDA_RT_CALL(cudaEventDestroy(reset_l2_norm_done[0]));
-    CUDA_RT_CALL(cudaEventDestroy(compute_done));
-
-    CUDA_RT_CALL(cudaStreamDestroy(reset_l2_norm_stream));
-    CUDA_RT_CALL(cudaStreamDestroy(copy_l2_norm_stream));
-    CUDA_RT_CALL(cudaStreamDestroy(compute_stream));
-
-    CUDA_RT_CALL(cudaFree(a_new));
-    CUDA_RT_CALL(cudaFree(a));
-
-    return 0;
+    //
+    //    for (int i = 0; i < 2; ++i) {
+    //        CUDA_RT_CALL(cudaFreeHost(l2_norm_bufs[i].h));
+    //        CUDA_RT_CALL(cudaFree(l2_norm_bufs[i].d));
+    //        CUDA_RT_CALL(cudaEventDestroy(l2_norm_bufs[i].copy_done));
+    //    }
+    //
+    //    CUDA_RT_CALL(cudaEventDestroy(reset_l2_norm_done[1]));
+    //    CUDA_RT_CALL(cudaEventDestroy(reset_l2_norm_done[0]));
+    //    CUDA_RT_CALL(cudaEventDestroy(compute_done));
+    //
+    //    CUDA_RT_CALL(cudaStreamDestroy(reset_l2_norm_stream));
+    //    CUDA_RT_CALL(cudaStreamDestroy(copy_l2_norm_stream));
+    //    CUDA_RT_CALL(cudaStreamDestroy(compute_stream));
+    //
+    //    CUDA_RT_CALL(cudaFree(a_new));
+    //    CUDA_RT_CALL(cudaFree(a));
+    //
+    //    return 0;
 }
