@@ -12,7 +12,9 @@ add_link_options("-fopenmp")
 
 add_executable(
         2D_Stencil
-        src/main.cu src/single-gpu-naive.cu include/single-gpu-naive.cuh
+        src/main.cu
+#        src/single-gpu-naive.cu include/single-gpu-naive.cuh
+        src/multi-gpu-peer.cu include/multi-gpu-peer.cuh
 )
 
 set_target_properties(2D_Stencil PROPERTIES
