@@ -75,7 +75,7 @@ __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __re
 
 template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__ a,
-                              const int iy_start, const int iy_end, const int nx, const int niter) {
+                              const int iy_start, const int iy_end, const int nx, const int niter, int *flag) {
     //#ifdef HAVE_CUB
     //    typedef cub::BlockReduce<real, BLOCK_DIM_X, cub::BLOCK_REDUCE_WARP_REDUCTIONS,
     //    BLOCK_DIM_Y>
@@ -122,6 +122,12 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
         grid.sync();
     }
 
+    if (threadIdx.x == 0) {
+        *flag = 1;
+    }
+
+
+
     //#ifdef HAVE_CUB
     //    real block_l2_norm = BlockReduce(temp_storage).Sum(local_l2_norm);
     //    if (0 == threadIdx.y && 0 == threadIdx.x) atomicAdd(l2_norm, block_l2_norm);
@@ -136,6 +142,12 @@ __global__ void boundary_sync_kernel(real* __restrict__ a_new, int* flag) {
     }
 
     printf("Sync\n");
+
+//    *flag = 0;
+
+//    if (threadIdx.x == 0) {
+//        printf("Sync\n");
+//    }
 }
 
 double noopt(const int nx, const int ny, const int iter_max, real* const a_ref_h, const int nccheck,
@@ -262,6 +274,7 @@ int init(int argc, char* argv[]) {
         (void*)&iy_end,
         (void*)&nx,
         (void*)&iter_max,
+        (void*)&flag
     };
 
     // This will pick the best possible CUDA capable device
@@ -270,7 +283,7 @@ int init(int argc, char* argv[]) {
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, devID));
     int numSms = deviceProp.multiProcessorCount;
 
-    constexpr int THREADS_PER_BLOCK = 512;
+    constexpr int THREADS_PER_BLOCK = 1024;
 
     int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
     int numBlocksPerSm = 0;
@@ -278,6 +291,8 @@ int init(int argc, char* argv[]) {
 
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksPerSm, jacobi_kernel<dim_block_x, dim_block_y>, numThreads, 0));
+
+//    numSms -= 1;
 
     // This is stupid
     int blocks_each = (int) sqrt(numSms * numBlocksPerSm);
@@ -289,6 +304,7 @@ int init(int argc, char* argv[]) {
 
 #pragma omp parallel num_threads(num_devices)
     {
+        // Add stream priority
         cudaStream_t inner_domain_stream;
         cudaStream_t boundary_sync_stream;
 
@@ -303,7 +319,7 @@ int init(int argc, char* argv[]) {
                                                  dimGrid, dimBlock, kernelArgs, 0, inner_domain_stream));
 
         // Boundary
-        boundary_sync_kernel<<<1, dim3(32, 32), 0, boundary_sync_stream>>>(a, flag);
+        boundary_sync_kernel<<<1, 1, 0, boundary_sync_stream>>>(a, flag);
 
         CUDA_RT_CALL(cudaGetLastError());
 
