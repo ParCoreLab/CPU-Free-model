@@ -18,9 +18,9 @@ add_executable(
 )
 
 add_executable(
-        multi-stream-jacobi
+        single-stream-jacobi
         src/main.cu
-        src/single-gpu-naive.cu
+        src/single-stream/jacobi.cu
 )
 
 set_target_properties(2D_Stencil PROPERTIES
