@@ -124,8 +124,6 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
                                              a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
                 a_new[iy * nx + ix] = new_val;
 
-                printf("%f\n", new_val);
-
                 // apply boundary conditions
                 if (iy_start == iy) {
                     a_new[iy_end * nx + ix] = new_val;
