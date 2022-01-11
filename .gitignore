@@ -4,6 +4,8 @@
 *.o
 *.out
 
+2D_Stencil
+
 CMakeFiles/
 Testing/
 cmake-build-debug
