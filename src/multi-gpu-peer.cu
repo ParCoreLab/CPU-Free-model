@@ -181,12 +181,12 @@ int init(int argc, char* argv[]) {
     real* a;
     real* a_new;
 
-    cudaStream_t compute_stream;
-    cudaStream_t copy_l2_norm_stream;
-    cudaStream_t reset_l2_norm_stream;
-
-    cudaEvent_t compute_done;
-    cudaEvent_t reset_l2_norm_done[2];
+//    cudaStream_t compute_stream;
+//    cudaStream_t copy_l2_norm_stream;
+//    cudaStream_t reset_l2_norm_stream;
+//
+//    cudaEvent_t compute_done;
+//    cudaEvent_t reset_l2_norm_done[2];
 
     real l2_norms[2];
     l2_norm_buf l2_norm_bufs[2];
@@ -289,15 +289,21 @@ int init(int argc, char* argv[]) {
 
 #pragma omp parallel num_threads(num_devices)
     {
+        cudaStream_t inner_domain_stream;
+        cudaStream_t boundary_sync_stream;
+
+        CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
+        CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
+
         int dev_id = omp_get_thread_num();
         CUDA_RT_CALL(cudaSetDevice(dev_id));
 
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel<dim_block_x, dim_block_y>,
-                                                 dimGrid, dimBlock, kernelArgs, 0, nullptr));
+                                                 dimGrid, dimBlock, kernelArgs, 0, inner_domain_stream));
 
         // Boundary
-        boundary_sync_kernel<<<dim3(32, 32), dim3(32, 32)>>>(a, flag);
+        boundary_sync_kernel<<<1, dim3(32, 32), 0, boundary_sync_stream>>>(a, flag);
 
         CUDA_RT_CALL(cudaGetLastError());
 
