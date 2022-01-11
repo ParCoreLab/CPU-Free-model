@@ -17,5 +17,11 @@ add_executable(
         src/multi-gpu-peer.cu include/multi-gpu-peer.cuh
 )
 
+add_executable(
+        multi-stream-jacobi
+        src/main.cu
+        src/single-gpu-naive.cu
+)
+
 set_target_properties(2D_Stencil PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)
