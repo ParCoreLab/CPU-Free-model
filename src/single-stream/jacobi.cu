@@ -11,6 +11,9 @@
 
 #include <omp.h>
 
+#include <cooperative_groups.h>
+namespace cg = cooperative_groups;
+
 #define CUDA_RT_CALL(call)                                                                  \
     {                                                                                       \
         cudaError_t cudaStatus = call;                                                      \
@@ -32,7 +35,8 @@ __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __re
     for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < ny; iy += blockDim.x * gridDim.x) {
         const real y0 = sin(2.0 * pi * iy / (ny - 1));
         a[iy * nx + 0] = y0;
-        a[iy * nx + (nx - 1)] = y0 a_new[iy * nx + 0] = y0;
+        a[iy * nx + (nx - 1)] = y0;
+        a_new[iy * nx + 0] = y0;
         a_new[iy * nx + (nx - 1)] = y0;
     }
 }
@@ -40,8 +44,51 @@ __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __re
 template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__ a,
                               const int iy_start, const int iy_end, const int nx, const int niter) {
+    cg::thread_block cta = cg::this_thread_block();
+    cg::grid_group grid = cg::this_grid();
 
-}
+    //    One thread block does communication (and a bit of computation)
+    if (blockIdx.x == 0 && blockIdx.y == 0) {
+    } else {
+        const int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
+        const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+
+        real local_l2_norm = 0.0;
+        int i = 0;
+
+        while (i < niter) {
+            if (iy < iy_end) {
+                if (ix >= 1 && ix < (nx - 1)) {
+                    const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                    a_new[iy * nx + ix] = new_val;
+
+                    // apply boundary conditions
+                    if (iy_start == iy) {
+                        a_new[iy_end * nx + ix] = new_val;
+                    }
+
+                    if ((iy_end - 1) == iy) {
+                        a_new[(iy_start - 1) * nx + ix] = new_val;
+                    }
+
+                    real residue = new_val - a[iy * nx + ix];
+                    local_l2_norm = residue * residue;
+                }
+            }
+
+            real* temp_pointer = a_new;
+            a = a_new;
+            a_new = temp_pointer;
+
+            i++;
+            grid.sync();
+        }
+
+        if (threadIdx.x == 0) {
+            *flag = 1;
+        }
+    }
 }
 
 double noopt(const int nx, const int ny, const int iter_max, real* const a_ref_h, const int nccheck,
@@ -87,13 +134,6 @@ int init(int argc, char* argv[]) {
     real* a;
     real* a_new;
 
-    cudaStream_t compute_stream;
-    cudaStream_t copy_l2_norm_stream;
-    cudaStream_t reset_l2_norm_stream;
-
-    cudaEvent_t compute_done;
-    cudaEvent_t reset_l2_norm_done[2];
-
     real l2_norms[2];
     l2_norm_buf l2_norm_bufs[2];
 
@@ -131,7 +171,7 @@ int init(int argc, char* argv[]) {
     CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * sizeof(real)));
 
-    // Set diriclet boundary conditions on left and right boarder
+    // Set diriclet boundary conditions on left and right border
     initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, nx, ny);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -144,7 +184,6 @@ int init(int argc, char* argv[]) {
 
     constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 32;
-    dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y, 1);
 
     int iter = 0;
     for (int i = 0; i < 2; ++i) {
@@ -174,7 +213,7 @@ int init(int argc, char* argv[]) {
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, devID));
     int numSms = deviceProp.multiProcessorCount;
 
-    constexpr int THREADS_PER_BLOCK = 512;
+    constexpr int THREADS_PER_BLOCK = 1024;
 
     int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
     int numBlocksPerSm = 0;
@@ -195,10 +234,7 @@ int init(int argc, char* argv[]) {
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel<dim_block_x, dim_block_y>,
                                                  dimGrid, dimBlock, kernelArgs, 0, nullptr));
-
         // Boundary
-        boundary_sync_kernel<<<dim3(32, 32), dim3(32, 32)>>>(a, flag);
-
         CUDA_RT_CALL(cudaGetLastError());
 
         cudaDeviceSynchronize();
