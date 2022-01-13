@@ -14,6 +14,8 @@
 #include <cooperative_groups.h>
 namespace cg = cooperative_groups;
 
+constexpr int MAX_NUM_DEVICES = 2;
+
 #define CUDA_RT_CALL(call)                                                                  \
     {                                                                                       \
         cudaError_t cudaStatus = call;                                                      \
@@ -31,9 +33,10 @@ constexpr real tol = 1.0e-8;
 const real PI = 2.0 * std::asin(1.0);
 
 __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
-                                      const real pi, const int nx, const int ny) {
-    for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < ny; iy += blockDim.x * gridDim.x) {
-        const real y0 = sin(2.0 * pi * iy / (ny - 1));
+                                      const real pi, const int offset, const int nx,
+                                      const int my_ny, const int ny) {
+    for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny; iy += blockDim.x * gridDim.x) {
+        const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
         a[iy * nx + 0] = y0;
         a[iy * nx + (nx - 1)] = y0;
         a_new[iy * nx + 0] = y0;
@@ -43,7 +46,10 @@ __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __re
 
 template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__ a,
-                              const int iy_start, const int iy_end, const int nx, const int niter) {
+                              const int iy_start, const int iy_end, const int nx,
+                              real* __restrict__ const a_new_top, const int top_iy,
+                              real* __restrict__ const a_new_bottom, const int bottom_iy,
+                              const int iter_max) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
@@ -56,7 +62,7 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
         real local_l2_norm = 0.0;
         int i = 0;
 
-        while (i < niter) {
+        while (i < iter_max) {
             if (iy < iy_end) {
                 if (ix >= 1 && ix < (nx - 1)) {
                     const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
@@ -121,31 +127,33 @@ struct l2_norm_buf {
 
 int init(int argc, char* argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
-    const int nccheck = get_argval<int>(argv, argv + argc, "-nccheck", 1);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
-    const bool csv = get_arg(argv, argv + argc, "-csv");
 
-    if (nccheck != 1) {
-        fprintf(stderr, "Only nccheck = 1 is supported\n");
-        return -1;
-    }
-
-    real* a;
-    real* a_new;
-
-    real l2_norms[2];
-    l2_norm_buf l2_norm_bufs[2];
-
-    int iy_start = 1;
-    int iy_end = (ny - 1);
+    real* a_new[MAX_NUM_DEVICES];
+    int iy_end[MAX_NUM_DEVICES];
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
 
 #pragma omp parallel num_threads(num_devices)
     {
+        real* a;
+
         int dev_id = omp_get_thread_num();
+
+        int chunk_size;
+        int chunk_size_low = (ny - 2) / num_devices;
+        int chunk_size_high = chunk_size_low + 1;
+
+        int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
+        if (dev_id < num_ranks_low)
+            chunk_size = chunk_size_low;
+        else
+            chunk_size = chunk_size_high;
+
+        const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
+        const int bottom = (dev_id + 1) % num_devices;
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(0));
@@ -163,73 +171,71 @@ int init(int argc, char* argv[]) {
                 std::exit(1);
             }
         }
-    }
 
-    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * sizeof(real)));
-    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * sizeof(real)));
+#pragma omp barrier
 
-    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * sizeof(real)));
-    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(&a, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + 2) * sizeof(real)));
 
-    // Set diriclet boundary conditions on left and right border
-    initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, nx, ny);
-    CUDA_RT_CALL(cudaGetLastError());
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
-    if (!csv)
-        printf(
-            "Jacobi relaxation: %d iterations on %d x %d mesh with norm check "
-            "every %d iterations\n",
-            iter_max, ny, nx, nccheck);
+        // Calculate local domain boundaries
+        int iy_start_global;  // My start index in the global array
+        if (dev_id < num_ranks_low) {
+            iy_start_global = dev_id * chunk_size_low + 1;
+        } else {
+            iy_start_global =
+                num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
+        }
+        int iy_end_global = iy_start_global + chunk_size - 1;  // My last index in the global array
 
-    constexpr int dim_block_x = 32;
-    constexpr int dim_block_y = 32;
+        int iy_start = 1;
+        iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
 
-    int iter = 0;
-    for (int i = 0; i < 2; ++i) {
-        l2_norms[i] = 0.0;
-    }
+        // Set diriclet boundary conditions on left and right boarder
+        initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
+            a, a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
+        CUDA_RT_CALL(cudaGetLastError());
+        CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    double start = omp_get_wtime();
+        CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    int* flag;
-    CUDA_RT_CALL(cudaMalloc(&flag, 1 * sizeof(int)));
-    CUDA_RT_CALL(cudaMemset(flag, 0, 1 * sizeof(int)));
+        constexpr int dim_block_x = 32;
+        constexpr int dim_block_y = 32;
 
-    bool l2_norm_greater_than_tol = true;
-    void* kernelArgs[] = {
-        (void*)&a_new,
-        (void*)&a,
-        //        (void *)&l2_norm_bufs[curr].d,
-        (void*)&iy_start,
-        (void*)&iy_end,
-        (void*)&nx,
-        (void*)&iter_max,
-    };
+        int iter = 0;
 
-    // This will pick the best possible CUDA capable device
-    cudaDeviceProp deviceProp{};
-    int devID = 0;  // findCudaDevice(argc, (const char **)argv);
-    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, devID));
-    int numSms = deviceProp.multiProcessorCount;
+        int* flag;
+        CUDA_RT_CALL(cudaMalloc(&flag, 1 * sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(flag, 0, 1 * sizeof(int)));
 
-    constexpr int THREADS_PER_BLOCK = 1024;
+        void* kernelArgs[] = {(void*)&a_new[dev_id],
+                              (void*)&a,
+                              (void*)&iy_start,
+                              (void*)&iy_end[dev_id],
+                              (void*)&nx,
+                              (void*)a_new[top],
+                              (void*)iy_end[top],
+                              (void*)a_new[bottom],
+                              (void*)&iter_max};
 
-    int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
-    int numBlocksPerSm = 0;
-    int numThreads = THREADS_PER_BLOCK;
+        cudaDeviceProp deviceProp{};
+        CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
+        int numSms = deviceProp.multiProcessorCount;
 
-    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSm, jacobi_kernel<dim_block_x, dim_block_y>, numThreads, 0));
+        constexpr int THREADS_PER_BLOCK = 1024;
 
-    int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
-    int threads_each = (int)sqrt(THREADS_PER_BLOCK);
-    dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
+        int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
+        int numBlocksPerSm = 0;
+        int numThreads = THREADS_PER_BLOCK;
 
-#pragma omp parallel num_threads(num_devices)
-    {
-        int dev_id = omp_get_thread_num();
-        CUDA_RT_CALL(cudaSetDevice(dev_id));
+        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &numBlocksPerSm, jacobi_kernel<dim_block_x, dim_block_y>, numThreads, 0));
+
+        int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
+        int threads_each = (int)sqrt(THREADS_PER_BLOCK);
+        dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
 
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel<dim_block_x, dim_block_y>,
