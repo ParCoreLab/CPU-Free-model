@@ -117,8 +117,8 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
     grid.sync();
 
     if (threadIdx.x == 0 && threadIdx.y == 0) {
-        *notify_top_neighbor = 1;
-        *notify_bottom_neighbor = 1;
+        *notify_top_neighbor = 0;
+        *notify_bottom_neighbor = 0;
     }
 }
 
