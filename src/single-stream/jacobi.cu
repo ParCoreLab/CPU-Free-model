@@ -14,7 +14,7 @@
 #include <cooperative_groups.h>
 namespace cg = cooperative_groups;
 
-constexpr int MAX_NUM_DEVICES = 2;
+constexpr int MAX_NUM_DEVICES = 1;
 
 #define CUDA_RT_CALL(call)                                                                  \
     {                                                                                       \
@@ -49,51 +49,76 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
                               const int iy_start, const int iy_end, const int nx,
                               real* __restrict__ const a_new_top, const int top_iy,
                               real* __restrict__ const a_new_bottom, const int bottom_iy,
-                              const int iter_max) {
+                              const int iter_max, int* is_top_neigbor_done,
+                              int* is_bottom_neigbor_done, int* notify_top_neighbor,
+                              int* notify_bottom_neighbor) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
     //    One thread block does communication (and a bit of computation)
-    if (blockIdx.x == 0 && blockIdx.y == 0) {
+    if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
+        int iy = threadIdx.y + iy_start;
+        int ix = threadIdx.x + 1;
+        int col = iy * blockDim.x + ix;
+
+        if (col < nx) {
+            // Wait until top GPU puts its bottom row as my top halo
+            while (!*is_top_neigbor_done) {
+            }
+
+            const real first_row_val = 0.25 * (a[0 * nx + col + 1] + a[iy * nx + col - 1] +
+                                               a[(0 + 1) * nx + col] + a[(0 - 1) * nx + col]);
+            a_new_top[top_iy * nx + col] = first_row_val;
+            cta.sync();
+
+            if (ix == 0 && iy == 0) {
+                *notify_top_neighbor = 1;
+            }
+
+            // Wait until bottom GPU puts its top row as my bottom halo
+            while (!*is_bottom_neigbor_done) {
+            }
+
+            const real last_row_val =
+                0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+                        a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
+            a_new_bottom[bottom_iy * nx + col] = last_row_val;
+            cta.sync();
+
+            if (ix == 0 && iy == 0) {
+                *notify_bottom_neighbor = 1;
+            }
+        }
     } else {
-        const int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
-        const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+        int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
+        int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
         real local_l2_norm = 0.0;
         int i = 0;
 
         while (i < iter_max) {
-            if (iy < iy_end) {
-                if (ix >= 1 && ix < (nx - 1)) {
-                    const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                    a_new[iy * nx + ix] = new_val;
+            if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
+                const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                             a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                a_new[iy * nx + ix] = new_val;
 
-                    // apply boundary conditions
-                    if (iy_start == iy) {
-                        a_new[iy_end * nx + ix] = new_val;
-                    }
-
-                    if ((iy_end - 1) == iy) {
-                        a_new[(iy_start - 1) * nx + ix] = new_val;
-                    }
-
-                    real residue = new_val - a[iy * nx + ix];
-                    local_l2_norm = residue * residue;
-                }
+                real residue = new_val - a[iy * nx + ix];
+                local_l2_norm = residue * residue;
             }
-
-            real* temp_pointer = a_new;
-            a = a_new;
-            a_new = temp_pointer;
-
-            i++;
-            grid.sync();
         }
 
-        if (threadIdx.x == 0) {
-            *flag = 1;
-        }
+        real* temp_pointer = a_new;
+        a = a_new;
+        a_new = temp_pointer;
+
+        i++;
+    }
+
+    grid.sync();
+
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        *notify_top_neighbor = 1;
+        *notify_bottom_neighbor = 1;
     }
 }
 
@@ -132,6 +157,9 @@ int init(int argc, char* argv[]) {
 
     real* a_new[MAX_NUM_DEVICES];
     int iy_end[MAX_NUM_DEVICES];
+
+    int* is_top_done_computing_flags[MAX_NUM_DEVICES];
+    int* is_bottom_done_computing_flags[MAX_NUM_DEVICES];
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
@@ -180,6 +208,12 @@ int init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
+        CUDA_RT_CALL(cudaMalloc(&is_top_done_computing_flags[dev_id], 1 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(&is_bottom_done_computing_flags[dev_id], 1 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, 1 * sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0, 1 * sizeof(int)));
+
         // Calculate local domain boundaries
         int iy_start_global;  // My start index in the global array
         if (dev_id < num_ranks_low) {
@@ -206,19 +240,21 @@ int init(int argc, char* argv[]) {
 
         int iter = 0;
 
-        int* flag;
-        CUDA_RT_CALL(cudaMalloc(&flag, 1 * sizeof(int)));
-        CUDA_RT_CALL(cudaMemset(flag, 0, 1 * sizeof(int)));
-
-        void* kernelArgs[] = {(void*)&a_new[dev_id],
-                              (void*)&a,
-                              (void*)&iy_start,
-                              (void*)&iy_end[dev_id],
-                              (void*)&nx,
-                              (void*)a_new[top],
-                              (void*)iy_end[top],
-                              (void*)a_new[bottom],
-                              (void*)&iter_max};
+        void* kernelArgs[] = {
+            (void*)&a_new[dev_id],
+            (void*)&a,
+            (void*)&iy_start,
+            (void*)&iy_end[dev_id],
+            (void*)&nx,
+            (void*)&a_new[top],
+            (void*)&iy_end[top],
+            (void*)&a_new[bottom],
+            (void*)&iter_max,
+            (void*)&is_top_done_computing_flags[dev_id],
+            (void*)&is_bottom_done_computing_flags[dev_id],
+            (void*)&is_top_done_computing_flags[dev_id + 1],
+            (void*)&is_bottom_done_computing_flags[dev_id - 1],
+        };
 
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
