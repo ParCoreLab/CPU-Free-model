@@ -291,6 +291,6 @@ int init(int argc, char* argv[]) {
         // Boundary
         CUDA_RT_CALL(cudaGetLastError());
 
-        cudaDeviceSynchronize();
+        CUDA_RT_CALL(cudaDeviceSynchronize());
     }
 }
