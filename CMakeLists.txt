@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.10)
 project(2D_Stencil CUDA CXX)
 
 set(CMAKE_CUDA_STANDARD 20)
@@ -8,7 +8,7 @@ get_filename_component(CUDA_INSTALL_DIR ${CUDA_INSTALL_DIR} DIRECTORY)
 
 include_directories("${CUDA_INSTALL_DIR}/samples/common/inc/")
 
-add_link_options("-fopenmp")
+#add_link_options("-fopenmp")
 
 add_executable(
         2D_Stencil
@@ -22,6 +22,8 @@ add_executable(
         src/main.cu
         src/single-stream/jacobi.cu
 )
+
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fopenmp")
 
 set_target_properties(2D_Stencil PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)
