@@ -51,7 +51,7 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
                               real* __restrict__ const a_new_bottom, const int bottom_iy,
                               const int iter_max, int* is_top_neigbor_done,
                               int* is_bottom_neigbor_done, int* notify_top_neighbor,
-                              int* notify_bottom_neighbor) {
+                              int* notify_bottom_neighbor, bool is_first_gpu, bool is_last_gpu) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
@@ -70,7 +70,9 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
 
             if (col < nx) {
                 // Wait until top GPU puts its bottom row as my top halo
-                while (!*is_top_neigbor_done) {
+                if (!is_first_gpu) {
+                    while (!*is_top_neigbor_done) {
+                    }
                 }
 
                 const real first_row_val = 0.25 * (a[0 * nx + col + 1] + a[iy * nx + col - 1] +
@@ -78,7 +80,10 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
                 a_new_top[top_iy * nx + col] = first_row_val;
 
                 // Wait until bottom GPU puts its top row as my bottom halo
-                while (!*is_bottom_neigbor_done) {
+
+                if (!is_last_gpu) {
+                    while (!*is_bottom_neigbor_done) {
+                    }
                 }
 
                 const real last_row_val =
@@ -89,9 +94,14 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
 
             cta.sync();
 
-            if (ix == 0 && iy == 0) {
-                *notify_bottom_neighbor = 1;
-                *notify_top_neighbor = 1;
+            if (threadIdx.x == 0 && threadIdx.y == 0) {
+                if (!is_last_gpu) {
+                    *notify_bottom_neighbor = 1;
+                }
+
+                if (!is_first_gpu) {
+                    *notify_top_neighbor = 1;
+                }
             }
         } else if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
@@ -101,20 +111,25 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
             real residue = new_val - a[iy * nx + ix];
             local_l2_norm = residue * residue;
         }
+
+        real* temp_pointer = a_new;
+        a = a_new;
+        a_new = temp_pointer;
+
+        i++;
+
+        if (threadIdx.x == 0 && threadIdx.y == 0) {
+            if (!is_first_gpu) {
+                *notify_top_neighbor = 0;
+            }
+
+            if (!is_last_gpu) {
+                *notify_bottom_neighbor = 0;
+            }
+        }
+
+        grid.sync();
     }
-
-    real* temp_pointer = a_new;
-    a = a_new;
-    a_new = temp_pointer;
-
-    i++;
-
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
-        *notify_top_neighbor = 0;
-        *notify_bottom_neighbor = 0;
-    }
-
-    grid.sync();
 }
 
 double noopt(const int nx, const int ny, const int iter_max, real* const a_ref_h, const int nccheck,
@@ -236,21 +251,24 @@ int init(int argc, char* argv[]) {
 
         int iter = 0;
 
-        void* kernelArgs[] = {
-            (void*)&a_new[dev_id],
-            (void*)&a,
-            (void*)&iy_start,
-            (void*)&iy_end[dev_id],
-            (void*)&nx,
-            (void*)&a_new[top],
-            (void*)&iy_end[top],
-            (void*)&a_new[bottom],
-            (void*)&iter_max,
-            (void*)&is_top_done_computing_flags[dev_id],
-            (void*)&is_bottom_done_computing_flags[dev_id],
-            (void*)&is_top_done_computing_flags[dev_id + 1],
-            (void*)&is_bottom_done_computing_flags[dev_id - 1],
-        };
+        bool is_first_gpu = dev_id == 0;
+        bool is_last_gpu = dev_id == num_devices - 1;
+
+        void* kernelArgs[] = {(void*)&a_new[dev_id],
+                              (void*)&a,
+                              (void*)&iy_start,
+                              (void*)&iy_end[dev_id],
+                              (void*)&nx,
+                              (void*)&a_new[top],
+                              (void*)&iy_end[top],
+                              (void*)&a_new[bottom],
+                              (void*)&iter_max,
+                              (void*)&is_top_done_computing_flags[dev_id],
+                              (void*)&is_bottom_done_computing_flags[dev_id],
+                              (void*)&is_bottom_done_computing_flags[dev_id - 1],
+                              (void*)&is_top_done_computing_flags[dev_id + 1],
+                              (void*)&is_first_gpu,
+                              (void*)&is_last_gpu};
 
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
