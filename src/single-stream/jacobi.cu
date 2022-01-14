@@ -55,71 +55,66 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
-    //    One thread block does communication (and a bit of computation)
-    if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
-        int iy = threadIdx.y + iy_start;
-        int ix = threadIdx.x + 1;
-        int col = iy * blockDim.x + ix;
+    int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
+    int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
-        if (col < nx) {
-            // Wait until top GPU puts its bottom row as my top halo
-            while (!*is_top_neigbor_done) {
+    real local_l2_norm = 0.0;
+    int i = 0;
+
+    while (i < iter_max) {
+        //    One thread block does communication (and a bit of computation)
+        if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
+            int iy = threadIdx.y + iy_start;
+            int ix = threadIdx.x + 1;
+            int col = iy * blockDim.x + ix;
+
+            if (col < nx) {
+                // Wait until top GPU puts its bottom row as my top halo
+                while (!*is_top_neigbor_done) {
+                }
+
+                const real first_row_val = 0.25 * (a[0 * nx + col + 1] + a[iy * nx + col - 1] +
+                                                   a[(0 + 1) * nx + col] + a[(0 - 1) * nx + col]);
+                a_new_top[top_iy * nx + col] = first_row_val;
+
+                // Wait until bottom GPU puts its top row as my bottom halo
+                while (!*is_bottom_neigbor_done) {
+                }
+
+                const real last_row_val =
+                    0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+                            a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
+                a_new_bottom[bottom_iy * nx + col] = last_row_val;
             }
 
-            const real first_row_val = 0.25 * (a[0 * nx + col + 1] + a[iy * nx + col - 1] +
-                                               a[(0 + 1) * nx + col] + a[(0 - 1) * nx + col]);
-            a_new_top[top_iy * nx + col] = first_row_val;
-            cta.sync();
-
-            if (ix == 0 && iy == 0) {
-                *notify_top_neighbor = 1;
-            }
-
-            // Wait until bottom GPU puts its top row as my bottom halo
-            while (!*is_bottom_neigbor_done) {
-            }
-
-            const real last_row_val =
-                0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                        a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
-            a_new_bottom[bottom_iy * nx + col] = last_row_val;
             cta.sync();
 
             if (ix == 0 && iy == 0) {
                 *notify_bottom_neighbor = 1;
+                *notify_top_neighbor = 1;
             }
+        } else if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
+            const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                         a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+            a_new[iy * nx + ix] = new_val;
+
+            real residue = new_val - a[iy * nx + ix];
+            local_l2_norm = residue * residue;
         }
-    } else {
-        int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
-        int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-
-        real local_l2_norm = 0.0;
-        int i = 0;
-
-        while (i < iter_max) {
-            if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
-                const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                             a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                a_new[iy * nx + ix] = new_val;
-
-                real residue = new_val - a[iy * nx + ix];
-                local_l2_norm = residue * residue;
-            }
-        }
-
-        real* temp_pointer = a_new;
-        a = a_new;
-        a_new = temp_pointer;
-
-        i++;
     }
 
-    grid.sync();
+    real* temp_pointer = a_new;
+    a = a_new;
+    a_new = temp_pointer;
+
+    i++;
 
     if (threadIdx.x == 0 && threadIdx.y == 0) {
         *notify_top_neighbor = 0;
         *notify_bottom_neighbor = 0;
     }
+
+    grid.sync();
 }
 
 double noopt(const int nx, const int ny, const int iter_max, real* const a_ref_h, const int nccheck,
