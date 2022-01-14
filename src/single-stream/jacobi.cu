@@ -167,6 +167,11 @@ int init(int argc, char* argv[]) {
 
         int dev_id = omp_get_thread_num();
 
+        CUDA_RT_CALL(cudaSetDevice(dev_id));
+        CUDA_RT_CALL(cudaFree(0));
+
+#pragma omp barrier
+
         int chunk_size;
         int chunk_size_low = (ny - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
@@ -180,20 +185,23 @@ int init(int argc, char* argv[]) {
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         const int bottom = (dev_id + 1) % num_devices;
 
-        CUDA_RT_CALL(cudaSetDevice(dev_id));
-        CUDA_RT_CALL(cudaFree(0));
-
-        // For debugging locally
-        if (num_devices > 1) {
+        if (top != dev_id) {
             int canAccessPeer = 0;
-            const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
-
             CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
             if (canAccessPeer) {
                 CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
             } else {
                 std::cerr << "P2P access required from " << dev_id << " to " << top << std::endl;
-                std::exit(1);
+            }
+            if (top != bottom) {
+                canAccessPeer = 0;
+                CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, bottom));
+                if (canAccessPeer) {
+                    CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom, 0));
+                } else {
+                    std::cerr << "P2P access required from " << dev_id << " to " << bottom
+                              << std::endl;
+                }
             }
         }
 
@@ -223,19 +231,17 @@ int init(int argc, char* argv[]) {
 
         int iy_start = 1;
         iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
+        int iy_start_bottom = 0;
 
         // Set diriclet boundary conditions on left and right boarder
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
             a, a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
         CUDA_RT_CALL(cudaGetLastError());
-        CUDA_RT_CALL(cudaDeviceSynchronize());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
         constexpr int dim_block_x = 16;
         constexpr int dim_block_y = 16;
-
-        int iter = 0;
 
         int* notify_top = dev_id > 0 ? is_bottom_done_computing_flags[dev_id - 1]
                                      : is_bottom_done_computing_flags[num_devices - 1];
@@ -251,6 +257,7 @@ int init(int argc, char* argv[]) {
             (void*)&a_new[top],
             (void*)&iy_end[top],
             (void*)&a_new[bottom],
+            (void*)&iy_start_bottom,
             (void*)&iter_max,
             (void*)&is_top_done_computing_flags[dev_id],
             (void*)&is_bottom_done_computing_flags[dev_id],
@@ -274,6 +281,8 @@ int init(int argc, char* argv[]) {
         int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
         int threads_each = (int)sqrt(THREADS_PER_BLOCK);
         dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
+
+#pragma omp barrier
 
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel<dim_block_x, dim_block_y>,
