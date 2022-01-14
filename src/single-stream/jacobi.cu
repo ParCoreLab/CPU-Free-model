@@ -234,7 +234,7 @@ int init(int argc, char* argv[]) {
         iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
         int iy_start_bottom = 0;
 
-        // Set diriclet boundary conditions on left and right boarder
+        // Set diriclet boundary conditions on left and right border
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
             a, a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
         CUDA_RT_CALL(cudaGetLastError());
