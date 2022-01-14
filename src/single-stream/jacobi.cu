@@ -14,7 +14,7 @@
 #include <cooperative_groups.h>
 namespace cg = cooperative_groups;
 
-constexpr int MAX_NUM_DEVICES = 1;
+constexpr int MAX_NUM_DEVICES = 32;
 
 #define CUDA_RT_CALL(call)                                                                  \
     {                                                                                       \
