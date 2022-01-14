@@ -153,6 +153,7 @@ int init(int argc, char* argv[]) {
     real* a_new[MAX_NUM_DEVICES];
     int iy_end[MAX_NUM_DEVICES];
 
+    // Need to check for boundary conditions and such (the first and last GPUs)
     int* is_top_done_computing_flags[MAX_NUM_DEVICES];
     int* is_bottom_done_computing_flags[MAX_NUM_DEVICES];
 
