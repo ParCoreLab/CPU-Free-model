@@ -247,7 +247,7 @@ int init(int argc, char* argv[]) {
         int* notify_top = dev_id > 0 ? is_bottom_done_computing_flags[dev_id - 1]
                                      : is_bottom_done_computing_flags[num_devices - 1];
         int* notify_bottom = dev_id < num_devices - 1 ? is_top_done_computing_flags[dev_id + 1]
-                                                      : is_bottom_done_computing_flags[0];
+                                                      : is_top_done_computing_flags[0];
 
         void* kernelArgs[] = {
             (void*)&a_new[dev_id],
