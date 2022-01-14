@@ -73,8 +73,9 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
                 while (!*is_top_neigbor_done) {
                 }
 
-                const real first_row_val = 0.25 * (a[0 * nx + col + 1] + a[iy * nx + col - 1] +
-                                                   a[(0 + 1) * nx + col] + a[(0 - 1) * nx + col]);
+                const real first_row_val =
+                    0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                            a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
                 a_new_top[top_iy * nx + col] = first_row_val;
 
                 // Wait until bottom GPU puts its top row as my bottom halo
