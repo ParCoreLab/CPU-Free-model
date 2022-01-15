@@ -205,8 +205,8 @@ int init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMalloc(&is_top_done_computing_flags[dev_id], 1 * sizeof(int)));
-        CUDA_RT_CALL(cudaMalloc(&is_bottom_done_computing_flags[dev_id], 1 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 1 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, 1 * sizeof(int)));
 
         CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, 1 * sizeof(int)));
         CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0, 1 * sizeof(int)));
@@ -274,10 +274,11 @@ int init(int argc, char* argv[]) {
         int threads_each = (int)sqrt(THREADS_PER_BLOCK);
         dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
 
-        // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel<dim_block_x, dim_block_y>,
                                                  dimGrid, dimBlock, kernelArgs, 0, nullptr));
-        // Boundary
+    }
+
+    for (int dev_id = 0; dev_id < num_devices; ++dev_id) {
         CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
