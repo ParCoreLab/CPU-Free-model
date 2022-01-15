@@ -13,15 +13,19 @@ include_directories("${CUDA_INSTALL_DIR}/samples/common/inc/")
 add_executable(
         2D_Stencil
         src/main.cu
-#        src/single-gpu-naive.cu include/single-gpu-naive.cuh
+        #        src/single-gpu-naive.cu include/single-gpu-naive.cuh
         src/multi-gpu-peer.cu include/multi-gpu-peer.cuh
 )
 
 add_executable(
-        single-stream-jacobi
+        single_stream_single_threaded-jacobi
         src/main.cu
-        src/single-stream/jacobi.cu
-)
+        src/single-stream/jacobi-single-threaded.cu)
+
+add_executable(
+        single_stream_multi_threaded-jacobi
+        src/main.cu
+        src/single-stream/jacobi-multi-threaded.cu)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fopenmp")
 
