@@ -153,9 +153,11 @@ int init(int argc, char* argv[]) {
     real* a_new[MAX_NUM_DEVICES];
     real* a[MAX_NUM_DEVICES];
 
+    int iy_start[MAX_NUM_DEVICES];
     int iy_end[MAX_NUM_DEVICES];
 
-    // Need to check for boundary conditions and such (the first and last GPUs)
+    int chunk_size[MAX_NUM_DEVICES];
+
     int* is_top_done_computing_flags[MAX_NUM_DEVICES];
     int* is_bottom_done_computing_flags[MAX_NUM_DEVICES];
 
@@ -166,15 +168,14 @@ int init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(0));
 
-        int chunk_size;
         int chunk_size_low = (ny - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
         if (dev_id < num_ranks_low)
-            chunk_size = chunk_size_low;
+            chunk_size[dev_id] = chunk_size_low;
         else
-            chunk_size = chunk_size_high;
+            chunk_size[dev_id] = chunk_size_high;
 
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         const int bottom = (dev_id + 1) % num_devices;
@@ -199,11 +200,11 @@ int init(int argc, char* argv[]) {
             }
         }
 
-        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size + 2) * sizeof(real)));
-        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
-        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
 
         CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 1 * sizeof(int)));
         CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, 1 * sizeof(int)));
@@ -219,15 +220,13 @@ int init(int argc, char* argv[]) {
             iy_start_global =
                 num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
         }
-        int iy_end_global = iy_start_global + chunk_size - 1;  // My last index in the global array
 
-        int iy_start = 1;
-        iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
-        int iy_start_bottom = 0;
+        iy_start[dev_id] = 1;
+        iy_end[dev_id] = iy_start[dev_id] + chunk_size[dev_id];
 
         // Set diriclet boundary conditions on left and right border
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
+            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size[dev_id] + 2), ny);
         CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
