@@ -84,13 +84,17 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
                     0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
                             a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
                 a_new_bottom[bottom_iy * nx + col] = last_row_val;
+
             }
 
             cta.sync();
 
             if (threadIdx.x == 0 && threadIdx.y == 0) {
-                notify_top_neighbor[(iter + 1) % 2] = 1;
+                is_bottom_neigbor_done[(iter % 2)] = 0;
                 notify_bottom_neighbor[(iter + 1) % 2] = 1;
+
+                is_top_neigbor_done[(iter % 2)] = 0;
+                notify_top_neighbor[(iter + 1) % 2] = 1;
             }
         } else if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
@@ -207,11 +211,14 @@ int init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 2 * sizeof(int)));
-        CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 2 * sizeof(int*)));
+        CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, 2 * sizeof(int*)));
 
-        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 1, 2 * sizeof(int)));
-        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 1, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], -1, sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], -1, sizeof(int)));
+
+        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id] + 1, 0, sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id] + 1, 0, sizeof(int)));
 
         // Calculate local domain boundaries
         int iy_start_global;  // My start index in the global array
@@ -274,7 +281,6 @@ int init(int argc, char* argv[]) {
         dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
 
 #pragma omp barrier
-
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel<dim_block_x, dim_block_y>,
                                                  dimGrid, dimBlock, kernelArgs, 0, nullptr));
