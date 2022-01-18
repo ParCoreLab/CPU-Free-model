@@ -45,11 +45,9 @@ __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __re
 }
 
 template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
-__global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__ a,
-                              const int iy_start, const int iy_end, const int nx,
-                              real* __restrict__ const a_new_top, const int top_iy,
-                              real* __restrict__ const a_new_bottom, const int bottom_iy,
-                              const int iter_max, int* is_top_neigbor_done,
+__global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const int iy_end,
+                              const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
+                              const int bottom_iy, const int iter_max, int* is_top_neigbor_done,
                               int* is_bottom_neigbor_done, int* notify_top_neighbor,
                               int* notify_bottom_neighbor) {
     cg::thread_block cta = cg::this_thread_block();
@@ -59,9 +57,9 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
     real local_l2_norm = 0.0;
-    int i = 0;
+    int iter = 0;
 
-    while (i < iter_max) {
+    while (iter < iter_max) {
         //    One thread block does communication (and a bit of computation)
         if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
             int iy = threadIdx.y + iy_start;
@@ -70,7 +68,7 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
 
             if (col < nx) {
                 // Wait until top GPU puts its bottom row as my top halo
-                while (!*is_top_neigbor_done) {
+                while (!is_top_neigbor_done[(iter % 2)]) {
                 }
 
                 const real first_row_val =
@@ -79,8 +77,7 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
                 a_new_top[top_iy * nx + col] = first_row_val;
 
                 // Wait until bottom GPU puts its top row as my bottom halo
-
-                while (!*is_bottom_neigbor_done) {
+                while (!is_bottom_neigbor_done[(iter % 2)]) {
                 }
 
                 const real last_row_val =
@@ -92,8 +89,8 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
             cta.sync();
 
             if (threadIdx.x == 0 && threadIdx.y == 0) {
-                *notify_bottom_neighbor = 1;
-                *notify_top_neighbor = 1;
+                notify_top_neighbor[(iter + 1) % 2] = 1;
+                notify_bottom_neighbor[(iter + 1) % 2] = 1;
             }
         } else if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
@@ -108,12 +105,7 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
         a = a_new;
         a_new = temp_pointer;
 
-        i++;
-
-        if (threadIdx.x == 0 && threadIdx.y == 0) {
-            *notify_top_neighbor = 0;
-            *notify_bottom_neighbor = 0;
-        }
+        iter++;
 
         grid.sync();
     }
@@ -155,7 +147,6 @@ int init(int argc, char* argv[]) {
     real* a_new[MAX_NUM_DEVICES];
     int iy_end[MAX_NUM_DEVICES];
 
-    // Need to check for boundary conditions and such (the first and last GPUs)
     int* is_top_done_computing_flags[MAX_NUM_DEVICES];
     int* is_bottom_done_computing_flags[MAX_NUM_DEVICES];
 
@@ -167,6 +158,8 @@ int init(int argc, char* argv[]) {
         real* a;
 
         int dev_id = omp_get_thread_num();
+
+        printf("%d\n", dev_id);
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(0));
@@ -214,11 +207,11 @@ int init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMalloc(&is_top_done_computing_flags[dev_id], 1 * sizeof(int)));
-        CUDA_RT_CALL(cudaMalloc(&is_bottom_done_computing_flags[dev_id], 1 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, 2 * sizeof(int)));
 
-        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, 1 * sizeof(int)));
-        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0, 1 * sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 1, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 1, 2 * sizeof(int)));
 
         // Calculate local domain boundaries
         int iy_start_global;  // My start index in the global array
@@ -262,8 +255,8 @@ int init(int argc, char* argv[]) {
             (void*)&iter_max,
             (void*)&is_top_done_computing_flags[dev_id],
             (void*)&is_bottom_done_computing_flags[dev_id],
-            (void*)&notify_top,
-            (void*)&notify_bottom,
+            (void*)&is_bottom_done_computing_flags[abs(1 - dev_id)],
+            (void*)&is_top_done_computing_flags[abs(1 - dev_id)],
         };
 
         cudaDeviceProp deviceProp{};
