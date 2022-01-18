@@ -237,11 +237,6 @@ int init(int argc, char* argv[]) {
         constexpr int dim_block_x = 16;
         constexpr int dim_block_y = 16;
 
-        int* notify_top = dev_id > 0 ? is_bottom_done_computing_flags[dev_id - 1]
-                                     : is_bottom_done_computing_flags[num_devices - 1];
-        int* notify_bottom = dev_id < num_devices - 1 ? is_top_done_computing_flags[dev_id + 1]
-                                                      : is_top_done_computing_flags[0];
-
         void* kernelArgs[] = {
             (void*)&a_new[dev_id],
             (void*)&a,
@@ -255,8 +250,10 @@ int init(int argc, char* argv[]) {
             (void*)&iter_max,
             (void*)&is_top_done_computing_flags[dev_id],
             (void*)&is_bottom_done_computing_flags[dev_id],
-            (void*)&is_bottom_done_computing_flags[abs(1 - dev_id)],
-            (void*)&is_top_done_computing_flags[abs(1 - dev_id)],
+            (void*)&(dev_id > 0 ? is_bottom_done_computing_flags[dev_id - 1]
+                                : is_bottom_done_computing_flags[num_devices - 1]),
+            (void*)&(dev_id < num_devices - 1 ? is_top_done_computing_flags[dev_id + 1]
+                                              : is_top_done_computing_flags[0]),
         };
 
         cudaDeviceProp deviceProp{};
