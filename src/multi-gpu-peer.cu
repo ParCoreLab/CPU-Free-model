@@ -159,6 +159,8 @@ int init(int argc, char* argv[]) {
             }
         }
 
+#pragma omp barrier
+
         CUDA_RT_CALL(cudaMalloc(&a, nx * ny * sizeof(real)));
         CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * sizeof(real)));
 
@@ -187,6 +189,8 @@ int init(int argc, char* argv[]) {
                                                   leastPriority));
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
+
+#pragma omp barrier
 
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel, dimGrid, dimBlock,
