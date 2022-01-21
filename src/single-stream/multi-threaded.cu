@@ -106,6 +106,24 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
 
+    // Getting device properties and calculating block dimensions
+    // Maybe put a warning if not all gpus have the same sm count
+    cudaDeviceProp deviceProp{};
+    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, 0));
+    int numSms = deviceProp.multiProcessorCount;
+
+    constexpr int THREADS_PER_BLOCK = 256;
+
+    int numBlocksPerSm = 0;
+    int numThreads = THREADS_PER_BLOCK;
+
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &numBlocksPerSm, jacobi_kernel, numThreads, 0));
+
+    int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
+    int threads_each = (int)sqrt(THREADS_PER_BLOCK);
+    dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
+
 #pragma omp parallel num_threads(num_devices)
     {
         real* a;
@@ -212,30 +230,12 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
                                               : is_top_done_computing_flags[0]),
         };
 
-        cudaDeviceProp deviceProp{};
-        CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
-        int numSms = deviceProp.multiProcessorCount;
-
-        constexpr int THREADS_PER_BLOCK = 256;
-
-        int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
-        int numBlocksPerSm = 0;
-        int numThreads = THREADS_PER_BLOCK;
-
-        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &numBlocksPerSm, jacobi_kernel<dim_block_x, dim_block_y>, numThreads, 0));
-
-        int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
-        int threads_each = (int)sqrt(THREADS_PER_BLOCK);
-        dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
-
 #pragma omp barrier
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel<dim_block_x, dim_block_y>,
                                                  dimGrid, dimBlock, kernelArgs, 0, nullptr));
-        // Boundary
-        CUDA_RT_CALL(cudaGetLastError());
 
+        CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
     }
 }
