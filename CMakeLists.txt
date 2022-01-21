@@ -13,9 +13,11 @@ add_link_options("-fopenmp")
 add_executable(
         2D_Stencil
         src/main.cu
-        #        src/single-gpu-naive.cu include/single-gpu-naive.cuh
         src/multi-gpu-peer.cu include/multi-gpu-peer.cuh
-)
+        src/common.cpp include/common.h
+        src/single-stream/multi-threaded.cu include/single-stream/multi-threaded.cuh
+        src/single-stream/single-threaded.cu include/single-stream/single-threaded.cuh
+        include/single-stream/single-threaded.cuh)
 
 set_target_properties(2D_Stencil PROPERTIES CUDA_ARCHITECTURES "70;80")
 
