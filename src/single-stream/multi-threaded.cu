@@ -16,7 +16,7 @@ namespace cg = cooperative_groups;
 __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
                                       const real pi, const int offset, const int nx,
                                       const int my_ny, const int ny) {
-    for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny; iy += blockDim.x * gridDim.x) {
+    for (unsigned int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny; iy += blockDim.x * gridDim.x) {
         const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
         a[iy * nx + 0] = y0;
         a[iy * nx + (nx - 1)] = y0;
@@ -25,8 +25,7 @@ __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __re
     }
 }
 
-template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
-__global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const int iy_end,
+__global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, const int iy_end,
                               const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
                               const int bottom_iy, const int iter_max, int* is_top_neigbor_done,
                               int* is_bottom_neigbor_done, int* notify_top_neighbor,
@@ -34,8 +33,8 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
-    int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
-    int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+    unsigned int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
+    unsigned int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
     real local_l2_norm = 0.0;
     int iter = 0;
@@ -43,9 +42,9 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
     while (iter < iter_max) {
         //    One thread block does communication (and a bit of computation)
         if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
-            int iy = threadIdx.y + iy_start;
-            int ix = threadIdx.x + 1;
-            int col = iy * blockDim.x + ix;
+            unsigned int iy = threadIdx.y + iy_start;
+            unsigned int ix = threadIdx.x + 1;
+            unsigned int col = iy * blockDim.x + ix;
 
             if (col < nx) {
                 // Wait until top GPU puts its bottom row as my top halo
@@ -68,7 +67,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
             }
 
-            cta.sync();
+            cg::sync(cta);
 
             if (threadIdx.x == 0 && threadIdx.y == 0) {
                 is_bottom_neigbor_done[(iter % 2)] = 0;
@@ -81,9 +80,6 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                          a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
             a_new[iy * nx + ix] = new_val;
-
-            real residue = new_val - a[iy * nx + ix];
-            local_l2_norm = residue * residue;
         }
 
         real* temp_pointer = a_new;
@@ -92,7 +88,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
         iter++;
 
-        grid.sync();
+        cg::sync(grid);
     }
 }
 
@@ -119,7 +115,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
         printf("%d\n", dev_id);
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
-        CUDA_RT_CALL(cudaFree(0));
+        CUDA_RT_CALL(cudaFree(nullptr));
 
 #pragma omp barrier
 
