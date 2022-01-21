@@ -48,6 +48,8 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
 #define POP_RANGE
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 #define CUDA_RT_CALL(call)                                                                  \
     {                                                                                       \
         cudaError_t cudaStatus = call;                                                      \
@@ -58,5 +60,6 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
                     "%s (%d).\n",                                                           \
                     #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus), cudaStatus); \
     }0
+#pragma GCC diagnostic pop
 
 #endif  // INC_2D_STENCIL_COMMON_H
