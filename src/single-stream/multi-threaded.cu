@@ -96,7 +96,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
     }
 }
 
-int init(int argc, char* argv[]) {
+int SSMultiThreaded::init(int argc, char* argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);

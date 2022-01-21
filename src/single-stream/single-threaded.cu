@@ -16,15 +16,17 @@ typedef float real;
 
 const real PI = 2.0 * std::asin(1.0);
 
-__global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
-                                      const real pi, const int offset, const int nx,
-                                      const int my_ny, const int ny) {
-    for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny; iy += blockDim.x * gridDim.x) {
-        const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
-        a[iy * nx + 0] = y0;
-        a[iy * nx + (nx - 1)] = y0;
-        a_new[iy * nx + 0] = y0;
-        a_new[iy * nx + (nx - 1)] = y0;
+namespace SSSingleThreaded {
+    __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
+                                          const real pi, const int offset, const int nx,
+                                          const int my_ny, const int ny) {
+        for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny; iy += blockDim.x * gridDim.x) {
+            const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
+            a[iy * nx + 0] = y0;
+            a[iy * nx + (nx - 1)] = y0;
+            a_new[iy * nx + 0] = y0;
+            a_new[iy * nx + (nx - 1)] = y0;
+        }
     }
 }
 
@@ -103,7 +105,7 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
     }
 }
 
-int init(int argc, char* argv[]) {
+int SSSingleThreaded::init(int argc, char* argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
@@ -183,7 +185,7 @@ int init(int argc, char* argv[]) {
         iy_end[dev_id] = iy_start[dev_id] + chunk_size[dev_id];
 
         // Set diriclet boundary conditions on left and right border
-        initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
+        SSSingleThreaded::initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
             a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size[dev_id] + 2), ny);
         CUDA_RT_CALL(cudaGetLastError());
 
