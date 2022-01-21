@@ -96,12 +96,17 @@ int init(int argc, char* argv[]) {
     const int nccheck = get_argval<int>(argv, argv + argc, "-nccheck", 1);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
-    const bool csv = get_arg(argv, argv + argc, "-csv");
+//    const bool csv = get_arg(argv, argv + argc, "-csv");
 
     if (nccheck != 1) {
         fprintf(stderr, "Only nccheck = 1 is supported\n");
         return -1;
     }
+
+    printf(
+        "Jacobi relaxation: %d iterations on %d x %d mesh with norm check "
+        "every %d iterations\n",
+        iter_max, ny, nx, nccheck);
 
     real* a;
     real* a_new;
@@ -164,14 +169,6 @@ int init(int argc, char* argv[]) {
         initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, nx, ny);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
-
-        if (!csv)
-            printf(
-                "Jacobi relaxation: %d iterations on %d x %d mesh with norm check "
-                "every %d iterations\n",
-                iter_max, ny, nx, nccheck);
-
-        PUSH_RANGE("Jacobi solve", 0)
 
         int* flag;
         CUDA_RT_CALL(cudaMalloc(&flag, 1 * sizeof(int)));
