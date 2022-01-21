@@ -141,7 +141,7 @@ __global__ void boundary_sync_kernel(real* __restrict__ a_new, int* flag) {
 
     }
 
-//    printf("Sync\n");
+    printf("Sync\n");
 
 //    *flag = 0;
 
