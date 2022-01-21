@@ -202,4 +202,6 @@ int init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
     }
+
+    return 0;
 }
