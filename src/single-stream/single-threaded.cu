@@ -11,11 +11,6 @@
 
 namespace cg = cooperative_groups;
 
-constexpr int MAX_NUM_DEVICES = 32;
-typedef float real;
-
-const real PI = 2.0 * std::asin(1.0);
-
 namespace SSSingleThreaded {
     __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
                                           const real pi, const int offset, const int nx,

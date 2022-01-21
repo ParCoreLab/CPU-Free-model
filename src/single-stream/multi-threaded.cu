@@ -232,7 +232,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
 
 #pragma omp barrier
         // Inner domain
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel<dim_block_x, dim_block_y>,
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel,
                                                  dimGrid, dimBlock, kernelArgs, 0, nullptr));
 
         CUDA_RT_CALL(cudaGetLastError());
