@@ -121,8 +121,8 @@ int init(int argc, char* argv[]) {
     int numBlocksPerSm = 0;
     int numThreads = THREADS_PER_BLOCK;
 
-    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSm, jacobi_kernel, numThreads, 0));
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, jacobi_kernel,
+                                                               numThreads, 0));
 
     // This is stupid
     int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
@@ -134,60 +134,52 @@ int init(int argc, char* argv[]) {
     CUDA_RT_CALL(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
 
 #pragma omp parallel num_threads(num_devices)
-    int dev_id = omp_get_thread_num();
-
-    CUDA_RT_CALL(cudaSetDevice(dev_id));
-    CUDA_RT_CALL(cudaFree(nullptr));
-
-    // For debugging locally
-    if (num_devices > 1) {
-        int canAccessPeer = 0;
-        const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
-
-        CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
-        if (canAccessPeer) {
-            CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
-        } else {
-            std::cerr << "P2P access required from " << dev_id << " to " << top << std::endl;
-            std::exit(1);
-        }
-    }
-
-    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * sizeof(real)));
-    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * sizeof(real)));
-
-    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * sizeof(real)));
-    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * sizeof(real)));
-
-    // Set diriclet boundary conditions on left and right boarder
-    initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, nx, ny);
-    CUDA_RT_CALL(cudaGetLastError());
-    CUDA_RT_CALL(cudaDeviceSynchronize());
-
-    if (!csv)
-        printf(
-            "Jacobi relaxation: %d iterations on %d x %d mesh with norm check "
-            "every %d iterations\n",
-            iter_max, ny, nx, nccheck);
-
-    PUSH_RANGE("Jacobi solve", 0)
-
-    int* flag;
-    CUDA_RT_CALL(cudaMalloc(&flag, 1 * sizeof(int)));
-    CUDA_RT_CALL(cudaMemset(flag, 0, 1 * sizeof(int)));
-
-    void* kernelArgs[] = {
-        (void*)&a_new,
-        (void*)&a,
-        (void*)&iy_start,
-        (void*)&iy_end,
-        (void*)&nx,
-        (void*)&iter_max,
-        (void*)&flag
-    };
-
-#pragma omp parallel num_threads(num_devices)
     {
+        int dev_id = omp_get_thread_num();
+
+        CUDA_RT_CALL(cudaSetDevice(dev_id));
+        CUDA_RT_CALL(cudaFree(nullptr));
+
+        // For debugging locally
+        if (num_devices > 1) {
+            int canAccessPeer = 0;
+            const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
+
+            CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
+            if (canAccessPeer) {
+                CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
+            } else {
+                std::cerr << "P2P access required from " << dev_id << " to " << top << std::endl;
+                std::exit(1);
+            }
+        }
+
+        CUDA_RT_CALL(cudaMalloc(&a, nx * ny * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * sizeof(real)));
+
+        CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * sizeof(real)));
+
+        // Set diriclet boundary conditions on left and right boarder
+        initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, nx, ny);
+        CUDA_RT_CALL(cudaGetLastError());
+        CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        if (!csv)
+            printf(
+                "Jacobi relaxation: %d iterations on %d x %d mesh with norm check "
+                "every %d iterations\n",
+                iter_max, ny, nx, nccheck);
+
+        PUSH_RANGE("Jacobi solve", 0)
+
+        int* flag;
+        CUDA_RT_CALL(cudaMalloc(&flag, 1 * sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(flag, 0, 1 * sizeof(int)));
+
+        void* kernelArgs[] = {(void*)&a_new, (void*)&a,        (void*)&iy_start, (void*)&iy_end,
+                              (void*)&nx,    (void*)&iter_max, (void*)&flag};
+
         cudaStream_t inner_domain_stream;
         cudaStream_t boundary_sync_stream;
 
@@ -200,9 +192,8 @@ int init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
 
         // Inner domain
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel,
-                                                 dimGrid, dimBlock, kernelArgs, 0,
-                                                 inner_domain_stream));
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel, dimGrid, dimBlock,
+                                                 kernelArgs, 0, inner_domain_stream));
 
         // Boundary
         boundary_sync_kernel<<<1, 1, 0, boundary_sync_stream>>>(a, flag);
