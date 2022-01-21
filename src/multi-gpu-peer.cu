@@ -1,61 +1,18 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
 #include <algorithm>
-#include <array>
-#include <climits>
 #include <cmath>
 #include <cstdio>
 #include <iostream>
 #include <iterator>
-#include <sstream>
 
 #include <omp.h>
-
-#include "../include/single-gpu-naive.cuh"
-
-//#ifdef HAVE_CUB
-//#include <cub/block/block_reduce.cuh>
-//#endif  // HAVE_CUB
-
-#ifdef USE_NVTX
-#include <nvToolsExt.h>
-
-const uint32_t colors[] = {0x0000ff00, 0x000000ff, 0x00ffff00, 0x00ff00ff,
-                           0x0000ffff, 0x00ff0000, 0x00ffffff};
-const int num_colors = sizeof(colors) / sizeof(uint32_t);
-
-#define PUSH_RANGE(name, cid)                              \
-    {                                                      \
-        int color_id = cid;                                \
-        color_id = color_id % num_colors;                  \
-        nvtxEventAttributes_t eventAttrib = {0};           \
-        eventAttrib.version = NVTX_VERSION;                \
-        eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;  \
-        eventAttrib.colorType = NVTX_COLOR_ARGB;           \
-        eventAttrib.color = colors[color_id];              \
-        eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII; \
-        eventAttrib.message.ascii = name;                  \
-        nvtxRangePushEx(&eventAttrib);                     \
-    }
-#define POP_RANGE nvtxRangePop();
-#else
-#define PUSH_RANGE(name, cid)
-#define POP_RANGE
-#endif
 
 #include <cooperative_groups.h>
 namespace cg = cooperative_groups;
 
-#define CUDA_RT_CALL(call)                                                                  \
-    {                                                                                       \
-        cudaError_t cudaStatus = call;                                                      \
-        if (cudaSuccess != cudaStatus)                                                      \
-            fprintf(stderr,                                                                 \
-                    "ERROR: CUDA RT call \"%s\" in line %d of file %s failed "              \
-                    "with "                                                                 \
-                    "%s (%d).\n",                                                           \
-                    #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus), cudaStatus); \
-    }
+#include "../include/common.h"
+#include "../include/single-gpu-naive.cuh"
 
 typedef float real;
 constexpr real tol = 1.0e-8;
@@ -75,19 +32,10 @@ __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __re
 
 template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__ a,
-                              const int iy_start, const int iy_end, const int nx, const int niter, int *flag) {
-    //#ifdef HAVE_CUB
-    //    typedef cub::BlockReduce<real, BLOCK_DIM_X, cub::BLOCK_REDUCE_WARP_REDUCTIONS,
-    //    BLOCK_DIM_Y>
-    //        BlockReduce;
-    //    __shared__ typename BlockReduce::TempStorage temp_storage;
-    //#endif  // HAVE_CUB
+                              const int iy_start, const int iy_end, const int nx, const int niter,
+                              int* flag) {
 
-    cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
-
-    const int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
-    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
 
     real local_l2_norm = 0.0;
 
@@ -108,9 +56,6 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
                 if ((iy_end - 1) == iy) {
                     a_new[(iy_start - 1) * nx + ix] = new_val;
                 }
-
-                real residue = new_val - a[iy * nx + ix];
-                local_l2_norm = residue * residue;
             }
         }
 
@@ -125,43 +70,16 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
     if (threadIdx.x == 0) {
         *flag = 1;
     }
-
-
-
-    //#ifdef HAVE_CUB
-    //    real block_l2_norm = BlockReduce(temp_storage).Sum(local_l2_norm);
-    //    if (0 == threadIdx.y && 0 == threadIdx.x) atomicAdd(l2_norm, block_l2_norm);
-    //#else
-    //    atomicAdd(l2_norm, local_l2_norm);
-    //#endif  // HAVE_CUB
 }
 
 __global__ void boundary_sync_kernel(real* __restrict__ a_new, int* flag) {
     while (!*flag) {
-
     }
 
-    printf("Sync\n");
-
-//    *flag = 0;
-
-//    if (threadIdx.x == 0) {
-//        printf("Sync\n");
-//    }
-}
-
-double noopt(const int nx, const int ny, const int iter_max, real* const a_ref_h, const int nccheck,
-             const bool print);
-
-template <typename T>
-T get_argval(char** begin, char** end, const std::string& arg, const T default_val) {
-    T argval = default_val;
-    char** itr = std::find(begin, end, arg);
-    if (itr != end && ++itr != end) {
-        std::istringstream inbuf(*itr);
-        inbuf >> argval;
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        printf("Sync\n");
+        *flag = false;
     }
-    return argval;
 }
 
 bool get_arg(char** begin, char** end, const std::string& arg) {
@@ -172,11 +90,7 @@ bool get_arg(char** begin, char** end, const std::string& arg) {
     return false;
 }
 
-struct l2_norm_buf {
-    cudaEvent_t copy_done;
-    real* d;
-    real* h;
-};
+constexpr int THREADS_PER_BLOCK = 1024;
 
 int init(int argc, char* argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
