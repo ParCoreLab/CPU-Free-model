@@ -33,55 +33,71 @@ namespace MultiGPUPeer {
     }
 }
 
-__global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__ a,
-                              const int iy_start, const int iy_end, const int nx, const int niter,
-                              int* flag) {
-
+__global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const int iy_end,
+                              const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
+                              const int bottom_iy, const int iter_max) {
+    cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
-    const unsigned int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
-    const unsigned int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
+    unsigned int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
-    int i = 0;
+    int iter = 0;
 
-    while (i < niter) {
-        if (iy < iy_end) {
-            if (ix >= 1 && ix < (nx - 1)) {
-                const real new_val = zeroTwentyFive * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                             a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                a_new[iy * nx + ix] = new_val;
-
-                // apply boundary conditions
-                if (iy_start == iy) {
-                    a_new[iy_end * nx + ix] = new_val;
-                }
-
-                if ((iy_end - 1) == iy) {
-                    a_new[(iy_start - 1) * nx + ix] = new_val;
-                }
-            }
+    while (iter < iter_max) {
+        if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
+            const real new_val = ZERO_TWENTY_FIVE * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                         a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+            a_new[iy * nx + ix] = new_val;
         }
 
         real* temp_pointer = a_new;
         a = a_new;
         a_new = temp_pointer;
 
-        i++;
-        grid.sync();
-    }
+        iter++;
 
-    if (threadIdx.x == 0) {
-        *flag = 1;
+        grid.sync();
     }
 }
 
-__global__ void boundary_sync_kernel(real* __restrict__ a_new, int* flag) {
-    while (!*flag) {
+__global__ void boundary_sync_kernel(const real* a, const int iy_start, const int iy_end,
+                                     const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
+                                     const int bottom_iy, int* is_top_neigbor_done,
+                                     int* is_bottom_neigbor_done, int* notify_top_neighbor,
+                                     int* notify_bottom_neighbor) {
+    unsigned int iy = threadIdx.y + iy_start;
+    unsigned int ix = threadIdx.x + 1;
+    unsigned int col = iy * blockDim.x + ix;
+
+    if (col < nx) {
+        // Wait until top GPU puts its bottom row as my top halo
+        while (!is_top_neigbor_done[0]) {
+        }
+
+        const real first_row_val =
+            ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                                a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
+        a_new_top[top_iy * nx + col] = first_row_val;
+
+        // Wait until bottom GPU puts its top row as my bottom halo
+        while (!is_bottom_neigbor_done[0]) {
+        }
+
+        const real last_row_val =
+            ZERO_TWENTY_FIVE * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+                    a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
+        a_new_bottom[bottom_iy * nx + col] = last_row_val;
     }
 
+    __syncthreads();
+
     if (threadIdx.x == 0 && threadIdx.y == 0) {
-        printf("Sync\n");
-        *flag = false;
+        is_bottom_neigbor_done[0] = 0;
+        notify_bottom_neighbor[1] = 1;
+
+        is_top_neigbor_done[0] = 0;
+        notify_top_neighbor[1] = 1;
     }
 }
 
@@ -113,10 +129,10 @@ int MultiGPUPeer::init(int argc, char** argv) {
         iter_max, ny, nx, nccheck);
 
     real* a;
-    real* a_new;
+    real* a_new[MAX_NUM_DEVICES];
 
     int iy_start = 1;
-    int iy_end = (ny - 1);
+    int iy_end[MAX_NUM_DEVICES];
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
@@ -142,9 +158,16 @@ int MultiGPUPeer::init(int argc, char** argv) {
     int greatestPriority = leastPriority;
     CUDA_RT_CALL(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
 
+    // Chunks for each GPU
+    int chunk_size;
+    int chunk_size_low = (ny - 2) / num_devices;
+    int chunk_size_high = chunk_size_low + 1;
+
+    int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
+
 #pragma omp parallel num_threads(num_devices)
     {
-        int dev_id = omp_get_thread_num();
+        const int dev_id = omp_get_thread_num();
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(nullptr));
@@ -164,15 +187,40 @@ int MultiGPUPeer::init(int argc, char** argv) {
         }
 
 #pragma omp barrier
+        if (dev_id < num_ranks_low) {
+            chunk_size = chunk_size_low;
+        } else {
+            chunk_size = chunk_size_high;
+        }
 
-        CUDA_RT_CALL(cudaMalloc(&a, nx * ny * sizeof(real)));
-        CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * sizeof(real)));
+        const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
+        const int bottom = (dev_id + 1) % num_devices;
 
-        CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * sizeof(real)));
-        CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * sizeof(real)));
+#pragma omp barrier
 
-        // Set diriclet boundary conditions on left and right boarder
-        initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, nx, ny);
+        CUDA_RT_CALL(cudaMalloc(&a, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(&a_new[dev_id], nx * (chunk_size + 2) * sizeof(real)));
+
+        CUDA_RT_CALL(cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
+
+        // Calculate local domain boundaries
+        int iy_start_global;  // My start index in the global array
+        if (dev_id < num_ranks_low) {
+            iy_start_global = dev_id * chunk_size_low + 1;
+        } else {
+            iy_start_global =
+                num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
+        }
+        int iy_end_global = iy_start_global + chunk_size - 1;  // My last index in the global array
+
+        iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
+        int iy_start_bottom = 0;
+
+        // Set dirichlet boundary conditions on left and right border
+        MultiGPUPeer::initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
+            a, a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
+
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -180,8 +228,18 @@ int MultiGPUPeer::init(int argc, char** argv) {
         CUDA_RT_CALL(cudaMalloc(&flag, 1 * sizeof(int)));
         CUDA_RT_CALL(cudaMemset(flag, 0, 1 * sizeof(int)));
 
-        void* kernelArgs[] = {(void*)&a_new, (void*)&a,        (void*)&iy_start, (void*)&iy_end,
-                              (void*)&nx,    (void*)&iter_max, (void*)&flag};
+        void* kernelArgs[] = {
+            (void*)&a_new[dev_id],
+            (void*)&a,
+            (void*)&iy_start,
+            (void*)&iy_end[dev_id],
+            (void*)&nx,
+            (void*)&a_new[top],
+            (void*)&iy_end[top],
+            (void*)&a_new[bottom],
+            (void*)&iy_start_bottom,
+            (void*)&iter_max,
+        };
 
         cudaStream_t inner_domain_stream;
         cudaStream_t boundary_sync_stream;
