@@ -1,32 +1,18 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-#include <algorithm>
-#include <array>
-#include <climits>
 #include <cmath>
 #include <cstdio>
 #include <iostream>
-#include <iterator>
-#include <sstream>
 
 #include <cooperative_groups.h>
+
+#include "../../include/common.h"
+#include "../../include/single-stream/single-threaded.cuh"
+
 namespace cg = cooperative_groups;
 
 constexpr int MAX_NUM_DEVICES = 32;
-
-#define CUDA_RT_CALL(call)                                                                  \
-    {                                                                                       \
-        cudaError_t cudaStatus = call;                                                      \
-        if (cudaSuccess != cudaStatus)                                                      \
-            fprintf(stderr,                                                                 \
-                    "ERROR: CUDA RT call \"%s\" in line %d of file %s failed "              \
-                    "with "                                                                 \
-                    "%s (%d).\n",                                                           \
-                    #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus), cudaStatus); \
-    }
-
 typedef float real;
-constexpr real tol = 1.0e-8;
 
 const real PI = 2.0 * std::asin(1.0);
 
@@ -116,34 +102,6 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
         grid.sync();
     }
 }
-
-double noopt(const int nx, const int ny, const int iter_max, real* const a_ref_h, const int nccheck,
-             const bool print);
-
-template <typename T>
-T get_argval(char** begin, char** end, const std::string& arg, const T default_val) {
-    T argval = default_val;
-    char** itr = std::find(begin, end, arg);
-    if (itr != end && ++itr != end) {
-        std::istringstream inbuf(*itr);
-        inbuf >> argval;
-    }
-    return argval;
-}
-
-bool get_arg(char** begin, char** end, const std::string& arg) {
-    char** itr = std::find(begin, end, arg);
-    if (itr != end) {
-        return true;
-    }
-    return false;
-}
-
-struct l2_norm_buf {
-    cudaEvent_t copy_done;
-    real* d;
-    real* h;
-};
 
 int init(int argc, char* argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
