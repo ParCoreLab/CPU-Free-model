@@ -101,14 +101,6 @@ __global__ void boundary_sync_kernel(const real* a, const int iy_start, const in
     }
 }
 
-bool get_arg(char** begin, char** end, const std::string& arg) {
-    char** itr = std::find(begin, end, arg);
-    if (itr != end) {
-        return true;
-    }
-    return false;
-}
-
 constexpr int THREADS_PER_BLOCK = 1024;
 
 int MultiGPUPeer::init(int argc, char** argv) {
