@@ -141,7 +141,7 @@ __global__ void boundary_sync_kernel(real* __restrict__ a_new, int* flag) {
 
     }
 
-    printf("Sync\n");
+//    printf("Sync\n");
 
 //    *flag = 0;
 
@@ -302,14 +302,18 @@ int init(int argc, char* argv[]) {
     //   dim3 threads(2, 2);
     //   dim3 blocks(5, 5);
 
+    int leastPriority = 0;
+    int greatestPriority = leastPriority;
+    CUDA_RT_CALL(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
+
 #pragma omp parallel num_threads(num_devices)
     {
         // Add stream priority
         cudaStream_t inner_domain_stream;
         cudaStream_t boundary_sync_stream;
 
-        CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
-        CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
+        CUDA_RT_CALL(cudaStreamCreateWithPriority(&inner_domain_stream, cudaStreamNonBlocking, greatestPriority));
+        CUDA_RT_CALL(cudaStreamCreateWithPriority(&boundary_sync_stream, cudaStreamNonBlocking, leastPriority));
 
         int dev_id = omp_get_thread_num();
         CUDA_RT_CALL(cudaSetDevice(dev_id));
