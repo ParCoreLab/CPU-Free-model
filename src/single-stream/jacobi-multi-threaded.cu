@@ -1,8 +1,4 @@
-/* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
- */
 #include <algorithm>
-#include <array>
-#include <climits>
 #include <cmath>
 #include <cstdio>
 #include <iostream>
@@ -47,9 +43,10 @@ __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __re
 template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const int iy_end,
                               const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
-                              const int bottom_iy, const int iter_max, int* is_top_neigbor_done,
-                              int* is_bottom_neigbor_done, int* notify_top_neighbor,
-                              int* notify_bottom_neighbor) {
+                              const int bottom_iy, const int iter_max,
+                              int* local_is_top_done_writing_to_me,
+                              int* local_is_bottom_done_writing_to_me,
+                              int* remote_done_writing_to_top, int* remote_done_writing_to_bottom) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
@@ -68,33 +65,40 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
             if (col < nx) {
                 // Wait until top GPU puts its bottom row as my top halo
-                while (!is_top_neigbor_done[(iter % 2)]) {
+                while (local_is_top_done_writing_to_me[(iter % 2)] != iter) {
                 }
 
                 const real first_row_val =
                     0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
                             a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
                 a_new_top[top_iy * nx + col] = first_row_val;
+            }
 
+            cta.sync();
+
+            if (threadIdx.x == 0 && threadIdx.y == 0) {
+                remote_done_writing_to_top[(iter + 1) % 2] = iter + 1;
+            }
+        } else if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 2) {
+            int iy = threadIdx.y + iy_start;
+            int ix = threadIdx.x + 1;
+            int col = iy * blockDim.x + ix;
+
+            if (col < nx) {
                 // Wait until bottom GPU puts its top row as my bottom halo
-                while (!is_bottom_neigbor_done[(iter % 2)]) {
+                while (local_is_bottom_done_writing_to_me[(iter % 2)] != iter) {
                 }
 
                 const real last_row_val =
                     0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
                             a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
                 a_new_bottom[bottom_iy * nx + col] = last_row_val;
-
             }
 
             cta.sync();
 
             if (threadIdx.x == 0 && threadIdx.y == 0) {
-                is_bottom_neigbor_done[(iter % 2)] = 0;
-                notify_bottom_neighbor[(iter + 1) % 2] = 1;
-
-                is_top_neigbor_done[(iter % 2)] = 0;
-                notify_top_neighbor[(iter + 1) % 2] = 1;
+                remote_done_writing_to_bottom[(iter + 1) % 2] = iter + 1;
             }
         } else if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
@@ -104,15 +108,15 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
             real residue = new_val - a[iy * nx + ix];
             local_l2_norm = residue * residue;
         }
-
-        real* temp_pointer = a_new;
-        a = a_new;
-        a_new = temp_pointer;
-
-        iter++;
-
-        grid.sync();
     }
+
+    real* temp_pointer = a_new;
+    a = a_new;
+    a_new = temp_pointer;
+
+    iter++;
+
+    grid.sync();
 }
 
 double noopt(const int nx, const int ny, const int iter_max, real* const a_ref_h, const int nccheck,
@@ -162,8 +166,6 @@ int init(int argc, char* argv[]) {
         real* a;
 
         int dev_id = omp_get_thread_num();
-
-        printf("%d\n", dev_id);
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(0));
