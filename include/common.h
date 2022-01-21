@@ -6,10 +6,12 @@
 #include <string>
 
 typedef float real;
-constexpr real tol = 1.0e-8;
 
-double noopt(const int nx, const int ny, const int iter_max, real* const a_ref_h, const int nccheck,
-             const bool print);
+typedef int (*initfunc_t)(int argc, char** argv);
+
+constexpr int MAX_NUM_DEVICES { 32 };
+constexpr real tol = 1.0e-8;
+const real PI { static_cast<real>(2.0 * std::asin(1.0)) };
 
 template <typename T>
 T get_argval(char** begin, char** end, const std::string& arg, const T default_val) {
