@@ -11,21 +11,25 @@
 #include <cooperative_groups.h>
 
 #include "../include/common.h"
+#include "../include/multi-gpu-peer.cuh"
 #include "../include/single-gpu-naive.cuh"
 
 namespace cg = cooperative_groups;
 
-constexpr real zeroTwentyFive { 0.25 };
-const real PI { static_cast<real>(2.0 * std::asin(1.0)) };
+constexpr real ZERO_TWENTY_FIVE { 0.25 };
 
-__global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
-                                      const real pi, const int nx, const int ny) {
-    for (unsigned int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < ny; iy += blockDim.x * gridDim.x) {
-        const real y0 = sin(2.0 * pi * iy / (ny - 1));
-        a[iy * nx + 0] = y0;
-        a[iy * nx + (nx - 1)] = y0;
-        a_new[iy * nx + 0] = y0;
-        a_new[iy * nx + (nx - 1)] = y0;
+namespace MultiGPUPeer {
+    __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
+                                          const real pi, const int offset, const int nx,
+                                          const int my_ny, const int ny) {
+        for (unsigned int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny;
+             iy += blockDim.x * gridDim.x) {
+            const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
+            a[iy * nx + 0] = y0;
+            a[iy * nx + (nx - 1)] = y0;
+            a_new[iy * nx + 0] = y0;
+            a_new[iy * nx + (nx - 1)] = y0;
+        }
     }
 }
 
@@ -91,12 +95,12 @@ bool get_arg(char** begin, char** end, const std::string& arg) {
 
 constexpr int THREADS_PER_BLOCK = 1024;
 
-int init(int argc, char* argv[]) {
+int MultiGPUPeer::init(int argc, char** argv) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nccheck = get_argval<int>(argv, argv + argc, "-nccheck", 1);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
-//    const bool csv = get_arg(argv, argv + argc, "-csv");
+    //    const bool csv = get_arg(argv, argv + argc, "-csv");
 
     if (nccheck != 1) {
         fprintf(stderr, "Only nccheck = 1 is supported\n");
@@ -197,11 +201,11 @@ int init(int argc, char* argv[]) {
                                                  kernelArgs, 0, inner_domain_stream));
 
         // Boundary
-        boundary_sync_kernel<<<1, 1, 0, boundary_sync_stream>>>(a, flag);
+//        boundary_sync_kernel<<<1, 1, 0, boundary_sync_stream>>>(a, flag);
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
     }
 
     return 0;
-}
+};
