@@ -208,7 +208,7 @@ int SSSingleThreaded::init(int argc, char* argv[]) {
             (void*)&a_new[top],
             (void*)&iy_end[top],
             (void*)&a_new[bottom],
-            (void*)&iy_start_bottom,
+//            (void*)&iy_start_bottom,
             (void*)&iter_max,
             (void*)&is_top_done_computing_flags[dev_id],
             (void*)&is_bottom_done_computing_flags[dev_id],
