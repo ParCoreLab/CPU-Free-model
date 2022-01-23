@@ -16,7 +16,7 @@ else
 endif
 
 #NVCC_FLAGS += -Xcompiler -fopenmp -lineinfo -DUSE_NVTX -lnvToolsExt $(GENCODE_FLAGS) -std=c++17
-NVCC_FLAGS += -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17
+NVCC_FLAGS += -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=`command -v ${CC}`
 
 SRC=$(shell sh -c "find ./src/ -name '*.cu'")
 #HED=$(shell sh -c find . -name '*.*h')
