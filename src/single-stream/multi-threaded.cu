@@ -16,7 +16,8 @@ namespace cg = cooperative_groups;
 __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
                                       const real pi, const int offset, const int nx,
                                       const int my_ny, const int ny) {
-    for (unsigned int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny; iy += blockDim.x * gridDim.x) {
+    for (unsigned int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny;
+         iy += blockDim.x * gridDim.x) {
         const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
         a[iy * nx + 0] = y0;
         a[iy * nx + (nx - 1)] = y0;
@@ -27,9 +28,11 @@ __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __re
 
 __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, const int iy_end,
                               const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
-                              const int bottom_iy, const int iter_max, int* is_top_neigbor_done,
-                              int* is_bottom_neigbor_done, int* notify_top_neighbor,
-                              int* notify_bottom_neighbor) {
+                              const int bottom_iy, const int iter_max,
+                              volatile int* local_is_top_neighbor_done_writing_to_me,
+                              volatile int* local_is_bottom_neighbor_done_writing_to_me,
+                              volatile int* remote_am_done_writing_to_top_neighbor,
+                              volatile int* remote_am_done_writing_to_bottom_neighbor) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
@@ -48,33 +51,30 @@ __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, co
 
             if (col < nx) {
                 // Wait until top GPU puts its bottom row as my top halo
-                while (!is_top_neigbor_done[(iter % 2)]) {
+                while (local_is_top_neighbor_done_writing_to_me[(iter % 2)] != iter) {
                 }
 
                 const real first_row_val =
                     0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
                             a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
-                a_new_top[top_iy * nx + col] = first_row_val;
 
-                // Wait until bottom GPU puts its top row as my bottom halo
-                while (!is_bottom_neigbor_done[(iter % 2)]) {
+                while (local_is_bottom_neighbor_done_writing_to_me[(iter % 2)] != iter) {
                 }
 
                 const real last_row_val =
                     0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
                             a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
-                a_new_bottom[bottom_iy * nx + col] = last_row_val;
 
+                // Communication
+                a_new_top[top_iy * nx + col] = first_row_val;
+                a_new_bottom[bottom_iy * nx + col] = last_row_val;
             }
 
             cg::sync(cta);
 
             if (threadIdx.x == 0 && threadIdx.y == 0) {
-                is_bottom_neigbor_done[(iter % 2)] = 0;
-                notify_bottom_neighbor[(iter + 1) % 2] = 1;
-
-                is_top_neigbor_done[(iter % 2)] = 0;
-                notify_top_neighbor[(iter + 1) % 2] = 1;
+                remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
+                remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
             }
         } else if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
@@ -117,8 +117,8 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
     int numBlocksPerSm = 0;
     int numThreads = THREADS_PER_BLOCK;
 
-    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSm, jacobi_kernel, numThreads, 0));
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, jacobi_kernel,
+                                                               numThreads, 0));
 
     int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
     int threads_each = (int)sqrt(THREADS_PER_BLOCK);
@@ -129,8 +129,6 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
         real* a;
 
         int dev_id = omp_get_thread_num();
-
-        printf("%d\n", dev_id);
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(nullptr));
@@ -178,14 +176,11 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 2 * sizeof(int*)));
-        CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, 2 * sizeof(int*)));
+        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, 2 * sizeof(int)));
 
-        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], -1, sizeof(int)));
-        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], -1, sizeof(int)));
-
-        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id] + 1, 0, sizeof(int)));
-        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id] + 1, 0, sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0, sizeof(int)));
 
         // Calculate local domain boundaries
         int iy_start_global;  // My start index in the global array
@@ -211,29 +206,25 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
         constexpr int dim_block_x = 16;
         constexpr int dim_block_y = 16;
 
-        void* kernelArgs[] = {
-            (void*)&a_new[dev_id],
-            (void*)&a,
-            (void*)&iy_start,
-            (void*)&iy_end[dev_id],
-            (void*)&nx,
-            (void*)&a_new[top],
-            (void*)&iy_end[top],
-            (void*)&a_new[bottom],
-            (void*)&iy_start_bottom,
-            (void*)&iter_max,
-            (void*)&is_top_done_computing_flags[dev_id],
-            (void*)&is_bottom_done_computing_flags[dev_id],
-            (void*)&(dev_id > 0 ? is_bottom_done_computing_flags[dev_id - 1]
-                                : is_bottom_done_computing_flags[num_devices - 1]),
-            (void*)&(dev_id < num_devices - 1 ? is_top_done_computing_flags[dev_id + 1]
-                                              : is_top_done_computing_flags[0]),
-        };
+        void* kernelArgs[] = {(void*)&a_new[dev_id],
+                              (void*)&a,
+                              (void*)&iy_start,
+                              (void*)&iy_end[dev_id],
+                              (void*)&nx,
+                              (void*)&a_new[top],
+                              (void*)&iy_end[top],
+                              (void*)&a_new[bottom],
+                              (void*)&iy_start_bottom,
+                              (void*)&iter_max,
+                              (void*)&is_top_done_computing_flags[dev_id],
+                              (void*)&is_bottom_done_computing_flags[dev_id],
+                              (void*)&is_bottom_done_computing_flags[top],
+                              (void*)&is_top_done_computing_flags[bottom]};
 
 #pragma omp barrier
         // Inner domain
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel,
-                                                 dimGrid, dimBlock, kernelArgs, 0, nullptr));
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel, dimGrid, dimBlock,
+                                                 kernelArgs, 0, nullptr));
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
