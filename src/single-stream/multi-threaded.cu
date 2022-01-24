@@ -55,7 +55,8 @@ __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, co
                               volatile int* local_is_top_neighbor_done_writing_to_me,
                               volatile int* local_is_bottom_neighbor_done_writing_to_me,
                               volatile int* remote_am_done_writing_to_top_neighbor,
-                              volatile int* remote_am_done_writing_to_bottom_neighbor) {
+                              volatile int* remote_am_done_writing_to_bottom_neighbor,
+                              const bool calculate_norm) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
@@ -88,6 +89,14 @@ __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, co
                     0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
                             a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
 
+                if (calculate_norm) {
+                    real first_row_residue = first_row_val - a[iy_start * nx + col];
+                    real last_row_residue = last_row_val - a[iy_end * nx + col];
+
+                    local_l2_norm += first_row_residue * first_row_residue;
+                    local_l2_norm += last_row_residue * last_row_residue;
+                }
+
                 // Communication
                 a_new_top[top_iy * nx + col] = first_row_val;
                 a_new_bottom[bottom_iy * nx + col] = last_row_val;
@@ -103,6 +112,11 @@ __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, co
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                          a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
             a_new[iy * nx + ix] = new_val;
+
+            if (calculate_norm) {
+                real residue = new_val - a[iy * nx + ix];
+                local_l2_norm += residue * residue;
+            }
         }
 
         real* temp_pointer = a_new;
@@ -120,14 +134,21 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
 
+    real* a[MAX_NUM_DEVICES];
     real* a_new[MAX_NUM_DEVICES];
     int iy_end[MAX_NUM_DEVICES];
+
+    real* a_ref_h;
+    real* a_h;
+    double runtime_serial = 0.0;
 
     int* is_top_done_computing_flags[MAX_NUM_DEVICES];
     int* is_bottom_done_computing_flags[MAX_NUM_DEVICES];
 
+    bool result_correct = true;
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
+    real l2_norm = 1.0;
 
     // Getting device properties and calculating block dimensions
     // Maybe put a warning if not all gpus have the same sm count
@@ -147,14 +168,23 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
     int threads_each = (int)sqrt(THREADS_PER_BLOCK);
     dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
 
-#pragma omp parallel num_threads(num_devices)
+#pragma omp parallel num_threads(num_devices) shared(l2_norm)
     {
-        real* a;
+        real* l2_norm_d;
+        real* l2_norm_h;
 
         int dev_id = omp_get_thread_num();
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(nullptr));
+
+        if (0 == dev_id) {
+            CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
+            CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
+
+            // Passing 0 for nccheck for now
+            runtime_serial = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
+        }
 
 #pragma omp barrier
 
@@ -193,10 +223,10 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
 
 #pragma omp barrier
 
-        CUDA_RT_CALL(cudaMalloc(&a, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
         CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 2 * sizeof(int)));
@@ -221,7 +251,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
 
         // Set diriclet boundary conditions on left and right border
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-            a, a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
+            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
         CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -230,7 +260,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
         constexpr int dim_block_y = 16;
 
         void* kernelArgs[] = {(void*)&a_new[dev_id],
-                              (void*)&a,
+                              (void*)&a[dev_id],
                               (void*)&iy_start,
                               (void*)&iy_end[dev_id],
                               (void*)&nx,
@@ -245,12 +275,47 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
                               (void*)&is_top_done_computing_flags[bottom]};
 
 #pragma omp barrier
-        // Inner domain
+        double start = omp_get_wtime();
+
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel, dimGrid, dimBlock,
                                                  kernelArgs, 0, nullptr));
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        double stop = omp_get_wtime();
+
+        CUDA_RT_CALL(
+            cudaMemcpy(a_h + iy_start_global * nx, a + nx,
+                       std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
+                       cudaMemcpyDeviceToHost));
+#pragma omp barrier
+
+#pragma omp master
+        {
+            result_correct = true;
+            for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy) {
+                for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix) {
+                    if (std::fabs(a_ref_h[iy * nx + ix] - a_h[iy * nx + ix]) > tol) {
+                        fprintf(stderr,
+                                "ERROR: a[%d * %d + %d] = %f does not match %f "
+                                "(reference)\n",
+                                iy, nx, ix, a_h[iy * nx + ix], a_ref_h[iy * nx + ix]);
+                        result_correct = false;
+                    }
+                }
+            }
+            if (result_correct) {
+                printf("Num GPUs: %d.\n", num_devices);
+                printf(
+                    "%dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: "
+                    "%8.2f, "
+                    "efficiency: %8.2f \n",
+                    ny, nx, runtime_serial, num_devices, (stop - start),
+                    runtime_serial / (stop - start),
+                    runtime_serial / (num_devices * (stop - start)) * 100);
+            }
+        }
     }
 }
 
