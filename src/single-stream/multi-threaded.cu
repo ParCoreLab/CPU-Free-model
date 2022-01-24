@@ -286,7 +286,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
         double stop = omp_get_wtime();
 
         CUDA_RT_CALL(
-            cudaMemcpy(a_h + iy_start_global * nx, a + nx,
+            cudaMemcpy(a_h + iy_start_global * nx, a[dev_id] + nx,
                        std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
                        cudaMemcpyDeviceToHost));
 #pragma omp barrier
