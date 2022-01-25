@@ -69,11 +69,9 @@ __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, co
     while (iter < iter_max) {
         //    One thread block does communication (and a bit of computation)
         if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
-            unsigned int iy = threadIdx.y + iy_start;
-            unsigned int ix = threadIdx.x + 1;
-            unsigned int col = iy * blockDim.x + ix;
+            unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
 
-            if (col < nx) {
+            if (col < nx - 1) {
                 // Wait until top GPU puts its bottom row as my top halo
                 while (local_is_top_neighbor_done_writing_to_me[(iter % 2)] != iter) {
                 }
@@ -109,7 +107,7 @@ __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, co
                 remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
                 remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
             }
-        } else if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
+        } else if (iy > iy_start && iy < (iy_end - 1) && ix < (nx - 1)) {
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                          a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
             a_new[iy * nx + ix] = new_val;
