@@ -329,6 +329,14 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
                     runtime_serial / (num_devices * (stop - start)) * 100);
             }
         }
+
+        CUDA_RT_CALL(cudaFree(a_new[dev_id]));
+        CUDA_RT_CALL(cudaFree(a[dev_id]));
+
+        if (0 == dev_id) {
+            CUDA_RT_CALL(cudaFreeHost(a_h));
+            CUDA_RT_CALL(cudaFreeHost(a_ref_h));
+        }
     }
 }
 
