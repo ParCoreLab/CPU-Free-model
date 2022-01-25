@@ -35,7 +35,7 @@ namespace MultiGPUPeer {
 
 __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const int iy_end,
                               const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
-                              const int bottom_iy, const int iter_max) {
+                              const int bottom_iy, const int iter_max, int* debug_flag) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
@@ -47,7 +47,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
     while (iter < iter_max) {
         if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
             const real new_val = ZERO_TWENTY_FIVE * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                         a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                                                     a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
             a_new[iy * nx + ix] = new_val;
         }
 
@@ -59,16 +59,24 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
         grid.sync();
     }
+
+    *debug_flag = 1;
 }
 
 __global__ void boundary_sync_kernel(const real* a, const int iy_start, const int iy_end,
                                      const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
-                                     const int bottom_iy, int* is_top_neigbor_done,
-                                     int* is_bottom_neigbor_done, int* notify_top_neighbor,
-                                     int* notify_bottom_neighbor) {
+                                     const int bottom_iy,
+                                     volatile int* is_top_neigbor_done,
+                                     volatile int* is_bottom_neigbor_done,
+                                     volatile int* notify_top_neighbor,
+                                     volatile int* notify_bottom_neighbor,
+                                     volatile const int* debug_flag) {
     unsigned int iy = threadIdx.y + iy_start;
     unsigned int ix = threadIdx.x + 1;
     unsigned int col = iy * blockDim.x + ix;
+
+    while (!*debug_flag) {
+    }
 
     if (col < nx) {
         // Wait until top GPU puts its bottom row as my top halo
@@ -125,6 +133,9 @@ int MultiGPUPeer::init(int argc, char** argv) {
 
     int iy_start = 1;
     int iy_end[MAX_NUM_DEVICES];
+
+    int* is_top_done_computing_flags[MAX_NUM_DEVICES];
+    int* is_bottom_done_computing_flags[MAX_NUM_DEVICES];
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
@@ -196,6 +207,12 @@ int MultiGPUPeer::init(int argc, char** argv) {
         CUDA_RT_CALL(cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
+        CUDA_RT_CALL(cudaMalloc(&is_top_done_computing_flags[dev_id], 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(&is_bottom_done_computing_flags[dev_id], 2 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0, sizeof(int)));
+
         // Calculate local domain boundaries
         int iy_start_global;  // My start index in the global array
         if (dev_id < num_ranks_low) {
@@ -231,6 +248,7 @@ int MultiGPUPeer::init(int argc, char** argv) {
             (void*)&a_new[bottom],
             (void*)&iy_start_bottom,
             (void*)&iter_max,
+            (void*)&flag
         };
 
         cudaStream_t inner_domain_stream;
@@ -251,7 +269,14 @@ int MultiGPUPeer::init(int argc, char** argv) {
                                                  kernelArgs, 0, inner_domain_stream));
 
         // Boundary
-//        boundary_sync_kernel<<<1, 1, 0, boundary_sync_stream>>>(a, flag);
+        boundary_sync_kernel<<<1, 1, 0, boundary_sync_stream>>>(
+            a, iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top], a_new[bottom],
+            iy_start_bottom, is_top_done_computing_flags[dev_id],
+            is_bottom_done_computing_flags[dev_id],
+            is_bottom_done_computing_flags[top],
+            is_top_done_computing_flags[bottom],
+            flag
+        );
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
