@@ -295,6 +295,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
+#pragma omp barrier
         double stop = omp_get_wtime();
 
         CUDA_RT_CALL(
