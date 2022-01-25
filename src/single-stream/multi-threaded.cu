@@ -163,7 +163,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, 0));
     int numSms = deviceProp.multiProcessorCount;
 
-    constexpr int THREADS_PER_BLOCK = 256;
+    constexpr int THREADS_PER_BLOCK = 1024;
 
     int numBlocksPerSm = 0;
     int numThreads = THREADS_PER_BLOCK;
@@ -263,8 +263,8 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        constexpr int dim_block_x = 16;
-        constexpr int dim_block_y = 16;
+        constexpr int dim_block_x = 32;
+        constexpr int dim_block_y = 32;
 
         void* kernelArgs[] = {(void*)&a_new[dev_id],
                               (void*)&a[dev_id],
