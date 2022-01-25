@@ -33,20 +33,21 @@ __global__ void jacobi_kernel_single_gpu(real* __restrict__ const a_new,
                                          const bool calculate_norm) {
     int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    real local_l2_norm = 0.0;
+    //    real local_l2_norm = 0.0;
 
     if (iy < iy_end && ix < (nx - 1)) {
         const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                      a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
         a_new[iy * nx + ix] = new_val;
-        if (calculate_norm) {
-            real residue = new_val - a[iy * nx + ix];
-            local_l2_norm += residue * residue;
-        }
+
+        //        if (calculate_norm) {
+        //            real residue = new_val - a[iy * nx + ix];
+        //            local_l2_norm += residue * residue;
+        //        }
     }
-    if (calculate_norm) {
-        atomicAdd(l2_norm, local_l2_norm);
-    }
+    //    if (calculate_norm) {
+    //        atomicAdd(l2_norm, local_l2_norm);
+    //    }
 }
 
 __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, const int iy_end,
@@ -55,15 +56,14 @@ __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, co
                               volatile int* local_is_top_neighbor_done_writing_to_me,
                               volatile int* local_is_bottom_neighbor_done_writing_to_me,
                               volatile int* remote_am_done_writing_to_top_neighbor,
-                              volatile int* remote_am_done_writing_to_bottom_neighbor,
-                              const bool calculate_norm) {
+                              volatile int* remote_am_done_writing_to_bottom_neighbor) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
     unsigned int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
     unsigned int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
-    real local_l2_norm = 0.0;
+    //    real local_l2_norm = 0.0;
     int iter = 0;
 
     while (iter < iter_max) {
@@ -89,13 +89,14 @@ __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, co
                     0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
                             a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
 
-                if (calculate_norm) {
-                    real first_row_residue = first_row_val - a[iy_start * nx + col];
-                    real last_row_residue = last_row_val - a[iy_end * nx + col];
-
-                    local_l2_norm += first_row_residue * first_row_residue;
-                    local_l2_norm += last_row_residue * last_row_residue;
-                }
+                //                if (calculate_norm) {
+                //                    real first_row_residue = first_row_val - a[iy_start * nx +
+                //                    col]; real last_row_residue = last_row_val - a[iy_end * nx +
+                //                    col];
+                //
+                //                    local_l2_norm += first_row_residue * first_row_residue;
+                //                    local_l2_norm += last_row_residue * last_row_residue;
+                //                }
 
                 // Communication
                 a_new_top[top_iy * nx + col] = first_row_val;
@@ -113,10 +114,10 @@ __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, co
                                          a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
             a_new[iy * nx + ix] = new_val;
 
-            if (calculate_norm) {
-                real residue = new_val - a[iy * nx + ix];
-                local_l2_norm += residue * residue;
-            }
+            //            if (calculate_norm) {
+            //                real residue = new_val - a[iy * nx + ix];
+            //                local_l2_norm += residue * residue;
+            //            }
         }
 
         real* temp_pointer = a_new;
@@ -148,7 +149,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
     bool result_correct = true;
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
-    real l2_norm = 1.0;
+    //    real l2_norm = 1.0;
 
     // Getting device properties and calculating block dimensions
     // Maybe put a warning if not all gpus have the same sm count
@@ -168,10 +169,10 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
     int threads_each = (int)sqrt(THREADS_PER_BLOCK);
     dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
 
-#pragma omp parallel num_threads(num_devices) shared(l2_norm)
+#pragma omp parallel num_threads(num_devices)
     {
-        real* l2_norm_d;
-        real* l2_norm_h;
+        //        real* l2_norm_d;
+        //        real* l2_norm_h;
 
         int dev_id = omp_get_thread_num();
 
@@ -331,8 +332,8 @@ double single_gpu(const int nx, const int ny, const int iter_max, real* const a_
     cudaEvent_t push_top_done;
     cudaEvent_t push_bottom_done;
 
-    real* l2_norm_d;
-    real* l2_norm_h;
+    //    real* l2_norm_d;
+    //    real* l2_norm_h;
 
     int iy_start = 1;
     int iy_end = (ny - 1);
@@ -355,8 +356,8 @@ double single_gpu(const int nx, const int ny, const int iter_max, real* const a_
     CUDA_RT_CALL(cudaEventCreateWithFlags(&push_top_done, cudaEventDisableTiming));
     CUDA_RT_CALL(cudaEventCreateWithFlags(&push_bottom_done, cudaEventDisableTiming));
 
-    CUDA_RT_CALL(cudaMalloc(&l2_norm_d, sizeof(real)));
-    CUDA_RT_CALL(cudaMallocHost(&l2_norm_h, sizeof(real)));
+    //    CUDA_RT_CALL(cudaMalloc(&l2_norm_d, sizeof(real)));
+    //    CUDA_RT_CALL(cudaMallocHost(&l2_norm_h, sizeof(real)));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -372,27 +373,28 @@ double single_gpu(const int nx, const int ny, const int iter_max, real* const a_
     dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y, 1);
 
     int iter = 0;
-    bool calculate_norm = true;
-    real l2_norm = 1.0;
+    bool calculate_norm = false;
+    //    real l2_norm = 1.0;
 
     double start = omp_get_wtime();
     PUSH_RANGE("Jacobi solve", 0)
-    while (l2_norm > tol && iter < iter_max) {
-        CUDA_RT_CALL(cudaMemsetAsync(l2_norm_d, 0, sizeof(real), compute_stream));
+    while (iter < iter_max) {
+        //        CUDA_RT_CALL(cudaMemsetAsync(l2_norm_d, 0, sizeof(real), compute_stream));
 
         CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, push_top_done, 0));
         CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, push_bottom_done, 0));
 
-        calculate_norm = (iter % nccheck) == 0 || (print && ((iter % 100) == 0));
+        //        calculate_norm = (iter % nccheck) == 0 || (print && ((iter % 100) == 0));
         jacobi_kernel_single_gpu<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
-            a_new, a, l2_norm_d, iy_start, iy_end, nx, calculate_norm);
+            a_new, a, nullptr, iy_start, iy_end, nx, calculate_norm);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));
 
-        if (calculate_norm) {
-            CUDA_RT_CALL(cudaMemcpyAsync(l2_norm_h, l2_norm_d, sizeof(real), cudaMemcpyDeviceToHost,
-                                         compute_stream));
-        }
+        //        if (calculate_norm) {
+        //            CUDA_RT_CALL(cudaMemcpyAsync(l2_norm_h, l2_norm_d, sizeof(real),
+        //            cudaMemcpyDeviceToHost,
+        //                                         compute_stream));
+        //        }
 
         // Apply periodic boundary conditions
 
@@ -406,12 +408,12 @@ double single_gpu(const int nx, const int ny, const int iter_max, real* const a_
                                      cudaMemcpyDeviceToDevice, compute_stream));
         CUDA_RT_CALL(cudaEventRecord(push_bottom_done, push_bottom_stream));
 
-        if (calculate_norm) {
-            CUDA_RT_CALL(cudaStreamSynchronize(compute_stream));
-            l2_norm = *l2_norm_h;
-            l2_norm = std::sqrt(l2_norm);
-            if (print && (iter % 100) == 0) printf("%5d, %0.6f\n", iter, l2_norm);
-        }
+        //        if (calculate_norm) {
+        //            CUDA_RT_CALL(cudaStreamSynchronize(compute_stream));
+        //            l2_norm = *l2_norm_h;
+        //            l2_norm = std::sqrt(l2_norm);
+        //            if (print && (iter % 100) == 0) printf("%5d, %0.6f\n", iter, l2_norm);
+        //        }
 
         std::swap(a_new, a);
         iter++;
@@ -428,8 +430,8 @@ double single_gpu(const int nx, const int ny, const int iter_max, real* const a_
     CUDA_RT_CALL(cudaStreamDestroy(push_top_stream));
     CUDA_RT_CALL(cudaStreamDestroy(compute_stream));
 
-    CUDA_RT_CALL(cudaFreeHost(l2_norm_h));
-    CUDA_RT_CALL(cudaFree(l2_norm_d));
+    //    CUDA_RT_CALL(cudaFreeHost(l2_norm_h));
+    //    CUDA_RT_CALL(cudaFree(l2_norm_d));
 
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));
