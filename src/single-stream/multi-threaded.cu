@@ -80,6 +80,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
                 const real first_row_val =
                     0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
                             a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
+                a_new[iy_start * nx + col] = first_row_val;
 
                 while (local_is_bottom_neighbor_done_writing_to_me[(iter % 2)] != iter) {
                 }
@@ -87,6 +88,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
                 const real last_row_val =
                     0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
                             a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
+                a_new[(iy_end - 1) * nx + col] = last_row_val;
 
                 //                if (calculate_norm) {
                 //                    real first_row_residue = first_row_val - a[iy_start * nx +
