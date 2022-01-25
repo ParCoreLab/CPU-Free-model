@@ -67,6 +67,10 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
     //    real local_l2_norm = 0.0;
     int iter = 0;
 
+    int cur_iter_mod = 0;
+    int next_iter_mod = 1;
+    int temp_iter_mod = 0;
+
     while (iter < iter_max) {
         //    One thread block does communication (and a bit of computation)
         if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
@@ -74,7 +78,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
             if (col < nx - 1) {
                 // Wait until top GPU puts its bottom row as my top halo
-                while (local_is_top_neighbor_done_writing_to_me[(iter % 2)] != iter) {
+                while (local_is_top_neighbor_done_writing_to_me[cur_iter_mod] != iter) {
                 }
 
                 const real first_row_val =
@@ -82,7 +86,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
                             a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
                 a_new[iy_start * nx + col] = first_row_val;
 
-                while (local_is_bottom_neighbor_done_writing_to_me[(iter % 2)] != iter) {
+                while (local_is_bottom_neighbor_done_writing_to_me[cur_iter_mod] != iter) {
                 }
 
                 const real last_row_val =
@@ -107,8 +111,8 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
             cg::sync(cta);
 
             if (threadIdx.x == 0 && threadIdx.y == 0) {
-                remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
-                remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
+                remote_am_done_writing_to_top_neighbor[next_iter_mod] = iter + 1;
+                remote_am_done_writing_to_bottom_neighbor[next_iter_mod] = iter + 1;
             }
         } else if (iy > iy_start && iy < (iy_end - 1) && ix < (nx - 1)) {
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
@@ -134,6 +138,10 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
         a_bottom = temp_pointer_third;
 
         iter++;
+
+        temp_iter_mod = cur_iter_mod;
+        cur_iter_mod = next_iter_mod;
+        next_iter_mod = temp_iter_mod;
 
         cg::sync(grid);
     }
