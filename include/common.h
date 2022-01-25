@@ -10,7 +10,7 @@ typedef float real;
 typedef int (*initfunc_t)(int argc, char** argv);
 
 constexpr int MAX_NUM_DEVICES{32};
-constexpr real tol = 1.0e-8;
+constexpr real tol = 1.0e-4;
 const real PI{static_cast<real>(2.0 * std::asin(1.0))};
 
 template <typename T>
