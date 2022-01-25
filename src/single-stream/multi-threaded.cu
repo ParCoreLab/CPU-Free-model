@@ -120,9 +120,17 @@ __global__ void jacobi_kernel(real* a_new, const real* a, const int iy_start, co
             //            }
         }
 
-        real* temp_pointer = a_new;
-        a = a_new;
-        a_new = temp_pointer;
+        real* temp_pointer_first = a_new;
+        a_new = a;
+        a = temp_pointer_first;
+
+        real* temp_pointer_second = a_new_top;
+        a_new_top = a_top;
+        a_top = temp_pointer_second;
+
+        real* temp_pointer_third = a_new_bottom;
+        a_new_bottom = a_bottom;
+        a_bottom = temp_pointer_third;
 
         iter++;
 
