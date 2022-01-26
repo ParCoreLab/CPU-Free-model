@@ -168,24 +168,6 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
     //    real l2_norm = 1.0;
 
-    // Getting device properties and calculating block dimensions
-    // Maybe put a warning if not all gpus have the same sm count
-    cudaDeviceProp deviceProp{};
-    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, 0));
-    int numSms = deviceProp.multiProcessorCount;
-
-    constexpr int THREADS_PER_BLOCK = 256;
-
-    int numBlocksPerSm = 0;
-    int numThreads = THREADS_PER_BLOCK;
-
-    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, jacobi_kernel,
-                                                               numThreads, 0));
-
-    int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
-    int threads_each = (int)sqrt(THREADS_PER_BLOCK);
-    dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
-
 #pragma omp parallel num_threads(num_devices)
     {
         //        real* l2_norm_d;
@@ -274,8 +256,14 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        constexpr int dim_block_x = 16;
-        constexpr int dim_block_y = 16;
+        constexpr int dim_block_x = 32;
+        constexpr int dim_block_y = 32;
+
+        // Extra threadblocks are allocated for communication-computation "stream"
+        dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
+                      ((chunk_size + 2) + dim_block_y - 1) / dim_block_y + 1, 1);
+
+        dim3 dim_block(dim_block_x, dim_block_y, 1);
 
         void* kernelArgs[] = {(void*)&a_new[dev_id],
                               (void*)&a[dev_id],
@@ -297,7 +285,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
 #pragma omp barrier
         double start = omp_get_wtime();
 
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel, dimGrid, dimBlock,
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel, dim_grid, dim_block,
                                                  kernelArgs, 0, nullptr));
 
         CUDA_RT_CALL(cudaGetLastError());
