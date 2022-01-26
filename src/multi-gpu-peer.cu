@@ -65,48 +65,50 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
 __global__ void boundary_sync_kernel(const real* a, const int iy_start, const int iy_end,
                                      const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
-                                     const int bottom_iy,
-                                     volatile int* is_top_neigbor_done,
-                                     volatile int* is_bottom_neigbor_done,
-                                     volatile int* notify_top_neighbor,
-                                     volatile int* notify_bottom_neighbor,
-                                     volatile const int* debug_flag) {
+                                     const int bottom_iy, const int iter,
+                                     const volatile int* local_is_top_neighbor_done_writing_to_me,
+                                     const volatile int* local_is_bottom_neighbor_done_writing_to_me,
+                                     volatile int* remote_am_done_writing_to_top_neighbor,
+                                     volatile int* remote_am_done_writing_to_bottom_neighbor,
+                                     [[maybe_unused]] volatile const int* debug_flag) {
     unsigned int iy = threadIdx.y + iy_start;
     unsigned int ix = threadIdx.x + 1;
     unsigned int col = iy * blockDim.x + ix;
 
-    while (!*debug_flag) {
-    }
+    //    while (!*debug_flag) {
+    //    }
+
+    //    printf("%d %d\n", col, nx);
 
     if (col < nx) {
         // Wait until top GPU puts its bottom row as my top halo
-        while (!is_top_neigbor_done[0]) {
+        while (local_is_top_neighbor_done_writing_to_me[0] != iter) {
         }
 
         const real first_row_val =
             ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
                                 a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
-        a_new_top[top_iy * nx + col] = first_row_val;
 
-        // Wait until bottom GPU puts its top row as my bottom halo
-        while (!is_bottom_neigbor_done[0]) {
+        while (local_is_bottom_neighbor_done_writing_to_me[0] != 1) {
         }
 
         const real last_row_val =
             ZERO_TWENTY_FIVE * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                    a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
+                                a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
+
+        // Communication
+        a_new_top[top_iy * nx + col] = first_row_val;
         a_new_bottom[bottom_iy * nx + col] = last_row_val;
     }
 
     __syncthreads();
 
     if (threadIdx.x == 0 && threadIdx.y == 0) {
-        is_bottom_neigbor_done[0] = 0;
-        notify_bottom_neighbor[1] = 1;
-
-        is_top_neigbor_done[0] = 0;
-        notify_top_neighbor[1] = 1;
+        remote_am_done_writing_to_top_neighbor[1] = 1;
+        remote_am_done_writing_to_bottom_neighbor[1] = 1;
     }
+
+    printf("ok\n");
 }
 
 constexpr int THREADS_PER_BLOCK = 1024;
@@ -268,15 +270,17 @@ int MultiGPUPeer::init(int argc, char** argv) {
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel, dimGrid, dimBlock,
                                                  kernelArgs, 0, inner_domain_stream));
 
-        // Boundary
-        boundary_sync_kernel<<<1, 1, 0, boundary_sync_stream>>>(
-            a, iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top], a_new[bottom],
-            iy_start_bottom, is_top_done_computing_flags[dev_id],
-            is_bottom_done_computing_flags[dev_id],
-            is_bottom_done_computing_flags[top],
-            is_top_done_computing_flags[bottom],
-            flag
-        );
+        for (int iter = 0; iter < iter_max; iter++) {
+            // Boundary
+            boundary_sync_kernel<<<1, dimBlock, 0, boundary_sync_stream>>>(
+                a, iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top], a_new[bottom],
+                iter, iy_start_bottom, is_top_done_computing_flags[dev_id],
+                is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
+                is_top_done_computing_flags[bottom], flag);
+
+            CUDA_RT_CALL(cudaGetLastError());
+            CUDA_RT_CALL(cudaDeviceSynchronize());
+        }
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
