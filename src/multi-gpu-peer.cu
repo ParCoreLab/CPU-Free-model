@@ -51,9 +51,9 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
             a_new[iy * nx + ix] = new_val;
         }
 
-        real* temp_pointer = a_new;
-        a = a_new;
-        a_new = temp_pointer;
+        real* temp_pointer_first = a_new;
+        a_new = a;
+        a = temp_pointer_first;
 
         iter++;
 
