@@ -82,19 +82,23 @@ __global__ void boundary_sync_kernel(const real* a, const int iy_start, const in
 
     if (col < nx) {
         // Wait until top GPU puts its bottom row as my top halo
-        while (local_is_top_neighbor_done_writing_to_me[0] != iter) {
+        while (local_is_top_neighbor_done_writing_to_me[iter % 2] != iter) {
         }
 
         const real first_row_val =
             ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
                                 a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
 
-        while (local_is_bottom_neighbor_done_writing_to_me[0] != 1) {
+        a_new[iy_start * nx + col] = first_row_val;
+
+        while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
         }
 
         const real last_row_val =
             ZERO_TWENTY_FIVE * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
                                 a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
+
+        a_new[(iy_end - 1) * nx + col] = last_row_val;
 
         // Communication
         a_new_top[top_iy * nx + col] = first_row_val;
@@ -104,11 +108,9 @@ __global__ void boundary_sync_kernel(const real* a, const int iy_start, const in
     __syncthreads();
 
     if (threadIdx.x == 0 && threadIdx.y == 0) {
-        remote_am_done_writing_to_top_neighbor[1] = 1;
-        remote_am_done_writing_to_bottom_neighbor[1] = 1;
+        remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
+        remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
     }
-
-    printf("ok\n");
 }
 
 constexpr int THREADS_PER_BLOCK = 1024;
