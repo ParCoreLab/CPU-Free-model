@@ -118,8 +118,8 @@ constexpr int THREADS_PER_BLOCK = 1024;
 int MultiGPUPeer::init(int argc, char** argv) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nccheck = get_argval<int>(argv, argv + argc, "-nccheck", 1);
-    const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
-    const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
+    const int nx = get_argval<int>(argv, argv + argc, "-nx", 256);
+    const int ny = get_argval<int>(argv, argv + argc, "-ny", 256);
     //    const bool csv = get_arg(argv, argv + argc, "-csv");
 
     if (nccheck != 1) {
