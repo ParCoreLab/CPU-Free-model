@@ -311,11 +311,13 @@ int MultiGPUPeer::init(int argc, char** argv) {
 //            std::cout << dev_id << ": " << iter << std::endl;
 
             CUDA_RT_CALL(cudaGetLastError());
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
         }
 
+//        std::cout << dev_id << std::endl;
+
         CUDA_RT_CALL(cudaGetLastError());
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
     }
 
     return 0;
