@@ -85,13 +85,26 @@ __global__ void boundary_sync_kernel(real* a_new, const real* a, const int iy_st
         while (local_is_top_neighbor_done_writing_to_me[iter % 2] != iter) {
         }
 
+        if (dev_id == 1) {
+            printf("1: %d\n", iter);
+        }
+
         const real first_row_val =
             ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
                                 a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
 
         a_new[iy_start * nx + col] = first_row_val;
 
+        if (dev_id == 1) {
+            printf("2: %d ", iter);
+            printf("%d\n", local_is_bottom_neighbor_done_writing_to_me[iter % 2]);
+        }
+
         while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
+        }
+
+        if (dev_id == 1) {
+            printf("3: %d\n", iter);
         }
 
         const real last_row_val =
