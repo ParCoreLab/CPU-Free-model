@@ -145,7 +145,7 @@ int MultiGPUPeer::init(int argc, char** argv) {
         "every %d iterations\n",
         iter_max, ny, nx, nccheck);
 
-    real* a;
+    real* a[MAX_NUM_DEVICES];
     real* a_new[MAX_NUM_DEVICES];
 
     int iy_start = 1;
@@ -218,14 +218,14 @@ int MultiGPUPeer::init(int argc, char** argv) {
 
 #pragma omp barrier
 
-        CUDA_RT_CALL(cudaMalloc(&a, nx * (chunk_size + 2) * sizeof(real)));
-        CUDA_RT_CALL(cudaMalloc(&a_new[dev_id], nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMalloc(&is_top_done_computing_flags[dev_id], 2 * sizeof(int)));
-        CUDA_RT_CALL(cudaMalloc(&is_bottom_done_computing_flags[dev_id], 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, 2 * sizeof(int)));
 
         CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, sizeof(int)));
         CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0, sizeof(int)));
@@ -245,7 +245,7 @@ int MultiGPUPeer::init(int argc, char** argv) {
 
         // Set dirichlet boundary conditions on left and right border
         MultiGPUPeer::initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-            a, a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
+            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
