@@ -63,14 +63,14 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
     *debug_flag = 1;
 }
 
-__global__ void boundary_sync_kernel(const real* a, const int iy_start, const int iy_end,
+__global__ void boundary_sync_kernel(real* a_new, const real* a, const int iy_start, const int iy_end,
                                      const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
                                      const int bottom_iy, const int iter,
                                      const volatile int* local_is_top_neighbor_done_writing_to_me,
                                      const volatile int* local_is_bottom_neighbor_done_writing_to_me,
                                      volatile int* remote_am_done_writing_to_top_neighbor,
                                      volatile int* remote_am_done_writing_to_bottom_neighbor,
-                                     [[maybe_unused]] volatile const int* debug_flag) {
+                                     [[maybe_unused]] volatile const int* debug_flag, const int dev_id) {
     unsigned int iy = threadIdx.y + iy_start;
     unsigned int ix = threadIdx.x + 1;
     unsigned int col = iy * blockDim.x + ix;
@@ -243,7 +243,7 @@ int MultiGPUPeer::init(int argc, char** argv) {
 
         void* kernelArgs[] = {
             (void*)&a_new[dev_id],
-            (void*)&a,
+            (void*)&a[dev_id],
             (void*)&iy_start,
             (void*)&iy_end[dev_id],
             (void*)&nx,
@@ -275,10 +275,27 @@ int MultiGPUPeer::init(int argc, char** argv) {
         for (int iter = 0; iter < iter_max; iter++) {
             // Boundary
             boundary_sync_kernel<<<1, dimBlock, 0, boundary_sync_stream>>>(
-                a, iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top], a_new[bottom],
-                iter, iy_start_bottom, is_top_done_computing_flags[dev_id],
-                is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
-                is_top_done_computing_flags[bottom], flag);
+                a_new[dev_id],
+                a[dev_id],
+                iy_start,
+                iy_end[dev_id],
+                nx,
+                a_new[top],
+                a[top],
+                iy_end[top],
+                a_new[bottom],
+                a[bottom],
+                iter,
+                iy_start_bottom,
+                is_top_done_computing_flags[dev_id],
+                is_bottom_done_computing_flags[dev_id],
+                is_bottom_done_computing_flags[top],
+                is_top_done_computing_flags[bottom],
+                flag,
+                dev_id
+            );
+
+//            std::cout << dev_id << ": " << iter << std::endl;
 
             CUDA_RT_CALL(cudaGetLastError());
             CUDA_RT_CALL(cudaDeviceSynchronize());
