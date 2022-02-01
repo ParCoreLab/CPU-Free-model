@@ -221,9 +221,8 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
             if (threadIdx.x == 0 && threadIdx.y == 0) {
                 remote_am_done_writing_to_top_neighbor[next_iter_mod] = iter + 1;
-                remote_am_done_writing_to_bottom_neighbor[next_iter_mod] = iter + 1;
             }
-        } else if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
+        } else if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 2) {
             unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
 
             if (col < nx - 1) {
@@ -244,6 +243,12 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
                 // Communication
                 a_new_bottom[bottom_iy * nx + col] = last_row_val;
+            }
+
+            cg::sync(cta);
+
+            if (threadIdx.x == 0 && threadIdx.y == 0) {
+                remote_am_done_writing_to_bottom_neighbor[next_iter_mod] = iter + 1;
             }
         } else if (iy > iy_start && iy < (iy_end - 1) && ix < (nx - 1)) {
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
