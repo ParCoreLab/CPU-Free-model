@@ -9,11 +9,11 @@
 #include <cooperative_groups.h>
 
 #include "../../include/common.h"
-#include "../../include/single-stream/multi-threaded.cuh"
+#include "../../include/single-stream/multi-threaded-two-block-comm.cuh"
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreaded {
+namespace SSMultiThreadedTwoBlockComm {
 __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
                                       const real pi, const int offset, const int nx,
                                       const int my_ny, const int ny) {
@@ -116,9 +116,9 @@ double single_gpu(const int nx, const int ny, const int iter_max, real* const a_
         CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, push_bottom_done, 0));
 
         //        calculate_norm = (iter % nccheck) == 0 || (print && ((iter % 100) == 0));
-        SSMultiThreaded::jacobi_kernel_single_gpu<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0,
-                                                    compute_stream>>>(a_new, a, nullptr, iy_start,
-                                                                      iy_end, nx, calculate_norm);
+        SSMultiThreadedTwoBlockComm::jacobi_kernel_single_gpu<<<
+            dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
+            a_new, a, nullptr, iy_start, iy_end, nx, calculate_norm);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));
 
@@ -206,6 +206,27 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
                             a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
                 a_new[iy_start * nx + col] = first_row_val;
 
+                //                if (calculate_norm) {
+                //                    real first_row_residue = first_row_val - a[iy_start * nx +
+                //                    col];
+                //
+                //                    local_l2_norm += first_row_residue * first_row_residue;
+                //                }
+
+                // Communication
+                a_new_top[top_iy * nx + col] = first_row_val;
+            }
+
+            cg::sync(cta);
+
+            if (threadIdx.x == 0 && threadIdx.y == 0) {
+                remote_am_done_writing_to_top_neighbor[next_iter_mod] = iter + 1;
+                remote_am_done_writing_to_bottom_neighbor[next_iter_mod] = iter + 1;
+            }
+        } else if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
+            unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
+
+            if (col < nx - 1) {
                 while (local_is_bottom_neighbor_done_writing_to_me[cur_iter_mod] != iter) {
                 }
 
@@ -215,24 +236,14 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
                 a_new[(iy_end - 1) * nx + col] = last_row_val;
 
                 //                if (calculate_norm) {
-                //                    real first_row_residue = first_row_val - a[iy_start * nx +
-                //                    col]; real last_row_residue = last_row_val - a[iy_end * nx +
+                //                    real last_row_residue = last_row_val - a[iy_end * nx +
                 //                    col];
                 //
-                //                    local_l2_norm += first_row_residue * first_row_residue;
                 //                    local_l2_norm += last_row_residue * last_row_residue;
                 //                }
 
                 // Communication
-                a_new_top[top_iy * nx + col] = first_row_val;
                 a_new_bottom[bottom_iy * nx + col] = last_row_val;
-            }
-
-            cg::sync(cta);
-
-            if (threadIdx.x == 0 && threadIdx.y == 0) {
-                remote_am_done_writing_to_top_neighbor[next_iter_mod] = iter + 1;
-                remote_am_done_writing_to_bottom_neighbor[next_iter_mod] = iter + 1;
             }
         } else if (iy > iy_start && iy < (iy_end - 1) && ix < (nx - 1)) {
             const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
@@ -266,9 +277,9 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
         cg::sync(grid);
     }
 }
-}  // namespace SSMultiThreaded
+}  // namespace SSMultiThreadedTwoBlockComm
 
-int SSMultiThreaded::init(int argc, char* argv[]) {
+int SSMultiThreadedTwoBlockComm::init(int argc, char* argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
@@ -304,7 +315,8 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
             // Passing 0 for nccheck for now
-            runtime_serial = SSMultiThreaded::single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
+            runtime_serial =
+                SSMultiThreadedTwoBlockComm::single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
         }
 
 #pragma omp barrier
@@ -371,7 +383,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
         int iy_start_bottom = 0;
 
         // Set diriclet boundary conditions on left and right border
-        SSMultiThreaded::initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
+        SSMultiThreadedTwoBlockComm::initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
             a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
         CUDA_RT_CALL(cudaGetLastError());
 
@@ -406,8 +418,8 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
 #pragma omp barrier
         double start = omp_get_wtime();
 
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)SSMultiThreaded::jacobi_kernel, dim_grid,
-                                                 dim_block, kernelArgs, 0, nullptr));
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)SSMultiThreadedTwoBlockComm::jacobi_kernel,
+                                                 dim_grid, dim_block, kernelArgs, 0, nullptr));
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());

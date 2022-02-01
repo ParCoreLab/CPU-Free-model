@@ -12,16 +12,15 @@
 namespace cg = cooperative_groups;
 
 namespace SSSingleThreaded {
-    __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
-                                          const real pi, const int offset, const int nx,
-                                          const int my_ny, const int ny) {
-        for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny; iy += blockDim.x * gridDim.x) {
-            const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
-            a[iy * nx + 0] = y0;
-            a[iy * nx + (nx - 1)] = y0;
-            a_new[iy * nx + 0] = y0;
-            a_new[iy * nx + (nx - 1)] = y0;
-        }
+__global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
+                                      const real pi, const int offset, const int nx,
+                                      const int my_ny, const int ny) {
+    for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny; iy += blockDim.x * gridDim.x) {
+        const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
+        a[iy * nx + 0] = y0;
+        a[iy * nx + (nx - 1)] = y0;
+        a_new[iy * nx + 0] = y0;
+        a_new[iy * nx + (nx - 1)] = y0;
     }
 }
 
@@ -99,6 +98,7 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
         grid.sync();
     }
 }
+}  // namespace SSSingleThreaded
 
 int SSSingleThreaded::init(int argc, char* argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
@@ -203,7 +203,7 @@ int SSSingleThreaded::init(int argc, char* argv[]) {
             (void*)&a_new[top],
             (void*)&iy_end[top],
             (void*)&a_new[bottom],
-//            (void*)&iy_start_bottom,
+            //            (void*)&iy_start_bottom,
             (void*)&iter_max,
             (void*)&is_top_done_computing_flags[dev_id],
             (void*)&is_bottom_done_computing_flags[dev_id],
