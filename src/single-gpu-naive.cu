@@ -7,8 +7,6 @@
 #include <iterator>
 #include <sstream>
 
-#include <omp.h>
-
 #include "../include/common.h"
 #include "../include/single-gpu-naive.cuh"
 
@@ -41,6 +39,7 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
 #include <cooperative_groups.h>
 namespace cg = cooperative_groups;
 
+namespace SingleGPUNaive {
 __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
                                       const real pi, const int nx, const int ny) {
     for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < ny; iy += blockDim.x * gridDim.x) {
@@ -93,6 +92,7 @@ __global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__
         grid.sync();
     }
 }
+}  // namespace SingleGPUNaive
 
 bool get_arg(char** begin, char** end, const std::string& arg) {
     char** itr = std::find(begin, end, arg);
@@ -146,7 +146,7 @@ int SingleGPUNaive::init(int argc, char* argv[]) {
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * sizeof(real)));
 
     // Set diriclet boundary conditions on left and right boarder
-    initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, nx, ny);
+    SingleGPUNaive::initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, nx, ny);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -210,18 +210,18 @@ int SingleGPUNaive::init(int argc, char* argv[]) {
     int numThreads = THREADS_PER_BLOCK;
 
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSm, jacobi_kernel, numThreads, 0));
+        &numBlocksPerSm, SingleGPUNaive::jacobi_kernel, numThreads, 0));
 
     // This is stupid
-    int blocks_each = (int) sqrt(numSms * numBlocksPerSm);
-    int threads_each = (int) sqrt(THREADS_PER_BLOCK);
+    int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
+    int threads_each = (int)sqrt(THREADS_PER_BLOCK);
     dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
 
     //   dim3 threads(2, 2);
     //   dim3 blocks(5, 5);
 
-    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel,
-                                             dimGrid, dimBlock, kernelArgs, 0, nullptr));
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)SingleGPUNaive::jacobi_kernel, dimGrid,
+                                             dimBlock, kernelArgs, 0, nullptr));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 

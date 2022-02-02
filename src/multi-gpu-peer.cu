@@ -16,23 +16,9 @@
 
 namespace cg = cooperative_groups;
 
-constexpr real ZERO_TWENTY_FIVE { 0.25 };
+constexpr real ZERO_TWENTY_FIVE{0.25};
 
 namespace MultiGPUPeer {
-    __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
-                                          const real pi, const int offset, const int nx,
-                                          const int my_ny, const int ny) {
-        for (unsigned int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny;
-             iy += blockDim.x * gridDim.x) {
-            const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
-            a[iy * nx + 0] = y0;
-            a[iy * nx + (nx - 1)] = y0;
-            a_new[iy * nx + 0] = y0;
-            a_new[iy * nx + (nx - 1)] = y0;
-        }
-    }
-}
-
 __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const int iy_end,
                               const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
                               const int bottom_iy, const int iter_max, int* debug_flag) {
@@ -63,14 +49,14 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
     *debug_flag = 1;
 }
 
-__global__ void boundary_sync_kernel(real* a_new, const real* a, const int iy_start, const int iy_end,
-                                     const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
-                                     const int bottom_iy, const int iter,
-                                     const volatile int* local_is_top_neighbor_done_writing_to_me,
-                                     const volatile int* local_is_bottom_neighbor_done_writing_to_me,
-                                     volatile int* remote_am_done_writing_to_top_neighbor,
-                                     volatile int* remote_am_done_writing_to_bottom_neighbor,
-                                     [[maybe_unused]] volatile const int* debug_flag, const int dev_id) {
+__global__ void boundary_sync_kernel(
+    real* a_new, const real* a, const int iy_start, const int iy_end, const int nx, real* a_new_top,
+    const int top_iy, real* a_new_bottom, const int bottom_iy, const int iter,
+    const volatile int* local_is_top_neighbor_done_writing_to_me,
+    const volatile int* local_is_bottom_neighbor_done_writing_to_me,
+    volatile int* remote_am_done_writing_to_top_neighbor,
+    volatile int* remote_am_done_writing_to_bottom_neighbor,
+    [[maybe_unused]] volatile const int* debug_flag, const int dev_id) {
     unsigned int iy = threadIdx.y + iy_start;
     unsigned int ix = threadIdx.x + 1;
     unsigned int col = iy * blockDim.x + ix;
@@ -126,6 +112,8 @@ __global__ void boundary_sync_kernel(real* a_new, const real* a, const int iy_st
     }
 }
 
+}  // namespace MultiGPUPeer
+
 constexpr int THREADS_PER_BLOCK = 1024;
 
 int MultiGPUPeer::init(int argc, char** argv) {
@@ -166,8 +154,8 @@ int MultiGPUPeer::init(int argc, char** argv) {
     int numBlocksPerSm = 0;
     int numThreads = THREADS_PER_BLOCK;
 
-    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, jacobi_kernel,
-                                                               numThreads, 0));
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &numBlocksPerSm, MultiGPUPeer::jacobi_kernel, numThreads, 0));
 
     // This is stupid
     int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
@@ -244,7 +232,7 @@ int MultiGPUPeer::init(int argc, char** argv) {
         int iy_start_bottom = 0;
 
         // Set dirichlet boundary conditions on left and right border
-        MultiGPUPeer::initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
+        initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
             a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
 
         CUDA_RT_CALL(cudaGetLastError());
@@ -254,19 +242,17 @@ int MultiGPUPeer::init(int argc, char** argv) {
         CUDA_RT_CALL(cudaMalloc(&flag, 1 * sizeof(int)));
         CUDA_RT_CALL(cudaMemset(flag, 0, 1 * sizeof(int)));
 
-        void* kernelArgs[] = {
-            (void*)&a_new[dev_id],
-            (void*)&a[dev_id],
-            (void*)&iy_start,
-            (void*)&iy_end[dev_id],
-            (void*)&nx,
-            (void*)&a_new[top],
-            (void*)&iy_end[top],
-            (void*)&a_new[bottom],
-            (void*)&iy_start_bottom,
-            (void*)&iter_max,
-            (void*)&flag
-        };
+        void* kernelArgs[] = {(void*)&a_new[dev_id],
+                              (void*)&a[dev_id],
+                              (void*)&iy_start,
+                              (void*)&iy_end[dev_id],
+                              (void*)&nx,
+                              (void*)&a_new[top],
+                              (void*)&iy_end[top],
+                              (void*)&a_new[bottom],
+                              (void*)&iy_start_bottom,
+                              (void*)&iter_max,
+                              (void*)&flag};
 
         cudaStream_t inner_domain_stream;
         cudaStream_t boundary_sync_stream;
@@ -282,37 +268,24 @@ int MultiGPUPeer::init(int argc, char** argv) {
 #pragma omp barrier
 
         // Inner domain
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel, dimGrid, dimBlock,
-                                                 kernelArgs, 0, inner_domain_stream));
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)MultiGPUPeer::jacobi_kernel, dimGrid,
+                                                 dimBlock, kernelArgs, 0, inner_domain_stream));
 
         for (int iter = 0; iter < iter_max; iter++) {
             // Boundary
             boundary_sync_kernel<<<1, dimBlock, 0, boundary_sync_stream>>>(
-                a_new[dev_id],
-                a[dev_id],
-                iy_start,
-                iy_end[dev_id],
-                nx,
-                a_new[top],
-                iy_end[top],
-                a_new[bottom],
-                iy_start_bottom,
-                iter,
-                is_top_done_computing_flags[dev_id],
-                is_bottom_done_computing_flags[dev_id],
-                is_bottom_done_computing_flags[top],
-                is_top_done_computing_flags[bottom],
-                flag,
-                dev_id
-            );
+                a_new[dev_id], a[dev_id], iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top],
+                a_new[bottom], iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
+                is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
+                is_top_done_computing_flags[bottom], flag, dev_id);
 
-//            std::cout << dev_id << ": " << iter << std::endl;
+            //            std::cout << dev_id << ": " << iter << std::endl;
 
             CUDA_RT_CALL(cudaGetLastError());
             CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
         }
 
-//        std::cout << dev_id << std::endl;
+        //        std::cout << dev_id << std::endl;
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
