@@ -144,7 +144,9 @@ int SSSingleThreadedTwoBlockComm::init(int argc, char* argv[]) {
 
     real* a_ref_h;
     real* a_h;
-    double runtime_serial = 0.0;
+
+    double runtime_serial_non_persistent = 0.0;
+    double runtime_serial_persistent = 0.0;
 
     int* is_top_done_computing_flags[MAX_NUM_DEVICES];
     int* is_bottom_done_computing_flags[MAX_NUM_DEVICES];
@@ -160,7 +162,9 @@ int SSSingleThreadedTwoBlockComm::init(int argc, char* argv[]) {
         if (0 == dev_id) {
             CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
-            runtime_serial = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
+
+            runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
+            runtime_serial_persistent = single_gpu_persistent(nx, ny, iter_max, a_ref_h, 0, true);
         }
 
         // ny - 2 rows are distributed amongst `size` ranks in such a way
@@ -282,25 +286,6 @@ int SSSingleThreadedTwoBlockComm::init(int argc, char* argv[]) {
         offset += std::min(chunk_size[dev_id] * nx, (nx * ny) - offset);
     }
 
-    bool result_correct = true;
-    for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy) {
-        for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix) {
-            if (std::fabs(a_ref_h[iy * nx + ix] - a_h[iy * nx + ix]) > tol) {
-                fprintf(stderr,
-                        "ERROR: a[%d * %d + %d] = %f does not match %f "
-                        "(reference)\n",
-                        iy, nx, ix, a_h[iy * nx + ix], a_ref_h[iy * nx + ix]);
-                result_correct = false;
-            }
-        }
-    }
-
-    if (result_correct) {
-        printf("Num GPUs: %d.\n", num_devices);
-        printf(
-            "%dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
-            "efficiency: %8.2f \n",
-            ny, nx, runtime_serial, num_devices, (stop - start), runtime_serial / (stop - start),
-            runtime_serial / (num_devices * (stop - start)) * 100);
-    }
+    report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
+                   runtime_serial_persistent, start, stop);
 }
