@@ -18,7 +18,8 @@ add_executable(
         src/common.cu include/common.h
         src/single-stream/multi-threaded.cu include/single-stream/multi-threaded.cuh
         src/single-stream/single-threaded.cu include/single-stream/single-threaded.cuh
-        src/single-stream/multi-threaded-two-block-comm.cu include/single-stream/multi-threaded-two-block-comm.cuh)
+        src/single-stream/multi-threaded-two-block-comm.cu include/single-stream/multi-threaded-two-block-comm.cuh
+        src/single-stream/single-threaded-two-block-comm.cu include/single-stream/single-threaded-two-block-comm.cuh)
 
 set_target_properties(2D_Stencil PROPERTIES CUDA_ARCHITECTURES "70;80")
 
