@@ -25,8 +25,12 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
-    unsigned int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
-    unsigned int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+    unsigned int grid_dim_x = (nx + blockDim.x - 1) / blockDim.x;
+    unsigned int block_idx_y = blockIdx.x / grid_dim_x;
+    unsigned int block_idx_x = blockIdx.x % grid_dim_x;
+
+    unsigned int iy = block_idx_y * blockDim.y + threadIdx.y + iy_start;
+    unsigned int ix = block_idx_x * blockDim.x + threadIdx.x + 1;
 
     //    real local_l2_norm = 0.0;
     int iter = 0;
@@ -37,7 +41,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
     while (iter < iter_max) {
         //    One thread block does communication (and a bit of computation)
-        if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
+        if (blockIdx.x == gridDim.x - 1) {
             unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
 
             if (col < nx - 1) {
@@ -223,12 +227,20 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
 
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
+        constexpr int num_threads = 1024;
 
-        // Extra threadblocks are allocated for communication-computation "stream"
-        dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
-                      ((chunk_size + 2) + dim_block_y - 1) / dim_block_y + 1, 1);
+        cudaDeviceProp deviceProp{};
+        CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
+        int numSms = deviceProp.multiProcessorCount;
 
-        dim3 dim_block(dim_block_x, dim_block_y, 1);
+        dim3 dim_grid(numSms, 1, 1);
+        dim3 dim_block(dim_block_x, dim_block_y);
+
+        // // Extra threadblocks are allocated for communication-computation "stream"
+        // dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
+        //               ((chunk_size + 2) + dim_block_y - 1) / dim_block_y + 1, 1);
+
+        // dim3 dim_block(dim_block_x, dim_block_y, 1);
 
         void* kernelArgs[] = {(void*)&a_new[dev_id],
                               (void*)&a[dev_id],
