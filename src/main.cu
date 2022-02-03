@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
                        SSMultiThreadedTwoBlockComm::init),
         std::make_pair("Single stream single threaded", SSSingleThreaded::init),
         std::make_pair("Single stream single threaded (two thread blocks communicate)",
-                       SSSingleThreaded::init),
+                       SSSingleThreadedTwoBlockComm::init),
         std::make_pair("Double stream multi threaded", MultiGPUPeer::init),
         std::make_pair("Single GPU Persistent Naive", SingleGPUNaive::init)};
 
