@@ -35,6 +35,9 @@ double single_gpu(const int nx, const int ny, const int iter_max, real* const a_
                   const int nccheck, const bool print);
 double single_gpu_persistent(const int nx, const int ny, const int iter_max, real* const a_ref_h,
                              const int nccheck, const bool print);
+void report_results(const int ny, const int nx, real* a_ref_h, real* a_h, const int num_devices,
+                    const double runtime_serial_non_persistent,
+                    const double runtime_serial_persistent, const double start, const double stop);
 
 #define noop
 

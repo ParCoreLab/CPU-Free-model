@@ -274,3 +274,37 @@ double single_gpu_persistent(const int nx, const int ny, const int iter_max, rea
     CUDA_RT_CALL(cudaFree(a));
     return (stop - start);
 }
+
+void report_results(const int ny, const int nx, real* a_ref_h, real* a_h, const int num_devices,
+                    const double runtime_serial_non_persistent,
+                    const double runtime_serial_persistent, const double start, const double stop) {
+    bool result_correct = true;
+    for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy) {
+        for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix) {
+            if (std::fabs(a_ref_h[iy * nx + ix] - a_h[iy * nx + ix]) > tol) {
+                fprintf(stderr,
+                        "ERROR: a[%d * %d + %d] = %f does not match %f "
+                        "(reference)\n",
+                        iy, nx, ix, a_h[iy * nx + ix], a_ref_h[iy * nx + ix]);
+                result_correct = false;
+            }
+        }
+    }
+
+    if (result_correct) {
+        printf("Num GPUs: %d.\n", num_devices);
+        printf(
+            "Non-persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
+            "efficiency: %8.2f \n",
+            ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
+            runtime_serial_non_persistent / (stop - start),
+            runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
+
+        printf(
+            "Persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
+            "efficiency: %8.2f \n",
+            ny, nx, runtime_serial_persistent, num_devices, (stop - start),
+            runtime_serial_persistent / (stop - start),
+            runtime_serial_persistent / (num_devices * (stop - start)) * 100);
+    }
+}
