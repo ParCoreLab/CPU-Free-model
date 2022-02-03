@@ -168,6 +168,12 @@ int SSSingleThreaded::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
 
+        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, 2 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0, sizeof(int)));
+
         // Calculate local domain boundaries
         int iy_start_global;  // My start index in the global array
         if (dev_id < num_ranks_low) {
@@ -221,7 +227,6 @@ int SSSingleThreaded::init(int argc, char* argv[]) {
 
         dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
                       ((chunk_size[dev_id] + 2) + dim_block_y - 1) / dim_block_y + 1, 1);
-
         dim3 dim_block(dim_block_x, dim_block_y, 1);
 
         void* kernelArgs[] = {(void*)&a_new[dev_id],
