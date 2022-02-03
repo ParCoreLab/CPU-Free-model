@@ -1,5 +1,9 @@
 #include "../include/common.h"
 
+#include <cooperative_groups.h>
+
+namespace cg = cooperative_groups;
+
 __global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
                                       const real pi, const int offset, const int nx,
                                       const int my_ny, const int ny) {
@@ -32,6 +36,53 @@ __global__ void jacobi_kernel_single_gpu(real* __restrict__ const a_new,
         //            local_l2_norm += residue * residue;
         //        }
     }
+    //    if (calculate_norm) {
+    //        atomicAdd(l2_norm, local_l2_norm);
+    //    }
+}
+
+__global__ void jacobi_kernel_single_gpu_persistent(real* a_new, real* a, const int iy_start,
+                                                    const int iy_end, const int nx,
+                                                    const bool calculate_norm, const int iter_max) {
+    cg::thread_block cta = cg::this_thread_block();
+    cg::grid_group grid = cg::this_grid();
+
+    int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
+    int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+
+    //    real local_l2_norm = 0.0;
+
+    int iter = 0;
+
+    while (iter < iter_max) {
+        if (iy < iy_end && ix < (nx - 1)) {
+            const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                         a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+            a_new[iy * nx + ix] = new_val;
+
+            if (iy_start == iy) {
+                a_new[iy_end * nx + ix] = new_val;
+            }
+
+            if ((iy_end - 1) == iy) {
+                a_new[(iy_start - 1) * nx + ix] = new_val;
+            }
+
+            //        if (calculate_norm) {
+            //            real residue = new_val - a[iy * nx + ix];
+            //            local_l2_norm += residue * residue;
+            //        }
+        }
+
+        iter++;
+
+        real* temp_pointer = a_new;
+        a_new = a;
+        a = temp_pointer;
+
+        cg::sync(grid);
+    }
+
     //    if (calculate_norm) {
     //        atomicAdd(l2_norm, local_l2_norm);
     //    }
@@ -80,7 +131,8 @@ double single_gpu(const int nx, const int ny, const int iter_max, real* const a_
 
     if (print)
         printf(
-            "Single GPU jacobi relaxation: %d iterations on %d x %d mesh with "
+            "Single GPU jacobi relaxation (non-persistent kernel): %d iterations on %d x %d mesh "
+            "with "
             "norm "
             "check every %d iterations\n",
             iter_max, ny, nx, nccheck);
@@ -146,6 +198,74 @@ double single_gpu(const int nx, const int ny, const int iter_max, real* const a_
     CUDA_RT_CALL(cudaStreamDestroy(push_bottom_stream));
     CUDA_RT_CALL(cudaStreamDestroy(push_top_stream));
     CUDA_RT_CALL(cudaStreamDestroy(compute_stream));
+
+    //    CUDA_RT_CALL(cudaFreeHost(l2_norm_h));
+    //    CUDA_RT_CALL(cudaFree(l2_norm_d));
+
+    CUDA_RT_CALL(cudaFree(a_new));
+    CUDA_RT_CALL(cudaFree(a));
+    return (stop - start);
+}
+
+double single_gpu_persistent(const int nx, const int ny, const int iter_max, real* const a_ref_h,
+                             const int nccheck, const bool print) {
+    real* a;
+    real* a_new;
+
+    // Skipping l2-norm calculation for now
+    //    real* l2_norm_d;
+    //    real* l2_norm_h;
+
+    int iy_start = 1;
+    int iy_end = (ny - 1);
+
+    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * sizeof(real)));
+
+    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * sizeof(real)));
+
+    // Set diriclet boundary conditions on left and right boarder
+    initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, 0, nx, ny, ny);
+    CUDA_RT_CALL(cudaGetLastError());
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+
+    //    CUDA_RT_CALL(cudaMalloc(&l2_norm_d, sizeof(real)));
+    //    CUDA_RT_CALL(cudaMallocHost(&l2_norm_h, sizeof(real)));
+
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+
+    if (print)
+        printf(
+            "Single GPU jacobi relaxation (persistent kernel): %d iterations on %d x %d mesh with "
+            "norm "
+            "check every %d iterations\n",
+            iter_max, ny, nx, nccheck);
+
+    constexpr int dim_block_x = 32;
+    constexpr int dim_block_y = 32;
+
+    dim3 dim_block(dim_block_x, dim_block_y);
+    dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y, 1);
+
+    bool calculate_norm = false;
+    //    real l2_norm = 1.0;
+
+    void* kernelArgs[] = {(void*)&a_new,   (void*)&a,  (void*)&iy_start,
+                          (void*)&iy_end,  (void*)&nx, (void*)&calculate_norm,
+                          (void*)&iter_max};
+
+    double start = omp_get_wtime();
+
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)jacobi_kernel_single_gpu_persistent, dim_grid,
+                                             dim_block, kernelArgs, 0, nullptr));
+
+    CUDA_RT_CALL(cudaGetLastError());
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+
+    double stop = omp_get_wtime();
+
+    CUDA_RT_CALL(cudaMemcpy(a_ref_h, a, nx * ny * sizeof(real), cudaMemcpyDeviceToHost));
 
     //    CUDA_RT_CALL(cudaFreeHost(l2_norm_h));
     //    CUDA_RT_CALL(cudaFree(l2_norm_d));
