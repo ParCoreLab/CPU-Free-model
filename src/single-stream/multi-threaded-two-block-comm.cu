@@ -150,7 +150,6 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char* argv[]) {
     int* is_top_done_computing_flags[MAX_NUM_DEVICES];
     int* is_bottom_done_computing_flags[MAX_NUM_DEVICES];
 
-    bool result_correct = true;
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
     //    real l2_norm = 1.0;
