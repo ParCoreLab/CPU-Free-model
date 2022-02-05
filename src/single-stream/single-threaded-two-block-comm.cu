@@ -41,7 +41,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
     while (iter < iter_max) {
         //    One thread block does communication (and a bit of computation)
-        if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
+        if (blockIdx.x == gridDim.x - 1) {
             unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
 
             if (col < nx - 1) {
@@ -70,7 +70,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
             if (threadIdx.x == 0 && threadIdx.y == 0) {
                 remote_am_done_writing_to_top_neighbor[next_iter_mod] = iter + 1;
             }
-        } else if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 2) {
+        } else if (blockIdx.x == gridDim.x - 2) {
             unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
 
             if (col < nx - 1) {
