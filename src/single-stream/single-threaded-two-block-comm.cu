@@ -168,7 +168,9 @@ int SSSingleThreadedTwoBlockComm::init(int argc, char* argv[]) {
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
             runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
-            runtime_serial_persistent = single_gpu_persistent(nx, ny, iter_max, a_ref_h, 0, true);
+            runtime_serial_persistent = 0;
+            // runtime_serial_persistent = single_gpu_persistent(nx, ny, iter_max, a_ref_h, 0,
+            // true);
         }
 
         // ny - 2 rows are distributed amongst `size` ranks in such a way

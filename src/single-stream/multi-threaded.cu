@@ -155,7 +155,9 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
 
             // Passing 0 for nccheck for now
             runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
-            runtime_serial_persistent = single_gpu_persistent(nx, ny, iter_max, a_ref_h, 0, true);
+            runtime_serial_persistent = 0;
+            // runtime_serial_persistent = single_gpu_persistent(nx, ny, iter_max, a_ref_h, 0,
+            // true);
         }
 
 #pragma omp barrier
@@ -235,7 +237,7 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
         int numSms = deviceProp.multiProcessorCount;
-
+        
         dim3 dim_grid(numSms, 1, 1);
         dim3 dim_block(dim_block_x, dim_block_y);
 

@@ -300,11 +300,11 @@ void report_results(const int ny, const int nx, real* a_ref_h, real* a_h, const 
             runtime_serial_non_persistent / (stop - start),
             runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
 
-        printf(
-            "Persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
-            "efficiency: %8.2f \n",
-            ny, nx, runtime_serial_persistent, num_devices, (stop - start),
-            runtime_serial_persistent / (stop - start),
-            runtime_serial_persistent / (num_devices * (stop - start)) * 100);
+        // printf(
+        //     "Persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
+        //     "efficiency: %8.2f \n",
+        //     ny, nx, runtime_serial_persistent, num_devices, (stop - start),
+        //     runtime_serial_persistent / (stop - start),
+        //     runtime_serial_persistent / (num_devices * (stop - start)) * 100);
     }
 }

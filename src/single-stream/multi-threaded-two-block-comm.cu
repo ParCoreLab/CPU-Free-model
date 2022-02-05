@@ -171,7 +171,9 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char* argv[]) {
 
             // Passing 0 for nccheck for now
             runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
-            runtime_serial_persistent = single_gpu_persistent(nx, ny, iter_max, a_ref_h, 0, true);
+            runtime_serial_persistent = 0;
+            // runtime_serial_persistent = single_gpu_persistent(nx, ny, iter_max, a_ref_h, 0,
+            // true);
         }
 
 #pragma omp barrier
