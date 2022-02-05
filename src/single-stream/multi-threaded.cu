@@ -236,12 +236,6 @@ int SSMultiThreaded::init(int argc, char* argv[]) {
         dim3 dim_grid(numSms, 1, 1);
         dim3 dim_block(dim_block_x, dim_block_y);
 
-        // // Extra threadblocks are allocated for communication-computation "stream"
-        // dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
-        //               ((chunk_size + 2) + dim_block_y - 1) / dim_block_y + 1, 1);
-
-        // dim3 dim_block(dim_block_x, dim_block_y, 1);
-
         void* kernelArgs[] = {(void*)&a_new[dev_id],
                               (void*)&a[dev_id],
                               (void*)&iy_start,
