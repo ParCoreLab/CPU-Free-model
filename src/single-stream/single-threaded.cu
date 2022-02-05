@@ -222,8 +222,10 @@ int SSSingleThreaded::init(int argc, char* argv[]) {
     constexpr int dim_block_y = 32;
     constexpr int num_threads = 1024;
 
+    // Assuming that all GPUs have same number of SMs
+    // Should take minimum in future
     cudaDeviceProp deviceProp{};
-    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
+    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, 0));
     int numSms = deviceProp.multiProcessorCount;
 
     dim3 dim_grid(numSms, 1, 1);
@@ -240,8 +242,6 @@ int SSSingleThreaded::init(int argc, char* argv[]) {
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         const int bottom = (dev_id + 1) % num_devices;
         CUDA_RT_CALL(cudaSetDevice(dev_id));
-
-
 
         void* kernelArgs[] = {(void*)&a_new[dev_id],
                               (void*)&a[dev_id],
