@@ -37,78 +37,71 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
 #endif
 
 #include <cooperative_groups.h>
+
 namespace cg = cooperative_groups;
 
 namespace SingleGPUNaive {
-__global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
-                                      const real pi, const int nx, const int ny) {
-    for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < ny; iy += blockDim.x * gridDim.x) {
-        const real y0 = sin(2.0 * pi * iy / (ny - 1));
-        a[iy * nx + 0] = y0;
-        a[iy * nx + (nx - 1)] = y0;
-        a_new[iy * nx + 0] = y0;
-        a_new[iy * nx + (nx - 1)] = y0;
-    }
-}
-
-__global__ void jacobi_kernel(real* __restrict__ a_new, const real* __restrict__ a,
-                              const int iy_start, const int iy_end, const int nx, const int niter) {
-    cg::thread_block cta = cg::this_thread_block();
-    cg::grid_group grid = cg::this_grid();
-
-    const int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
-    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
-
-    real local_l2_norm = 0.0;
-
-    int i = 0;
-
-    while (i < niter) {
-        if (iy < iy_end) {
-            if (ix >= 1 && ix < (nx - 1)) {
-                const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                             a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                a_new[iy * nx + ix] = new_val;
-
-                // apply boundary conditions
-                if (iy_start == iy) {
-                    a_new[iy_end * nx + ix] = new_val;
-                }
-
-                if ((iy_end - 1) == iy) {
-                    a_new[(iy_start - 1) * nx + ix] = new_val;
-                }
-
-                real residue = new_val - a[iy * nx + ix];
-                local_l2_norm = residue * residue;
-            }
+    __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
+                                          const real pi, const int nx, const int ny) {
+        for (int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < ny; iy += blockDim.x * gridDim.x) {
+            const real y0 = sin(2.0 * pi * iy / (ny - 1));
+            a[iy * nx + 0] = y0;
+            a[iy * nx + (nx - 1)] = y0;
+            a_new[iy * nx + 0] = y0;
+            a_new[iy * nx + (nx - 1)] = y0;
         }
-
-        real* temp_pointer = a_new;
-        a = a_new;
-        a_new = temp_pointer;
-
-        i++;
-        grid.sync();
     }
-}
+
+    __global__ void jacobi_kernel(real *__restrict__ a_new, const real *__restrict__ a,
+                                  const int iy_start, const int iy_end, const int nx, const int niter) {
+        cg::thread_block cta = cg::this_thread_block();
+        cg::grid_group grid = cg::this_grid();
+
+        const int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
+        const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+
+        real local_l2_norm = 0.0;
+
+        int i = 0;
+
+        while (i < niter) {
+            if (iy < iy_end) {
+                if (ix >= 1 && ix < (nx - 1)) {
+                    const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                    a_new[iy * nx + ix] = new_val;
+
+                    // apply boundary conditions
+                    if (iy_start == iy) {
+                        a_new[iy_end * nx + ix] = new_val;
+                    }
+
+                    if ((iy_end - 1) == iy) {
+                        a_new[(iy_start - 1) * nx + ix] = new_val;
+                    }
+
+                    real residue = new_val - a[iy * nx + ix];
+                    local_l2_norm = residue * residue;
+                }
+            }
+
+            real *temp_pointer = a_new;
+            a = a_new;
+            a_new = temp_pointer;
+
+            i++;
+            grid.sync();
+        }
+    }
 }  // namespace SingleGPUNaive
-
-bool get_arg(char** begin, char** end, const std::string& arg) {
-    char** itr = std::find(begin, end, arg);
-    if (itr != end) {
-        return true;
-    }
-    return false;
-}
 
 struct l2_norm_buf {
     cudaEvent_t copy_done;
-    real* d;
-    real* h;
+    real *d;
+    real *h;
 };
 
-int SingleGPUNaive::init(int argc, char* argv[]) {
+int SingleGPUNaive::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nccheck = get_argval<int>(argv, argv + argc, "-nccheck", 1);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
@@ -120,8 +113,8 @@ int SingleGPUNaive::init(int argc, char* argv[]) {
         return -1;
     }
 
-    real* a;
-    real* a_new;
+    real *a;
+    real *a_new;
 
     cudaStream_t compute_stream;
     cudaStream_t copy_l2_norm_stream;
@@ -169,9 +162,9 @@ int SingleGPUNaive::init(int argc, char* argv[]) {
 
     if (!csv)
         printf(
-            "Jacobi relaxation: %d iterations on %d x %d mesh with norm check "
-            "every %d iterations\n",
-            iter_max, ny, nx, nccheck);
+                "Jacobi relaxation: %d iterations on %d x %d mesh with norm check "
+                "every %d iterations\n",
+                iter_max, ny, nx, nccheck);
 
     constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 32;
@@ -187,14 +180,14 @@ int SingleGPUNaive::init(int argc, char* argv[]) {
     PUSH_RANGE("Jacobi solve", 0)
 
     bool l2_norm_greater_than_tol = true;
-    void* kernelArgs[] = {
-        (void*)&a_new,
-        (void*)&a,
-        //        (void *)&l2_norm_bufs[curr].d,
-        (void*)&iy_start,
-        (void*)&iy_end,
-        (void*)&nx,
-        (void*)&iter_max,
+    void *kernelArgs[] = {
+            (void *) &a_new,
+            (void *) &a,
+            //        (void *)&l2_norm_bufs[curr].d,
+            (void *) &iy_start,
+            (void *) &iy_end,
+            (void *) &nx,
+            (void *) &iter_max,
     };
 
     // This will pick the best possible CUDA capable device
@@ -210,17 +203,17 @@ int SingleGPUNaive::init(int argc, char* argv[]) {
     int numThreads = THREADS_PER_BLOCK;
 
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSm, SingleGPUNaive::jacobi_kernel, numThreads, 0));
+            &numBlocksPerSm, SingleGPUNaive::jacobi_kernel, numThreads, 0));
 
     // This is stupid
-    int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
-    int threads_each = (int)sqrt(THREADS_PER_BLOCK);
+    int blocks_each = (int) sqrt(numSms * numBlocksPerSm);
+    int threads_each = (int) sqrt(THREADS_PER_BLOCK);
     dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
 
     //   dim3 threads(2, 2);
     //   dim3 blocks(5, 5);
 
-    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)SingleGPUNaive::jacobi_kernel, dimGrid,
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) SingleGPUNaive::jacobi_kernel, dimGrid,
                                              dimBlock, kernelArgs, 0, nullptr));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());

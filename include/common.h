@@ -8,34 +8,41 @@
 
 typedef float real;
 
-typedef int (*initfunc_t)(int argc, char** argv);
+typedef int (*initfunc_t)(int argc, char **argv);
 
 constexpr int MAX_NUM_DEVICES{32};
 constexpr real tol = 1.0e-4;
 const real PI{static_cast<real>(2.0 * std::asin(1.0))};
 
-template <typename T>
-T get_argval(char** begin, char** end, const std::string& arg, const T default_val) {
+template<typename T>
+T get_argval(char **begin, char **end, const std::string &arg, const T default_val) {
     T argval = default_val;
-    char** itr = std::find(begin, end, arg);
+    char **itr = std::find(begin, end, arg);
     if (itr != end && ++itr != end) {
         std::istringstream inbuf(*itr);
         inbuf >> argval;
     }
     return argval;
 }
-__global__ void initialize_boundaries(real* __restrict__ const a_new, real* __restrict__ const a,
+
+bool get_arg(char **begin, char **end, const std::string &arg);
+
+__global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
                                       const real pi, const int offset, const int nx,
                                       const int my_ny, const int ny);
-__global__ void jacobi_kernel_single_gpu(real* __restrict__ const a_new,
-                                         const real* __restrict__ const a,
-                                         real* __restrict__ const l2_norm, const int iy_start,
+
+__global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
+                                         const real *__restrict__ const a,
+                                         real *__restrict__ const l2_norm, const int iy_start,
                                          const int iy_end, const int nx, const bool calculate_norm);
-double single_gpu(const int nx, const int ny, const int iter_max, real* const a_ref_h,
+
+double single_gpu(const int nx, const int ny, const int iter_max, real *const a_ref_h,
                   const int nccheck, const bool print);
-double single_gpu_persistent(const int nx, const int ny, const int iter_max, real* const a_ref_h,
+
+double single_gpu_persistent(const int nx, const int ny, const int iter_max, real *const a_ref_h,
                              const int nccheck, const bool print);
-void report_results(const int ny, const int nx, real* a_ref_h, real* a_h, const int num_devices,
+
+void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const int num_devices,
                     const double runtime_serial_non_persistent,
                     const double runtime_serial_persistent, const double start, const double stop);
 
