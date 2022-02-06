@@ -305,7 +305,7 @@ void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const 
 
     if (result_correct) {
         printf("Num GPUs: %d.\n", num_devices);
-        printf("Execution time: %8.4f s", (stop - start));
+        printf("Execution time: %8.4f s\n", (stop - start));
 
         if (compare_to_single_gpu) {
             printf(
