@@ -1,0 +1,140 @@
+Running Single Stream Multi Threaded
+
+Num GPUS: 1
+1000000 iterations on grid 256x256
+Execution time:   2.6472 s on run 1
+Execution time:   2.6272 s on run 2
+Execution time:   2.6271 s on run 3
+Execution time:   2.6272 s on run 4
+Execution time:   2.6270 s on run 5
+
+Num GPUS: 2
+1000000 iterations on grid 512x256
+Execution time:   3.0032 s on run 1
+Execution time:   2.9662 s on run 2
+Execution time:   2.9665 s on run 3
+Execution time:   2.9660 s on run 4
+Execution time:   2.9657 s on run 5
+
+Num GPUS: 4
+1000000 iterations on grid 512x512
+Execution time:   3.1035 s on run 1
+Execution time:   3.0852 s on run 2
+Execution time:   3.1052 s on run 3
+Execution time:   3.0939 s on run 4
+Execution time:   3.1059 s on run 5
+
+Num GPUS: 8
+1000000 iterations on grid 1024x512
+Execution time:   3.3123 s on run 1
+Execution time:   3.3133 s on run 2
+Execution time:   3.3147 s on run 3
+Execution time:   3.3167 s on run 4
+Execution time:   3.3151 s on run 5
+
+-------------------------------------
+Running Single Stream Multi Threaded 2TB
+
+Num GPUS: 1
+1000000 iterations on grid 256x256
+Execution time:   2.2894 s on run 1
+Execution time:   2.2655 s on run 2
+Execution time:   2.2659 s on run 3
+Execution time:   2.2655 s on run 4
+Execution time:   2.2658 s on run 5
+
+Num GPUS: 2
+1000000 iterations on grid 512x256
+Execution time:   2.4111 s on run 1
+Execution time:   2.3854 s on run 2
+Execution time:   2.3863 s on run 3
+Execution time:   2.3877 s on run 4
+Execution time:   2.3874 s on run 5
+
+Num GPUS: 4
+1000000 iterations on grid 512x512
+Execution time:   2.6138 s on run 1
+Execution time:   2.6174 s on run 2
+Execution time:   2.6081 s on run 3
+Execution time:   2.6038 s on run 4
+Execution time:   2.6151 s on run 5
+
+Num GPUS: 8
+1000000 iterations on grid 1024x512
+Execution time:   2.7898 s on run 1
+Execution time:   2.8008 s on run 2
+Execution time:   2.7850 s on run 3
+Execution time:   2.7867 s on run 4
+Execution time:   2.7873 s on run 5
+
+-------------------------------------
+Running Single Stream Single Threaded
+
+Num GPUS: 1
+1000000 iterations on grid 256x256
+Execution time:   2.6160 s on run 1
+Execution time:   2.6163 s on run 2
+Execution time:   2.6156 s on run 3
+Execution time:   2.6159 s on run 4
+Execution time:   2.6160 s on run 5
+
+Num GPUS: 2
+1000000 iterations on grid 512x256
+Execution time:   2.9728 s on run 1
+Execution time:   2.9531 s on run 2
+Execution time:   2.9530 s on run 3
+Execution time:   2.9530 s on run 4
+Execution time:   2.9532 s on run 5
+
+Num GPUS: 4
+1000000 iterations on grid 512x512
+Execution time:   3.0792 s on run 1
+Execution time:   3.0871 s on run 2
+Execution time:   3.0781 s on run 3
+Execution time:   3.0708 s on run 4
+Execution time:   3.0756 s on run 5
+
+Num GPUS: 8
+1000000 iterations on grid 1024x512
+Execution time:   3.2968 s on run 1
+Execution time:   3.2954 s on run 2
+Execution time:   3.2967 s on run 3
+Execution time:   3.2926 s on run 4
+Execution time:   3.3041 s on run 5
+
+-------------------------------------
+Running Single Stream Single Threaded 2TB
+
+Num GPUS: 1
+1000000 iterations on grid 256x256
+Execution time:   2.2661 s on run 1
+Execution time:   2.2662 s on run 2
+Execution time:   2.2659 s on run 3
+Execution time:   2.2661 s on run 4
+Execution time:   2.2655 s on run 5
+
+Num GPUS: 2
+1000000 iterations on grid 512x256
+Execution time:   2.4179 s on run 1
+Execution time:   2.3846 s on run 2
+Execution time:   2.3840 s on run 3
+Execution time:   2.3834 s on run 4
+Execution time:   2.3845 s on run 5
+
+Num GPUS: 4
+1000000 iterations on grid 512x512
+Execution time:   2.6089 s on run 1
+Execution time:   2.6189 s on run 2
+Execution time:   2.6150 s on run 3
+Execution time:   2.6160 s on run 4
+Execution time:   2.6141 s on run 5
+
+Num GPUS: 8
+1000000 iterations on grid 1024x512
+Execution time:   2.7999 s on run 1
+Execution time:   2.7954 s on run 2
+Execution time:   2.7913 s on run 3
+Execution time:   2.7872 s on run 4
+Execution time:   2.7951 s on run 5
+
+-------------------------------------
