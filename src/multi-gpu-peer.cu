@@ -44,11 +44,13 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
         iter++;
 
         // wait until 1
-        while (!*iteration_done) {}
-
         if (threadIdx.x == 0 && threadIdx.y == 0) {
+            while (!*iteration_done) {}
+
             *iteration_done = 0;
         }
+
+//        cg::sync(cta);
 
         grid.sync();
     }
@@ -61,23 +63,23 @@ __global__ void boundary_sync_kernel(
     const volatile int* local_is_bottom_neighbor_done_writing_to_me,
     volatile int* remote_am_done_writing_to_top_neighbor,
     volatile int* remote_am_done_writing_to_bottom_neighbor,
-    [[maybe_unused]] volatile int* iteration_done, const int dev_id) {
+    volatile int* iteration_done, const int dev_id) {
     unsigned int iy = threadIdx.y + iy_start;
     unsigned int ix = threadIdx.x + 1;
     unsigned int col = iy * blockDim.x + ix;
 
-    printf("0\n");
+    printf("ok\n");
 
     // wait until 0
-//    while(*iteration_done) {}
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        while (*iteration_done) {}
+    }
+
+    __syncthreads();
 
     if (col < nx) {
         // Wait until top GPU puts its bottom row as my top halo
         while (local_is_top_neighbor_done_writing_to_me[iter % 2] != iter) {
-        }
-
-        if (dev_id == 1) {
-            printf("1: %d\n", iter);
         }
 
         const real first_row_val =
@@ -86,16 +88,7 @@ __global__ void boundary_sync_kernel(
 
         a_new[iy_start * nx + col] = first_row_val;
 
-        if (dev_id == 1) {
-            printf("2: %d ", iter);
-            printf("%d\n", local_is_bottom_neighbor_done_writing_to_me[iter % 2]);
-        }
-
         while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
-        }
-
-        if (dev_id == 1) {
-            printf("3: %d\n", iter);
         }
 
         const real last_row_val =
@@ -115,7 +108,7 @@ __global__ void boundary_sync_kernel(
         remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
         remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
 
-//        *iteration_done = 1;
+        *iteration_done = 1;
     }
 }
 
