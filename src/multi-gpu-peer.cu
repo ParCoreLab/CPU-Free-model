@@ -45,15 +45,17 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
         // wait until 1
         if (threadIdx.x == 0 && threadIdx.y == 0) {
-            while (!*iteration_done) {}
-
-            *iteration_done = 0;
+//            while (iteration_done[iter % 2] != iter) {
+//            }
+            //
+            //            *iteration_done = 0;
         }
 
-//        cg::sync(cta);
+        //        cg::sync(cta);
 
         grid.sync();
     }
+}
 }
 
 __global__ void boundary_sync_kernel(
@@ -68,14 +70,13 @@ __global__ void boundary_sync_kernel(
     unsigned int ix = threadIdx.x + 1;
     unsigned int col = iy * blockDim.x + ix;
 
-    printf("ok\n");
-
-    // wait until 0
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
-        while (*iteration_done) {}
-    }
-
-    __syncthreads();
+//    // wait until 0
+//    if (threadIdx.x == 0 && threadIdx.y == 0) {
+//        printf("ok\n");
+////        while (iteration_done[0]) {}
+//    }
+//
+//    __syncthreads();
 
     if (col < nx) {
         // Wait until top GPU puts its bottom row as my top halo
@@ -108,8 +109,8 @@ __global__ void boundary_sync_kernel(
         remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
         remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
 
-        *iteration_done = 1;
-    }
+//        *iteration_done[1] = 1;
+//    }
 }
 
 }  // namespace MultiGPUPeer
@@ -172,6 +173,22 @@ int MultiGPUPeer::init(int argc, char** argv) {
     int chunk_size_high = chunk_size_low + 1;
 
     int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
+
+    int* flag[2];
+//    CUDA_RT_CALL(cudaMalloc(&flag[0], 1 * sizeof(int)));
+//    CUDA_RT_CALL(cudaMalloc(&flag[1], 1 * sizeof(int)))
+
+//    CUDA_RT_CALL(cudaMemset(&flag[0], 0, 1 * sizeof(int)));
+//    CUDA_RT_CALL(cudaMemset(&flag[1], 0, 1 * sizeof(int)));
+
+    CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
+    CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
+
+    CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
+    CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
+
+    CUDA_RT_CALL(cudaMemset(flag[0], 0, sizeof(int)));
+    CUDA_RT_CALL(cudaMemset(flag[1], 0, sizeof(int)));
 
 #pragma omp parallel num_threads(num_devices)
     {
@@ -238,10 +255,6 @@ int MultiGPUPeer::init(int argc, char** argv) {
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        int* flag;
-        CUDA_RT_CALL(cudaMalloc(&flag, 1 * sizeof(int)));
-        CUDA_RT_CALL(cudaMemset(flag, 0, 1 * sizeof(int)));
-
         void* kernelArgs[] = {(void*)&a_new[dev_id],
                               (void*)&a[dev_id],
                               (void*)&iy_start,
@@ -252,7 +265,7 @@ int MultiGPUPeer::init(int argc, char** argv) {
                               (void*)&a_new[bottom],
                               (void*)&iy_start_bottom,
                               (void*)&iter_max,
-                              (void*)&flag};
+                              (void*)&flag[0]};
 
         cudaStream_t inner_domain_stream;
         cudaStream_t boundary_sync_stream;
@@ -278,7 +291,7 @@ int MultiGPUPeer::init(int argc, char** argv) {
                 a_new[dev_id], a[dev_id], iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top],
                 a_new[bottom], iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
                 is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
-                is_top_done_computing_flags[bottom], flag, dev_id);
+                is_top_done_computing_flags[bottom], flag[1], dev_id);
 
             //            std::cout << dev_id << ": " << iter << std::endl;
 
