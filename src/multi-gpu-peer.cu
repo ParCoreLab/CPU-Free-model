@@ -273,19 +273,31 @@ int MultiGPUPeer::init(int argc, char** argv) {
         // Creating streams with priority
 //        CUDA_RT_CALL(cudaStreamCreateWithPriority(&inner_domain_stream, cudaStreamNonBlocking,
 //                                                  leastPriority));
-        CUDA_RT_CALL(cudaStreamCreateWithPriority(&boundary_sync_stream, cudaStreamNonBlocking,
-                                                  greatestPriority));
+//        CUDA_RT_CALL(cudaStreamCreateWithPriority(&boundary_sync_stream, cudaStreamNonBlocking,
+//                                                  greatestPriority));
+
+        CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
+        CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
 
 #pragma omp barrier
 
+        cudaEvent_t start_event;
+        cudaEvent_t stop_event;
+
+        CUDA_RT_CALL(cudaEventCreateWithFlags(&start_event, cudaEventDefault));
+        CUDA_RT_CALL(cudaEventCreateWithFlags(&stop_event, cudaEventDefault));
+
+        CUDA_RT_CALL(cudaEventRecord(start_event, 0));
+
         // Inner domain
-//        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)MultiGPUPeer::jacobi_kernel, dimGrid,
-//                                                 dimBlock, kernelArgs, 0, inner_domain_stream));
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)MultiGPUPeer::jacobi_kernel, dimGrid,
+                                                 dimBlock, kernelArgs, 0, inner_domain_stream));
+
+//        CUDA_RT_CALL(cudaGetLastError());
 
         for (int iter = 0; iter < iter_max; iter++) {
-            std::cout << "Trying to call boundary sync kernel" << std::endl;
             // Boundary
             boundary_sync_kernel<<<1, dimBlock, 0, boundary_sync_stream>>>(
                 a_new[dev_id], a[dev_id], iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top],
@@ -295,16 +307,24 @@ int MultiGPUPeer::init(int argc, char** argv) {
 
             //            std::cout << dev_id << ": " << iter << std::endl;
 
-            std::cout << "ok" << std::endl;
-
-            CUDA_RT_CALL(cudaGetLastError());
+//            CUDA_RT_CALL(cudaGetLastError());
             CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
+
+            std::cout << "Boundary done" << std::endl;
         }
 
-        //        std::cout << dev_id << std::endl;
+        std::cout << "All done" << std::endl;
+
+        CUDA_RT_CALL(cudaEventRecord(stop_event, 0));
+        CUDA_RT_CALL(cudaEventSynchronize(stop_event));
+
+        std::cout << "OK" << std::endl;
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
+
+        CUDA_RT_CALL(cudaEventDestroy(start_event));
+        CUDA_RT_CALL(cudaEventDestroy(stop_event));
     }
 
     return 0;
