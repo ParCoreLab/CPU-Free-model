@@ -35,26 +35,26 @@
 #include "../../include/common.h"
 
 namespace BaselineMultiThreadedCopy {
-    __global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
-    const int iy_start, const int iy_end, const int nx) {
+__global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
+                              const int iy_start, const int iy_end, const int nx) {
     int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
     // real local_l2_norm = 0.0;
 
     if (iy < iy_end && ix < (nx - 1)) {
-    const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-    a_new[iy * nx + ix] = new_val;
+        const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                     a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+        a_new[iy * nx + ix] = new_val;
+
+        // if (calculate_norm) {
+        //     real residue = new_val - a[iy * nx + ix];
+        //     local_l2_norm += residue * residue;
+        // }
+    }
 
     // if (calculate_norm) {
-    //     real residue = new_val - a[iy * nx + ix];
-    //     local_l2_norm += residue * residue;
+    //     atomicAdd(l2_norm, local_l2_norm);
     // }
-}
-
-// if (calculate_norm) {
-//     atomicAdd(l2_norm, local_l2_norm);
-// }
 }
 }  // namespace BaselineMultiThreadedCopy
 
@@ -127,7 +127,7 @@ int BaselineMultiThreadedCopy::init(int argc, char* argv[]) {
             iy_start_global = dev_id * chunk_size_low + 1;
         } else {
             iy_start_global =
-                    num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
+                num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
         }
 
         int iy_start = 1;
@@ -135,7 +135,7 @@ int BaselineMultiThreadedCopy::init(int argc, char* argv[]) {
 
         // Set diriclet boundary conditions on left and right boarder
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-                a, a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
+            a, a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -145,10 +145,10 @@ int BaselineMultiThreadedCopy::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaEventCreateWithFlags(&compute_done, cudaEventDisableTiming));
         CUDA_RT_CALL(cudaEventCreateWithFlags(push_top_done[0] + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(
-                cudaEventCreateWithFlags(push_bottom_done[0] + dev_id, cudaEventDisableTiming));
+            cudaEventCreateWithFlags(push_bottom_done[0] + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(cudaEventCreateWithFlags(push_top_done[1] + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(
-                cudaEventCreateWithFlags(push_bottom_done[1] + dev_id, cudaEventDisableTiming));
+            cudaEventCreateWithFlags(push_bottom_done[1] + dev_id, cudaEventDisableTiming));
 
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         int canAccessPeer = 0;
@@ -185,7 +185,7 @@ int BaselineMultiThreadedCopy::init(int argc, char* argv[]) {
             CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, push_bottom_done[(iter % 2)][top], 0));
 
             BaselineMultiThreadedCopy::
-            jacobi_kernel<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
+                jacobi_kernel<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
                     a_new[dev_id], a, iy_start, iy_end[dev_id], nx);
             CUDA_RT_CALL(cudaGetLastError());
             CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));
@@ -209,7 +209,7 @@ int BaselineMultiThreadedCopy::init(int argc, char* argv[]) {
                                          nx * sizeof(real), cudaMemcpyDeviceToDevice,
                                          push_bottom_stream));
             CUDA_RT_CALL(
-                    cudaEventRecord(push_bottom_done[((iter + 1) % 2)][dev_id], push_bottom_stream));
+                cudaEventRecord(push_bottom_done[((iter + 1) % 2)][dev_id], push_bottom_stream));
 // Need to wait for other threads as they are reading push_top_done and
 // push_bottom_done
 #pragma omp barrier
@@ -224,9 +224,9 @@ int BaselineMultiThreadedCopy::init(int argc, char* argv[]) {
 
         if (compare_to_single_gpu) {
             CUDA_RT_CALL(
-                    cudaMemcpy(a_h + iy_start_global * nx, a + nx,
-                               std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
-                               cudaMemcpyDeviceToHost));
+                cudaMemcpy(a_h + iy_start_global * nx, a + nx,
+                           std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
+                           cudaMemcpyDeviceToHost));
         }
 #pragma omp barrier
 
