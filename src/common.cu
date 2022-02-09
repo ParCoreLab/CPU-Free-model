@@ -284,8 +284,7 @@ double single_gpu_persistent(const int nx, const int ny, const int iter_max, rea
 }
 
 void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const int num_devices,
-                    const double runtime_serial_non_persistent,
-                    const double runtime_serial_persistent, const double start, const double stop,
+                    const double runtime_serial_non_persistent, const double start, const double stop,
                     const bool compare_to_single_gpu) {
     bool result_correct = true;
 
@@ -314,13 +313,6 @@ void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const 
                     ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
                     runtime_serial_non_persistent / (stop - start),
                     runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
-
-            // printf(
-            //     "Persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
-            //     "efficiency: %8.2f \n",
-            //     ny, nx, runtime_serial_persistent, num_devices, (stop - start),
-            //     runtime_serial_persistent / (stop - start),
-            //     runtime_serial_persistent / (num_devices * (stop - start)) * 100);
         }
     }
 }
