@@ -30,7 +30,7 @@ __global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const in
 
     int iter = 0;
 
-    while (iter < iter_max) {
+    while (iter < iter_max * 10000) {
         if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
             const real new_val = ZERO_TWENTY_FIVE * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                                      a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
