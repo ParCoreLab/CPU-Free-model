@@ -263,4 +263,6 @@ int BaselineMultiThreadedCopyOverlap::init(int argc, char* argv[]) {
             CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }
     }
+
+    return 0;
 }

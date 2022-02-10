@@ -228,7 +228,7 @@ int SSMultiThreaded::init(int argc, char *argv[]) {
 
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
-        constexpr int num_threads = 1024;
+//        constexpr int num_threads = 1024;
 
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
@@ -289,4 +289,6 @@ int SSMultiThreaded::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }
     }
+
+    return 0;
 }
