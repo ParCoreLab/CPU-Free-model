@@ -219,7 +219,7 @@ int SSSingleThreaded::init(int argc, char *argv[]) {
 
     constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 32;
-    constexpr int num_threads = 1024;
+//    constexpr int num_threads = 1024;
 
     // Assuming that all GPUs have same number of SMs
     // Should take minimum in future
@@ -284,4 +284,6 @@ int SSSingleThreaded::init(int argc, char *argv[]) {
 
     report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
                    start, stop, compare_to_single_gpu);
+
+    return 0;
 }

@@ -171,7 +171,7 @@ int BaselineMultiThreadedCopy::init(int argc, char* argv[]) {
                       (ny + (num_devices * dim_block_y) - 1) / (num_devices * dim_block_y), 1);
 
         int iter = 0;
-        bool calculate_norm = true;
+//        bool calculate_norm = true;
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 #pragma omp barrier
@@ -253,4 +253,6 @@ int BaselineMultiThreadedCopy::init(int argc, char* argv[]) {
             CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }
     }
+
+    return 0;
 }

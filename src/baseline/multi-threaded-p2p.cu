@@ -88,7 +88,6 @@ int BaselineMultiThreadedP2P::init(int argc, char* argv[]) {
 
     cudaEvent_t compute_done[2][MAX_NUM_DEVICES];
 
-    bool result_correct = true;
     bool p2p_works = true;
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
