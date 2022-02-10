@@ -24,22 +24,23 @@ for version_idx in ${!VERSIONS[@]}; do
     NY=${STARTING_NY}
 
     for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS*=2 )); do
-        echo "Num GPUS: ${NUM_GPUS}"
-        echo "${NUM_ITER} iterations on grid ${NX}x${NY}"
         export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_SETTING[${NUM_GPUS}]}
+
+        echo "Num GPUS: ${NUM_GPUS}"
+        echo -n "${NUM_ITER} iterations on grid ${NX}x${NY}"
 
         for (( i=1; i <= ${NUM_RUNS}; i++ )); do
             execution_time=$(${EXECUTABLE} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
-            echo "${execution_time} on run ${i}"
+            echo -n "${execution_time} on run ${i}"
         done
+
+        printf "\n\n"
 
         if [[ $NX -le $NY ]]; then
             NX=$((2*NX))
         else
             NY=$((2*NY))
         fi
-
-        echo ""
     done
 
     echo "-------------------------------------"
