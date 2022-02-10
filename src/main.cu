@@ -3,6 +3,7 @@
 #include "../include/baseline/multi-threaded-copy-overlap.cuh"
 #include "../include/baseline/multi-threaded-copy.cuh"
 #include "../include/baseline/multi-threaded-p2p.cuh"
+#include "../include/baseline/single-threaded-copy.cuh"
 
 #include "../include/common.h"
 #include "../include/multi-gpu-peer.cuh"
@@ -13,7 +14,7 @@
 #include "../include/single-stream/single-threaded.cuh"
 
 int main(int argc, char *argv[]) {
-    const std::array<std::pair<std::string, initfunc_t>, 9> versions{
+    const std::array<std::pair<std::string, initfunc_t>, 10> versions{
             std::make_pair("Single stream multi threaded (default)", SSMultiThreaded::init),
             std::make_pair("Single stream multi threaded (two thread blocks communicate)",
                            SSMultiThreadedTwoBlockComm::init),
@@ -25,7 +26,8 @@ int main(int argc, char *argv[]) {
             std::make_pair("Baseline Multi Threaded Copy", BaselineMultiThreadedCopy::init),
             std::make_pair("Baseline Multi Threaded Copy Overlap",
                            BaselineMultiThreadedCopyOverlap::init),
-            std::make_pair("Baseline Multi Threaded P2P", BaselineMultiThreadedP2P::init)};
+            std::make_pair("Baseline Multi Threaded P2P", BaselineMultiThreadedP2P::init),
+            std::make_pair("Baseline Single Threaded Copy", BaselineSingleThreadedCopy::init)};
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
 
