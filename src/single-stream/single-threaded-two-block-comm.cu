@@ -151,7 +151,6 @@ int SSSingleThreadedTwoBlockComm::init(int argc, char *argv[]) {
     real *a_h;
 
     double runtime_serial_non_persistent = 0.0;
-    double runtime_serial_persistent = 0.0;
 
     int *is_top_done_computing_flags[MAX_NUM_DEVICES];
     int *is_bottom_done_computing_flags[MAX_NUM_DEVICES];
@@ -169,9 +168,6 @@ int SSSingleThreadedTwoBlockComm::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
             runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
-            runtime_serial_persistent = 0;
-            // runtime_serial_persistent = single_gpu_persistent(nx, ny, iter_max, a_ref_h, 0,
-            // true);
         }
 
         // ny - 2 rows are distributed amongst `size` ranks in such a way
@@ -239,7 +235,7 @@ int SSSingleThreadedTwoBlockComm::init(int argc, char *argv[]) {
 
     constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 32;
-    constexpr int num_threads = 1024;
+//    constexpr int num_threads = 1024;
 
     // Assuming that all GPUs have same number of SMs
     // Should take minimum in future
@@ -303,5 +299,7 @@ int SSSingleThreadedTwoBlockComm::init(int argc, char *argv[]) {
     }
 
     report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
-                   runtime_serial_persistent, start, stop, compare_to_single_gpu);
+                   start, stop, compare_to_single_gpu);
+
+    return 0;
 }

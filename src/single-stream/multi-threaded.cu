@@ -130,7 +130,6 @@ int SSMultiThreaded::init(int argc, char *argv[]) {
     real *a_h;
 
     double runtime_serial_non_persistent = 0.0;
-    double runtime_serial_persistent = 0.0;
 
     int *is_top_done_computing_flags[MAX_NUM_DEVICES];
     int *is_bottom_done_computing_flags[MAX_NUM_DEVICES];
@@ -155,9 +154,6 @@ int SSMultiThreaded::init(int argc, char *argv[]) {
 
             // Passing 0 for nccheck for now
             runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
-            runtime_serial_persistent = 0;
-            // runtime_serial_persistent = single_gpu_persistent(nx, ny, iter_max, a_ref_h, 0,
-            // true);
         }
 
 #pragma omp barrier
@@ -232,7 +228,7 @@ int SSMultiThreaded::init(int argc, char *argv[]) {
 
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
-        constexpr int num_threads = 1024;
+//        constexpr int num_threads = 1024;
 
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
@@ -282,7 +278,7 @@ int SSMultiThreaded::init(int argc, char *argv[]) {
 #pragma omp master
         {
             report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
-                           runtime_serial_persistent, start, stop, compare_to_single_gpu);
+                           start, stop, compare_to_single_gpu);
         }
 
         CUDA_RT_CALL(cudaFree(a_new[dev_id]));
@@ -293,4 +289,6 @@ int SSMultiThreaded::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }
     }
+
+    return 0;
 }

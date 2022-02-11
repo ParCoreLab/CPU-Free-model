@@ -12,36 +12,35 @@
 
 #include "../include/common.h"
 #include "../include/multi-gpu-peer.cuh"
-#include "../include/single-gpu-naive.cuh"
 
 namespace cg = cooperative_groups;
 
 constexpr real ZERO_TWENTY_FIVE{0.25};
 
 namespace MultiGPUPeer {
-__global__ void jacobi_kernel(real* a_new, real* a, const int iy_start, const int iy_end,
-                              const int nx, real* a_new_top, const int top_iy, real* a_new_bottom,
-                              const int bottom_iy, const int iter_max, volatile int* iteration_done) {
-    cg::thread_block cta = cg::this_thread_block();
-    cg::grid_group grid = cg::this_grid();
+    __global__ void jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end,
+                                  const int nx, real *a_new_top, const int top_iy, real *a_new_bottom,
+                                  const int bottom_iy, const int iter_max, volatile int *iteration_done) {
+        cg::thread_block cta = cg::this_thread_block();
+        cg::grid_group grid = cg::this_grid();
 
-    unsigned int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
-    unsigned int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+        unsigned int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
+        unsigned int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
-    int iter = 0;
+        int iter = 0;
 
-    while (iter < iter_max * 10000) {
-        if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
-            const real new_val = ZERO_TWENTY_FIVE * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                                     a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-            a_new[iy * nx + ix] = new_val;
-        }
+        while (iter < iter_max) {
+            if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
+                const real new_val = ZERO_TWENTY_FIVE * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                                         a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                a_new[iy * nx + ix] = new_val;
+            }
 
-        real* temp_pointer_first = a_new;
-        a_new = a;
-        a = temp_pointer_first;
+            real *temp_pointer_first = a_new;
+            a_new = a;
+            a = temp_pointer_first;
 
-        iter++;
+            iter++;
 
         // wait until 1
         if (threadIdx.x == 0 && threadIdx.y == 0) {
@@ -83,31 +82,32 @@ __global__ void boundary_sync_kernel(
         while (local_is_top_neighbor_done_writing_to_me[iter % 2] != iter) {
         }
 
-        const real first_row_val =
-            ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
+        __syncthreads();
 
-        a_new[iy_start * nx + col] = first_row_val;
+        if (col < nx) {
+            // Wait until top GPU puts its bottom row as my top halo
+            while (local_is_top_neighbor_done_writing_to_me[iter % 2] != iter) {
+            }
 
-        while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
+            const real first_row_val =
+                    ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                                        a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
+
+            a_new[iy_start * nx + col] = first_row_val;
+
+            while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
+            }
+
+            const real last_row_val =
+                    ZERO_TWENTY_FIVE * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+                                        a[(iy_end - 2) * nx + col] + a[(iy_end) * nx + col]);
+
+            a_new[(iy_end - 1) * nx + col] = last_row_val;
+
+            // Communication
+            a_new_top[top_iy * nx + col] = first_row_val;
+            a_new_bottom[bottom_iy * nx + col] = last_row_val;
         }
-
-        const real last_row_val =
-            ZERO_TWENTY_FIVE * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
-
-        a_new[(iy_end - 1) * nx + col] = last_row_val;
-
-        // Communication
-        a_new_top[top_iy * nx + col] = first_row_val;
-        a_new_bottom[bottom_iy * nx + col] = last_row_val;
-    }
-
-    __syncthreads();
-
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
-        remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
-        remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
 
 //        *iteration_done[1] = 1;
 //    }
@@ -117,7 +117,7 @@ __global__ void boundary_sync_kernel(
 
 constexpr int THREADS_PER_BLOCK = 1024;
 
-int MultiGPUPeer::init(int argc, char** argv) {
+int MultiGPUPeer::init(int argc, char **argv) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nccheck = get_argval<int>(argv, argv + argc, "-nccheck", 1);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 256);
@@ -130,18 +130,18 @@ int MultiGPUPeer::init(int argc, char** argv) {
     }
 
     printf(
-        "Jacobi relaxation: %d iterations on %d x %d mesh with norm check "
-        "every %d iterations\n",
-        iter_max, ny, nx, nccheck);
+            "Jacobi relaxation: %d iterations on %d x %d mesh with norm check "
+            "every %d iterations\n",
+            iter_max, ny, nx, nccheck);
 
-    real* a[MAX_NUM_DEVICES];
-    real* a_new[MAX_NUM_DEVICES];
+    real *a[MAX_NUM_DEVICES];
+    real *a_new[MAX_NUM_DEVICES];
 
     int iy_start = 1;
     int iy_end[MAX_NUM_DEVICES];
 
-    int* is_top_done_computing_flags[MAX_NUM_DEVICES];
-    int* is_bottom_done_computing_flags[MAX_NUM_DEVICES];
+    int *is_top_done_computing_flags[MAX_NUM_DEVICES];
+    int *is_bottom_done_computing_flags[MAX_NUM_DEVICES];
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
@@ -156,11 +156,11 @@ int MultiGPUPeer::init(int argc, char** argv) {
     int numThreads = THREADS_PER_BLOCK;
 
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksPerSm, MultiGPUPeer::jacobi_kernel, numThreads, 0));
+            &numBlocksPerSm, MultiGPUPeer::jacobi_kernel, numThreads, 0));
 
     // This is stupid
-    int blocks_each = (int)sqrt(numSms * numBlocksPerSm);
-    int threads_each = (int)sqrt(THREADS_PER_BLOCK);
+    int blocks_each = (int) sqrt(numSms * numBlocksPerSm);
+    int threads_each = (int) sqrt(THREADS_PER_BLOCK);
     dim3 dimGrid(blocks_each, blocks_each), dimBlock(threads_each, threads_each);
 
     int leastPriority = 0;
@@ -241,7 +241,7 @@ int MultiGPUPeer::init(int argc, char** argv) {
             iy_start_global = dev_id * chunk_size_low + 1;
         } else {
             iy_start_global =
-                num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
+                    num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
         }
         int iy_end_global = iy_start_global + chunk_size - 1;  // My last index in the global array
 
@@ -250,7 +250,7 @@ int MultiGPUPeer::init(int argc, char** argv) {
 
         // Set dirichlet boundary conditions on left and right border
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
+                a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
