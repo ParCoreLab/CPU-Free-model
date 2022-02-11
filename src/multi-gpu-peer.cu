@@ -44,9 +44,9 @@ namespace MultiGPUPeer {
 
             // wait until 1
             if (threadIdx.x == 0 && threadIdx.y == 0) {
-                while (iteration_done[0] != 1) {}
+                while (!iteration_done[0]) {}
 
-                iteration_done[0] = 0;
+                iteration_done[1] = 1;
             }
 
             grid.sync();
@@ -68,7 +68,7 @@ __global__ void boundary_sync_kernel(
 
     // wait until 0
     if (threadIdx.x == 0 && threadIdx.y == 0) {
-        while (iteration_done[0] != 0) {}
+        while (!iteration_done[1]) {}
     }
 
     __syncthreads();
@@ -180,8 +180,8 @@ int MultiGPUPeer::init(int argc, char **argv) {
     CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
     CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
 
-    CUDA_RT_CALL(cudaMemset(flag[0], 0, sizeof(int)));
-    CUDA_RT_CALL(cudaMemset(flag[1], 0, sizeof(int)));
+    CUDA_RT_CALL(cudaMemset(flag[0], 1, sizeof(int)));
+    CUDA_RT_CALL(cudaMemset(flag[1], 1, sizeof(int)));
 
 #pragma omp parallel num_threads(num_devices)
     {
@@ -309,7 +309,7 @@ int MultiGPUPeer::init(int argc, char **argv) {
         std::cout << "All done" << std::endl;
 
         CUDA_RT_CALL(cudaEventRecord(stop_event, 0));
-        CUDA_RT_CALL(cudaEventSynchronize(stop_event));
+//        CUDA_RT_CALL(cudaEventSynchronize(stop_event));
 
         std::cout << "OK" << std::endl;
 
