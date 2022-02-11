@@ -42,19 +42,16 @@ namespace MultiGPUPeer {
 
             iter++;
 
-        // wait until 1
-        if (threadIdx.x == 0 && threadIdx.y == 0) {
-//            while (iteration_done[iter % 2] != iter) {
-//            }
-            //
-            //            *iteration_done = 0;
+            // wait until 1
+            if (threadIdx.x == 0 && threadIdx.y == 0) {
+                while (iteration_done[0] != 1) {}
+
+                iteration_done[0] = 0;
+            }
+
+            grid.sync();
         }
-
-        //        cg::sync(cta);
-
-        grid.sync();
     }
-}
 }
 
 __global__ void boundary_sync_kernel(
@@ -69,51 +66,47 @@ __global__ void boundary_sync_kernel(
     unsigned int ix = threadIdx.x + 1;
     unsigned int col = iy * blockDim.x + ix;
 
-//    // wait until 0
-//    if (threadIdx.x == 0 && threadIdx.y == 0) {
-//        printf("ok\n");
-////        while (iteration_done[0]) {}
-//    }
-//
-//    __syncthreads();
+    // wait until 0
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        while (iteration_done[0] != 0) {}
+    }
+
+    __syncthreads();
 
     if (col < nx) {
         // Wait until top GPU puts its bottom row as my top halo
         while (local_is_top_neighbor_done_writing_to_me[iter % 2] != iter) {
         }
 
-        __syncthreads();
+        const real first_row_val =
+            ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                                a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
 
-        if (col < nx) {
-            // Wait until top GPU puts its bottom row as my top halo
-            while (local_is_top_neighbor_done_writing_to_me[iter % 2] != iter) {
-            }
+        a_new[iy_start * nx + col] = first_row_val;
 
-            const real first_row_val =
-                    ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                        a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
-
-            a_new[iy_start * nx + col] = first_row_val;
-
-            while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
-            }
-
-            const real last_row_val =
-                    ZERO_TWENTY_FIVE * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                        a[(iy_end - 2) * nx + col] + a[(iy_end) * nx + col]);
-
-            a_new[(iy_end - 1) * nx + col] = last_row_val;
-
-            // Communication
-            a_new_top[top_iy * nx + col] = first_row_val;
-            a_new_bottom[bottom_iy * nx + col] = last_row_val;
+        while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
         }
 
-//        *iteration_done[1] = 1;
-//    }
-}
+        const real last_row_val =
+            ZERO_TWENTY_FIVE * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+                                a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
 
-}  // namespace MultiGPUPeer
+        a_new[(iy_end - 1) * nx + col] = last_row_val;
+
+        // Communication
+        a_new_top[top_iy * nx + col] = first_row_val;
+        a_new_bottom[bottom_iy * nx + col] = last_row_val;
+    }
+
+    __syncthreads();
+
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
+        remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
+
+        iteration_done[0] = 1;
+    }
+}
 
 constexpr int THREADS_PER_BLOCK = 1024;
 
@@ -303,7 +296,7 @@ int MultiGPUPeer::init(int argc, char **argv) {
                 a_new[dev_id], a[dev_id], iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top],
                 a_new[bottom], iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
                 is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
-                is_top_done_computing_flags[bottom], flag[1], dev_id);
+                is_top_done_computing_flags[bottom], flag[0], dev_id);
 
             //            std::cout << dev_id << ": " << iter << std::endl;
 
