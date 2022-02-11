@@ -42,5 +42,3 @@ for version_result in results_per_version:
             run_idx += 1
 
         min_execution_time = min(execution_times)
-
-        version_to_result_map
