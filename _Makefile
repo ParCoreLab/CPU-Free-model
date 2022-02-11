@@ -19,10 +19,18 @@ endif
 NVCC_FLAGS += -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=`command -v ${CC}`
 
 SRC=$(shell sh -c "find ./src/ -name '*.cu'")
+OUT=$(SRC:=.o)
+#OBJECTS := $(patsubst ./src/%.cu, obj/%.o, $(SRC))
+OBJECTS := $(addprefix obj/,$(SRC:.cu=.o))
 #HED=$(shell sh -c find . -name '*.*h')
 
-jacobi: $(SRC)
-	$(NVCC) $(NVCC_FLAGS) -I./include $(SRC) -o $@
+jacobi: $(OBJECTS)
+	echo $(OBJECTS)
+	$(NVCC) $(NVCC_FLAGS) -I./include -o $@ $^
+
+$(OBJECTS): obj/%.o: %.cu
+	mkdir -p $(@D)
+	$(NVCC) -dc $(NVCC_FLAGS) -I./include -o $@ $<
 
 run: jacobi
 	./jacobi
