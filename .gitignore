@@ -4,6 +4,7 @@
 *.o
 *.out
 
+jacobi
 2D_Stencil
 
 CMakeFiles/

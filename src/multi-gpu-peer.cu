@@ -44,74 +44,69 @@ namespace MultiGPUPeer {
 
             // wait until 1
             if (threadIdx.x == 0 && threadIdx.y == 0) {
-                while (!*iteration_done) {}
+                while (!iteration_done[0]) {}
 
-                *iteration_done = 0;
+                iteration_done[1] = 1;
             }
-
-//        cg::sync(cta);
 
             grid.sync();
         }
     }
+}
 
-    __global__ void boundary_sync_kernel(
-            real *a_new, const real *a, const int iy_start, const int iy_end, const int nx, real *a_new_top,
-            const int top_iy, real *a_new_bottom, const int bottom_iy, const int iter,
-            const volatile int *local_is_top_neighbor_done_writing_to_me,
-            const volatile int *local_is_bottom_neighbor_done_writing_to_me,
-            volatile int *remote_am_done_writing_to_top_neighbor,
-            volatile int *remote_am_done_writing_to_bottom_neighbor,
-            volatile int *iteration_done, const int dev_id) {
-        unsigned int iy = threadIdx.y + iy_start;
-        unsigned int ix = threadIdx.x + 1;
-        unsigned int col = iy * blockDim.x + ix;
+__global__ void boundary_sync_kernel(
+    real* a_new, const real* a, const int iy_start, const int iy_end, const int nx, real* a_new_top,
+    const int top_iy, real* a_new_bottom, const int bottom_iy, const int iter,
+    const volatile int* local_is_top_neighbor_done_writing_to_me,
+    const volatile int* local_is_bottom_neighbor_done_writing_to_me,
+    volatile int* remote_am_done_writing_to_top_neighbor,
+    volatile int* remote_am_done_writing_to_bottom_neighbor,
+    volatile int* iteration_done, const int dev_id) {
+    unsigned int iy = threadIdx.y + iy_start;
+    unsigned int ix = threadIdx.x + 1;
+    unsigned int col = iy * blockDim.x + ix;
 
-        printf("ok\n");
-
-        // wait until 0
-        if (threadIdx.x == 0 && threadIdx.y == 0) {
-            while (*iteration_done) {}
-        }
-
-        __syncthreads();
-
-        if (col < nx) {
-            // Wait until top GPU puts its bottom row as my top halo
-            while (local_is_top_neighbor_done_writing_to_me[iter % 2] != iter) {
-            }
-
-            const real first_row_val =
-                    ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                        a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
-
-            a_new[iy_start * nx + col] = first_row_val;
-
-            while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
-            }
-
-            const real last_row_val =
-                    ZERO_TWENTY_FIVE * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                        a[(iy_end - 2) * nx + col] + a[(iy_end) * nx + col]);
-
-            a_new[(iy_end - 1) * nx + col] = last_row_val;
-
-            // Communication
-            a_new_top[top_iy * nx + col] = first_row_val;
-            a_new_bottom[bottom_iy * nx + col] = last_row_val;
-        }
-
-        __syncthreads();
-
-        if (threadIdx.x == 0 && threadIdx.y == 0) {
-            remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
-            remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
-
-            *iteration_done = 1;
-        }
+    // wait until 0
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        while (!iteration_done[1]) {}
     }
 
-}  // namespace MultiGPUPeer
+    __syncthreads();
+
+    if (col < nx) {
+        // Wait until top GPU puts its bottom row as my top halo
+        while (local_is_top_neighbor_done_writing_to_me[iter % 2] != iter) {
+        }
+
+        const real first_row_val =
+            ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                                a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
+
+        a_new[iy_start * nx + col] = first_row_val;
+
+        while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
+        }
+
+        const real last_row_val =
+            ZERO_TWENTY_FIVE * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+                                a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
+
+        a_new[(iy_end - 1) * nx + col] = last_row_val;
+
+        // Communication
+        a_new_top[top_iy * nx + col] = first_row_val;
+        a_new_bottom[bottom_iy * nx + col] = last_row_val;
+    }
+
+    __syncthreads();
+
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
+        remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
+
+        iteration_done[0] = 1;
+    }
+}
 
 constexpr int THREADS_PER_BLOCK = 1024;
 
@@ -171,6 +166,22 @@ int MultiGPUPeer::init(int argc, char **argv) {
     int chunk_size_high = chunk_size_low + 1;
 
     int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
+
+    int* flag[2];
+//    CUDA_RT_CALL(cudaMalloc(&flag[0], 1 * sizeof(int)));
+//    CUDA_RT_CALL(cudaMalloc(&flag[1], 1 * sizeof(int)))
+
+//    CUDA_RT_CALL(cudaMemset(&flag[0], 0, 1 * sizeof(int)));
+//    CUDA_RT_CALL(cudaMemset(&flag[1], 0, 1 * sizeof(int)));
+
+    CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
+    CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
+
+    CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
+    CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
+
+    CUDA_RT_CALL(cudaMemset(flag[0], 1, sizeof(int)));
+    CUDA_RT_CALL(cudaMemset(flag[1], 1, sizeof(int)));
 
 #pragma omp parallel num_threads(num_devices)
     {
@@ -237,21 +248,17 @@ int MultiGPUPeer::init(int argc, char **argv) {
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        int *flag;
-        CUDA_RT_CALL(cudaMalloc(&flag, 1 * sizeof(int)));
-        CUDA_RT_CALL(cudaMemset(flag, 0, 1 * sizeof(int)));
-
-        void *kernelArgs[] = {(void *) &a_new[dev_id],
-                              (void *) &a[dev_id],
-                              (void *) &iy_start,
-                              (void *) &iy_end[dev_id],
-                              (void *) &nx,
-                              (void *) &a_new[top],
-                              (void *) &iy_end[top],
-                              (void *) &a_new[bottom],
-                              (void *) &iy_start_bottom,
-                              (void *) &iter_max,
-                              (void *) &flag};
+        void* kernelArgs[] = {(void*)&a_new[dev_id],
+                              (void*)&a[dev_id],
+                              (void*)&iy_start,
+                              (void*)&iy_end[dev_id],
+                              (void*)&nx,
+                              (void*)&a_new[top],
+                              (void*)&iy_end[top],
+                              (void*)&a_new[bottom],
+                              (void*)&iy_start_bottom,
+                              (void*)&iter_max,
+                              (void*)&flag[0]};
 
         cudaStream_t inner_domain_stream;
         cudaStream_t boundary_sync_stream;
@@ -259,38 +266,58 @@ int MultiGPUPeer::init(int argc, char **argv) {
         // Creating streams with priority
 //        CUDA_RT_CALL(cudaStreamCreateWithPriority(&inner_domain_stream, cudaStreamNonBlocking,
 //                                                  leastPriority));
-        CUDA_RT_CALL(cudaStreamCreateWithPriority(&boundary_sync_stream, cudaStreamNonBlocking,
-                                                  greatestPriority));
+//        CUDA_RT_CALL(cudaStreamCreateWithPriority(&boundary_sync_stream, cudaStreamNonBlocking,
+//                                                  greatestPriority));
+
+        CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
+        CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
 
 #pragma omp barrier
 
+        cudaEvent_t start_event;
+        cudaEvent_t stop_event;
+
+        CUDA_RT_CALL(cudaEventCreateWithFlags(&start_event, cudaEventDefault));
+        CUDA_RT_CALL(cudaEventCreateWithFlags(&stop_event, cudaEventDefault));
+
+        CUDA_RT_CALL(cudaEventRecord(start_event, 0));
+
         // Inner domain
-//        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)MultiGPUPeer::jacobi_kernel, dimGrid,
-//                                                 dimBlock, kernelArgs, 0, inner_domain_stream));
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)MultiGPUPeer::jacobi_kernel, dimGrid,
+                                                 dimBlock, kernelArgs, 0, inner_domain_stream));
+
+//        CUDA_RT_CALL(cudaGetLastError());
 
         for (int iter = 0; iter < iter_max; iter++) {
-            std::cout << "Trying to call boundary sync kernel" << std::endl;
             // Boundary
             boundary_sync_kernel<<<1, dimBlock, 0, boundary_sync_stream>>>(
-                    a_new[dev_id], a[dev_id], iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top],
-                    a_new[bottom], iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
-                    is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
-                    is_top_done_computing_flags[bottom], flag, dev_id);
+                a_new[dev_id], a[dev_id], iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top],
+                a_new[bottom], iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
+                is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
+                is_top_done_computing_flags[bottom], flag[0], dev_id);
 
             //            std::cout << dev_id << ": " << iter << std::endl;
 
-            std::cout << "ok" << std::endl;
-
-            CUDA_RT_CALL(cudaGetLastError());
+//            CUDA_RT_CALL(cudaGetLastError());
             CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
+
+            std::cout << "Boundary done" << std::endl;
         }
 
-        //        std::cout << dev_id << std::endl;
+        std::cout << "All done" << std::endl;
+
+        CUDA_RT_CALL(cudaEventRecord(stop_event, 0));
+//        CUDA_RT_CALL(cudaEventSynchronize(stop_event));
+
+        std::cout << "OK" << std::endl;
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
+
+        CUDA_RT_CALL(cudaEventDestroy(start_event));
+        CUDA_RT_CALL(cudaEventDestroy(stop_event));
     }
 
     return 0;
