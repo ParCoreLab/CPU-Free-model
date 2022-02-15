@@ -13,6 +13,8 @@ typedef int (*initfunc_t)(int argc, char **argv);
 constexpr int MAX_NUM_DEVICES{32};
 constexpr real tol = 1.0e-4;
 const real PI{static_cast<real>(2.0 * std::asin(1.0))};
+constexpr int MAX_NUM_ELEM_PER_GPU = 256 * 256;
+constexpr int TILE_SIZE = 256;
 
 template<typename T>
 T get_argval(char **begin, char **end, const std::string &arg, const T default_val) {
