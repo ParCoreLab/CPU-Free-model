@@ -42,11 +42,11 @@ namespace MultiGPUPeer {
 
             iter++;
 
-            // wait until 1
             if (threadIdx.x == 0 && threadIdx.y == 0) {
-                while (!iteration_done[0]) {}
-
-                iteration_done[1] = 1;
+                //                printf("Expected %d got %d\n", iter, iteration_done[0]);
+                while (iteration_done[0] != iter) {
+                }
+                iteration_done[1] = iter;
             }
 
             grid.sync();
@@ -67,9 +67,9 @@ __global__ void boundary_sync_kernel(
     unsigned int col = iy * blockDim.x + ix;
 
     // wait until 0
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
-        while (!iteration_done[1]) {}
-    }
+//    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        while (iteration_done[1] != iter) {}
+//    }
 
     __syncthreads();
 
@@ -104,7 +104,7 @@ __global__ void boundary_sync_kernel(
         remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
         remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
 
-        iteration_done[0] = 1;
+        iteration_done[0] = iter + 1;
     }
 }
 
