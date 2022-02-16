@@ -30,7 +30,7 @@ namespace SSMultiThreadedTwoBlockComm {
         unsigned int block_idx_x = blockIdx.x % grid_dim_x;
 
         unsigned int iy = block_idx_y * blockDim.y + threadIdx.y + iy_start;
-        unsigned int ix = block_idx_x * blockDim.x + threadIdx.x + 1;
+        unsigned int base_ix = block_idx_x * blockDim.x + threadIdx.x + 1;
 
         int iter = 0;
 
@@ -46,18 +46,18 @@ namespace SSMultiThreadedTwoBlockComm {
 
         while (iter < iter_max) {
             for (int tile_idx = 0; tile_idx < num_tiles; tile_idx++) {
+                unsigned int ix = base_ix + tile_idx * tile_nx - int(tile_idx != 0);
+
                 tile_start_nx = tile_idx * tile_nx;
                 tile_end_nx = tile_start_nx + tile_nx;
-
                 tile_start_nx += int(tile_idx == 0);
-                // ix = (tile_idx == 0) ? ix - 1 : ix;
 
                 cur_iter_tile_flag_idx = tile_idx + cur_iter_mod * num_tiles;
                 next_iter_tile_flag_idx = tile_idx + next_iter_mod * num_tiles;
 
                 //    One thread block does communication (and a bit of computation)
                 if (blockIdx.x == gridDim.x - 1) {
-                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
+                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_idx * tile_nx + 1;
 
                     if (col >= tile_start_nx && col <= (tile_end_nx - 1) && col < (nx - 1)) {
                         // Wait until top GPU puts its bottom row as my top halo
@@ -74,13 +74,13 @@ namespace SSMultiThreadedTwoBlockComm {
                         a_new_top[top_iy * nx + col] = first_row_val;
                     }
 
-                    // cg::sync(cta);
+                    cg::sync(cta);
 
                     if (threadIdx.x == 0 && threadIdx.y == 0) {
                         remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] = iter + 1;
                     }
                 } else if (blockIdx.x == gridDim.x - 2) {
-                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
+                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + +1;
 
                     if (col >= tile_start_nx && col <= (tile_end_nx - 1) && col < (nx - 1)) {
                         while (local_is_bottom_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
@@ -89,14 +89,14 @@ namespace SSMultiThreadedTwoBlockComm {
 
                         const real last_row_val =
                                 0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                        a[(iy_end - 2) * nx + col] + a[(iy_end) * nx + col]);
+                                        a[(iy_end - 2) * nx + col] + a[iy_end * nx + col]);
                         a_new[(iy_end - 1) * nx + col] = last_row_val;
 
                         //     // Communication
                         a_new_bottom[bottom_iy * nx + col] = last_row_val;
                     }
 
-                    // cg::sync(cta);
+                    cg::sync(cta);
 
                     if (threadIdx.x == 0 && threadIdx.y == 0) {
                         remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] = iter + 1;
@@ -257,10 +257,6 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
         int numSms = deviceProp.multiProcessorCount;
-
-        int maxActiveBlocks;
-        cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-                &maxActiveBlocks, SSMultiThreadedTwoBlockComm::jacobi_kernel, 1024, 0);
 
         dim3 dim_grid(numSms, 1, 1);
         dim3 dim_block(dim_block_x, dim_block_y);
