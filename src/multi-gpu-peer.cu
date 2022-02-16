@@ -167,22 +167,6 @@ int MultiGPUPeer::init(int argc, char **argv) {
 
     int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
 
-    int* flag[2];
-//    CUDA_RT_CALL(cudaMalloc(&flag[0], 1 * sizeof(int)));
-//    CUDA_RT_CALL(cudaMalloc(&flag[1], 1 * sizeof(int)))
-
-//    CUDA_RT_CALL(cudaMemset(&flag[0], 0, 1 * sizeof(int)));
-//    CUDA_RT_CALL(cudaMemset(&flag[1], 0, 1 * sizeof(int)));
-
-    CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
-    CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
-
-    CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
-    CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
-
-    CUDA_RT_CALL(cudaMemset(flag[0], 1, sizeof(int)));
-    CUDA_RT_CALL(cudaMemset(flag[1], 1, sizeof(int)));
-
 #pragma omp parallel num_threads(num_devices)
     {
         const int dev_id = omp_get_thread_num();
@@ -215,6 +199,22 @@ int MultiGPUPeer::init(int argc, char **argv) {
         const int bottom = (dev_id + 1) % num_devices;
 
 #pragma omp barrier
+
+        int* flag[2];
+        //    CUDA_RT_CALL(cudaMalloc(&flag[0], 1 * sizeof(int)));
+        //    CUDA_RT_CALL(cudaMalloc(&flag[1], 1 * sizeof(int)))
+
+        //    CUDA_RT_CALL(cudaMemset(&flag[0], 0, 1 * sizeof(int)));
+        //    CUDA_RT_CALL(cudaMemset(&flag[1], 0, 1 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMemset(flag[0], 0, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(flag[1], 0, 2 * sizeof(int)));
 
         CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + 2) * sizeof(real)));
