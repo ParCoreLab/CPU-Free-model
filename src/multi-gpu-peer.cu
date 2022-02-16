@@ -301,19 +301,19 @@ int MultiGPUPeer::init(int argc, char **argv) {
             //            std::cout << dev_id << ": " << iter << std::endl;
 
 //            CUDA_RT_CALL(cudaGetLastError());
-            CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
+//            CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
 
-            std::cout << "Boundary done" << std::endl;
+//            std::cout << "Boundary done" << std::endl;
         }
 
-        std::cout << "All done" << std::endl;
+//        std::cout << "All done" << std::endl;
 
-        CUDA_RT_CALL(cudaEventRecord(stop_event, 0));
+//        CUDA_RT_CALL(cudaEventRecord(stop_event, 0));
 //        CUDA_RT_CALL(cudaEventSynchronize(stop_event));
 
         std::cout << "OK" << std::endl;
 
-        CUDA_RT_CALL(cudaGetLastError());
+//        CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
 
         CUDA_RT_CALL(cudaEventDestroy(start_event));
