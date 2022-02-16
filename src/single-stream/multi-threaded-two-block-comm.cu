@@ -14,14 +14,14 @@
 namespace cg = cooperative_groups;
 
 namespace SSMultiThreadedTwoBlockComm {
-    __global__ void jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end,
-                                  const int nx, const int tile_nx, const int num_tiles, real *a_new_top,
-                                  real *a_top, const int top_iy, real *a_new_bottom, real *a_bottom,
-                                  const int bottom_iy, const int iter_max,
-                                  volatile int *local_is_top_neighbor_done_writing_to_me,
-                                  volatile int *local_is_bottom_neighbor_done_writing_to_me,
-                                  volatile int *remote_am_done_writing_to_top_neighbor,
-                                  volatile int *remote_am_done_writing_to_bottom_neighbor) {
+    __global__ void __launch_bounds__(1024, 1)
+    jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
+                  const int tile_nx, const int num_tiles, real *a_new_top, real *a_top,
+                  const int top_iy, real *a_new_bottom, real *a_bottom, const int bottom_iy,
+                  const int iter_max, volatile int *local_is_top_neighbor_done_writing_to_me,
+                  volatile int *local_is_bottom_neighbor_done_writing_to_me,
+                  volatile int *remote_am_done_writing_to_top_neighbor,
+                  volatile int *remote_am_done_writing_to_bottom_neighbor) {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
