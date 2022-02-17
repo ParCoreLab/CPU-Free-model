@@ -25,7 +25,7 @@ namespace SSMultiThreadedTwoBlockComm {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        unsigned int grid_dim_x = (nx + blockDim.x - 1) / blockDim.x;
+        unsigned int grid_dim_x = (tile_nx + blockDim.x - 1) / blockDim.x;
         unsigned int block_idx_y = blockIdx.x / grid_dim_x;
         unsigned int block_idx_x = blockIdx.x % grid_dim_x;
 
@@ -46,20 +46,22 @@ namespace SSMultiThreadedTwoBlockComm {
 
         while (iter < iter_max) {
             for (int tile_idx = 0; tile_idx < num_tiles; tile_idx++) {
-                unsigned int ix = base_ix + tile_idx * tile_nx - int(tile_idx != 0);
+                unsigned int ix = base_ix + tile_idx * tile_nx;
 
                 tile_start_nx = tile_idx * tile_nx;
                 tile_end_nx = tile_start_nx + tile_nx;
+
                 tile_start_nx += int(tile_idx == 0);
+                tile_end_nx -= int(tile_idx == num_tiles - 1);
 
                 cur_iter_tile_flag_idx = tile_idx + cur_iter_mod * num_tiles;
                 next_iter_tile_flag_idx = tile_idx + next_iter_mod * num_tiles;
 
                 //    One thread block does communication (and a bit of computation)
                 if (blockIdx.x == gridDim.x - 1) {
-                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_idx * tile_nx + 1;
+                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
 
-                    if (col >= tile_start_nx && col <= (tile_end_nx - 1) && col < (nx - 1)) {
+                    if (col >= tile_start_nx && col <= (tile_end_nx - 1)) {
                         // Wait until top GPU puts its bottom row as my top halo
                         while (local_is_top_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
                                iter) {
@@ -80,9 +82,9 @@ namespace SSMultiThreadedTwoBlockComm {
                         remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] = iter + 1;
                     }
                 } else if (blockIdx.x == gridDim.x - 2) {
-                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + +1;
+                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
 
-                    if (col >= tile_start_nx && col <= (tile_end_nx - 1) && col < (nx - 1)) {
+                    if (col >= tile_start_nx && col <= (tile_end_nx - 1)) {
                         while (local_is_bottom_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
                                iter) {
                         }
@@ -102,7 +104,7 @@ namespace SSMultiThreadedTwoBlockComm {
                         remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] = iter + 1;
                     }
                 } else if (iy > iy_start && iy < (iy_end - 1) && ix >= tile_start_nx &&
-                           ix <= (tile_end_nx - 1) && ix < (nx - 1)) {
+                           ix <= (tile_end_nx - 1)) {
                     const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                                  a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
                     a_new[iy * nx + ix] = new_val;
