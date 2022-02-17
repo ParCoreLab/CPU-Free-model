@@ -122,20 +122,23 @@ int MultiGPUPeer::init(int argc, char **argv) {
     const int nccheck = get_argval<int>(argv, argv + argc, "-nccheck", 1);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 256);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 256);
-    //    const bool csv = get_arg(argv, argv + argc, "-csv");
-
-    if (nccheck != 1) {
-        fprintf(stderr, "Only nccheck = 1 is supported\n");
-        return -1;
-    }
-
-    printf(
-            "Jacobi relaxation: %d iterations on %d x %d mesh with norm check "
-            "every %d iterations\n",
-            iter_max, ny, nx, nccheck);
+    const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
     real *a[MAX_NUM_DEVICES];
     real *a_new[MAX_NUM_DEVICES];
+
+    // Host stuff
+    real *a_ref_h;
+    real *a_h;
+
+    double runtime_serial_non_persistent = 0.0;
+
+    if (compare_to_single_gpu) {
+        CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
+        CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
+
+        runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
+    }
 
     int iy_start = 1;
     int iy_end[MAX_NUM_DEVICES];
@@ -304,6 +307,10 @@ int MultiGPUPeer::init(int argc, char **argv) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
 
 #pragma omp barrier
+
+#pragma omp barrier
+        double start = omp_get_wtime();
+
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeer::jacobi_kernel, dimGrid,
                                                  dimBlock, kernelArgs, 0, inner_domain_stream));
@@ -328,9 +335,33 @@ int MultiGPUPeer::init(int argc, char **argv) {
             std::swap(a_bottom, a_new_bottom);
         }
 
-        std::cout << "OK" << std::endl;
+        CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
+#pragma omp barrier
+        double stop = omp_get_wtime();
+
+        if (compare_to_single_gpu) {
+            CUDA_RT_CALL(
+                cudaMemcpy(a_h + iy_start_global * nx, a[dev_id] + nx,
+                           std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
+                           cudaMemcpyDeviceToHost));
+        }
+
+#pragma omp barrier
+
+#pragma omp master
+        {
+            report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start,
+                           stop, compare_to_single_gpu);
+        };
+
+        CUDA_RT_CALL(cudaFree(a_new[dev_id]));
+        CUDA_RT_CALL(cudaFree(a[dev_id]));
+
+        if (compare_to_single_gpu && dev_id == 0) {
+            CUDA_RT_CALL(cudaFreeHost(a_h));
+            CUDA_RT_CALL(cudaFreeHost(a_ref_h));
+        }
     }
 
     return 0;
