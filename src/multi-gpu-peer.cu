@@ -307,14 +307,18 @@ int MultiGPUPeer::init(int argc, char **argv) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
 
 #pragma omp barrier
+<<<<<<< HEAD
 
 #pragma omp barrier
         double start = omp_get_wtime();
 
+=======
+>>>>>>> 69c61a14adbc17648bdc123bde7749678d215c69
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeer::jacobi_kernel, dimGrid,
                                                  dimBlock, kernelArgs, 0, inner_domain_stream));
 
+<<<<<<< HEAD
         auto& a_ref = a[dev_id];
         auto& a_new_ref = a_new[dev_id];
         auto& a_top = a[top];
@@ -322,6 +326,8 @@ int MultiGPUPeer::init(int argc, char **argv) {
         auto& a_bottom = a[bottom];
         auto& a_new_bottom = a_new[bottom];
 
+=======
+>>>>>>> 69c61a14adbc17648bdc123bde7749678d215c69
         for (int iter = 0; iter < iter_max; iter++) {
             // Boundary
             boundary_sync_kernel<<<1, dimBlock, 0, boundary_sync_stream>>>(
@@ -330,6 +336,7 @@ int MultiGPUPeer::init(int argc, char **argv) {
                 is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
                 is_top_done_computing_flags[bottom], flag[0], dev_id);
 
+<<<<<<< HEAD
             std::swap(a_ref, a_new_ref);
             std::swap(a_top, a_new_top);
             std::swap(a_bottom, a_new_bottom);
@@ -362,6 +369,14 @@ int MultiGPUPeer::init(int argc, char **argv) {
             CUDA_RT_CALL(cudaFreeHost(a_h));
             CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }
+=======
+//            std::cout << "Boundary done" << std::endl;
+        }
+
+        std::cout << "OK" << std::endl;
+
+        CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
+>>>>>>> 69c61a14adbc17648bdc123bde7749678d215c69
     }
 
     return 0;
