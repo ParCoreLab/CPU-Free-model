@@ -275,20 +275,9 @@ int MultiGPUPeer::init(int argc, char **argv) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
 
 #pragma omp barrier
-
-        cudaEvent_t start_event;
-        cudaEvent_t stop_event;
-
-        CUDA_RT_CALL(cudaEventCreateWithFlags(&start_event, cudaEventDefault));
-        CUDA_RT_CALL(cudaEventCreateWithFlags(&stop_event, cudaEventDefault));
-
-        CUDA_RT_CALL(cudaEventRecord(start_event, 0));
-
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)MultiGPUPeer::jacobi_kernel, dimGrid,
                                                  dimBlock, kernelArgs, 0, inner_domain_stream));
-
-//        CUDA_RT_CALL(cudaGetLastError());
 
         for (int iter = 0; iter < iter_max; iter++) {
             // Boundary
@@ -298,26 +287,12 @@ int MultiGPUPeer::init(int argc, char **argv) {
                 is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
                 is_top_done_computing_flags[bottom], flag[0], dev_id);
 
-            //            std::cout << dev_id << ": " << iter << std::endl;
-
-//            CUDA_RT_CALL(cudaGetLastError());
-//            CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
-
 //            std::cout << "Boundary done" << std::endl;
         }
 
-//        std::cout << "All done" << std::endl;
-
-//        CUDA_RT_CALL(cudaEventRecord(stop_event, 0));
-//        CUDA_RT_CALL(cudaEventSynchronize(stop_event));
-
         std::cout << "OK" << std::endl;
 
-//        CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
-
-        CUDA_RT_CALL(cudaEventDestroy(start_event));
-        CUDA_RT_CALL(cudaEventDestroy(stop_event));
     }
 
     return 0;
