@@ -66,9 +66,9 @@ __global__ void boundary_sync_kernel(
     unsigned int col = iy * blockDim.x + ix;
 
     // wait until 0
-//    if (threadIdx.x == 0 && threadIdx.y == 0) {
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
         while (iteration_done[1] != iter) {}
-//    }
+    }
 
     __syncthreads();
 
