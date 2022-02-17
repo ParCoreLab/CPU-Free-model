@@ -207,7 +207,7 @@ int MultiGPUPeer::init(int argc, char **argv) {
 
 #pragma omp barrier
 
-        int* flag[2];
+        int *flag[2];
         //    CUDA_RT_CALL(cudaMalloc(&flag[0], 1 * sizeof(int)));
         //    CUDA_RT_CALL(cudaMalloc(&flag[1], 1 * sizeof(int)))
 
@@ -241,7 +241,7 @@ int MultiGPUPeer::init(int argc, char **argv) {
             iy_start_global = dev_id * chunk_size_low + 1;
         } else {
             iy_start_global =
-                    num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
+                num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
         }
         int iy_end_global = iy_start_global + chunk_size - 1;  // My last index in the global array
 
@@ -250,31 +250,53 @@ int MultiGPUPeer::init(int argc, char **argv) {
 
         // Set dirichlet boundary conditions on left and right border
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-                a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
+            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
 
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        void* kernelArgs[] = {(void*)&a_new[dev_id],
-                              (void*)&a[dev_id],
-                              (void*)&iy_start,
-                              (void*)&iy_end[dev_id],
-                              (void*)&nx,
-                              (void*)&a_new[top],
-                              (void*)&iy_end[top],
-                              (void*)&a_new[bottom],
-                              (void*)&iy_start_bottom,
-                              (void*)&iter_max,
-                              (void*)&flag[0]};
+        void *kernelArgs[] = {(void *)&a_new[dev_id],
+                              (void *)&a[dev_id],
+                              (void *)&iy_start,
+                              (void *)&iy_end[dev_id],
+                              (void *)&nx,
+                              (void *)&a_new[top],
+                              (void *)&a[top],
+                              (void *)&iy_end[top],
+                              (void *)&a_new[bottom],
+                              (void *)&a[bottom],
+                              (void *)&iy_start_bottom,
+                              (void *)&iter_max,
+                              (void *)&flag[0]};
+
+//        void *kernelArgsBoundary[] = {(void *)&a_new[dev_id],
+//                                      (void *)&a[dev_id],
+//                                      (void *)&iy_start,
+//                                      (void *)&iy_end[dev_id],
+//                                      (void *)&nx,
+//                                      (void *)&a_new[top],
+//                                      (void *)&a[top],
+//                                      (void *)&iy_end[top],
+//                                      (void *)&a_new[bottom],
+//                                      (void *)&a[bottom],
+//                                      (void *)&iy_start_bottom,
+//                                      (void *)&iter_max,
+//                                      (void *)&is_top_done_computing_flags[dev_id],
+//                                      (void *)&is_bottom_done_computing_flags[dev_id],
+//                                      (void *)&is_bottom_done_computing_flags[top],
+//                                      (void *)&is_top_done_computing_flags[bottom],
+//                                      (void *)&flag[0],
+//                                      (void *)&dev_id
+//        };
 
         cudaStream_t inner_domain_stream;
         cudaStream_t boundary_sync_stream;
 
         // Creating streams with priority
-//        CUDA_RT_CALL(cudaStreamCreateWithPriority(&inner_domain_stream, cudaStreamNonBlocking,
-//                                                  leastPriority));
-//        CUDA_RT_CALL(cudaStreamCreateWithPriority(&boundary_sync_stream, cudaStreamNonBlocking,
-//                                                  greatestPriority));
+        //        CUDA_RT_CALL(cudaStreamCreateWithPriority(&inner_domain_stream, cudaStreamNonBlocking,
+        //                                                  leastPriority));
+        //        CUDA_RT_CALL(cudaStreamCreateWithPriority(&boundary_sync_stream, cudaStreamNonBlocking,
+        //                                                  greatestPriority));
 
         CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
         CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
@@ -283,18 +305,27 @@ int MultiGPUPeer::init(int argc, char **argv) {
 
 #pragma omp barrier
         // Inner domain
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)MultiGPUPeer::jacobi_kernel, dimGrid,
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeer::jacobi_kernel, dimGrid,
                                                  dimBlock, kernelArgs, 0, inner_domain_stream));
+
+        auto& a_ref = a[dev_id];
+        auto& a_new_ref = a_new[dev_id];
+        auto& a_top = a[top];
+        auto& a_new_top = a_new[top];
+        auto& a_bottom = a[bottom];
+        auto& a_new_bottom = a_new[bottom];
 
         for (int iter = 0; iter < iter_max; iter++) {
             // Boundary
             boundary_sync_kernel<<<1, dimBlock, 0, boundary_sync_stream>>>(
-                a_new[dev_id], a[dev_id], iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top],
-                a_new[bottom], iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
+                a_new_ref, a_ref, iy_start, iy_end[dev_id], nx, a_new_top, a_top, iy_end[top],
+                a_new_bottom, a_bottom, iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
                 is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
                 is_top_done_computing_flags[bottom], flag[0], dev_id);
 
-//            std::cout << "Boundary done" << std::endl;
+            std::swap(a_ref, a_new_ref);
+            std::swap(a_top, a_new_top);
+            std::swap(a_bottom, a_new_bottom);
         }
 
         std::cout << "OK" << std::endl;
