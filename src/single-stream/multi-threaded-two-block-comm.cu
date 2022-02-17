@@ -59,9 +59,9 @@ namespace SSMultiThreadedTwoBlockComm {
 
                 //    One thread block does communication (and a bit of computation)
                 if (blockIdx.x == gridDim.x - 1) {
-                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
+                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
 
-                    if (col >= tile_start_nx && col <= (tile_end_nx - 1)) {
+                    if (col <= (tile_end_nx - 1)) {
                         // Wait until top GPU puts its bottom row as my top halo
                         while (local_is_top_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
                                iter) {
@@ -82,9 +82,9 @@ namespace SSMultiThreadedTwoBlockComm {
                         remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] = iter + 1;
                     }
                 } else if (blockIdx.x == gridDim.x - 2) {
-                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
+                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
 
-                    if (col >= tile_start_nx && col <= (tile_end_nx - 1)) {
+                    if (col <= (tile_end_nx - 1)) {
                         while (local_is_bottom_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
                                iter) {
                         }
