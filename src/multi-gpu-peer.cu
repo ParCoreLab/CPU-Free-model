@@ -18,9 +18,10 @@ namespace cg = cooperative_groups;
 constexpr real ZERO_TWENTY_FIVE{0.25};
 
 namespace MultiGPUPeer {
-    __global__ void jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end,
-                                  const int nx, real *a_new_top, const int top_iy, real *a_new_bottom,
-                                  const int bottom_iy, const int iter_max, volatile int *iteration_done) {
+    __global__ void __launch_bounds__(1024, 1) jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end,
+                                const int nx, real *a_new_top, real *a_top, const int top_iy,
+                                real *a_new_bottom, real *a_bottom, const int bottom_iy,
+                                const int iter_max, volatile int *iteration_done) {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
@@ -40,6 +41,14 @@ namespace MultiGPUPeer {
             a_new = a;
             a = temp_pointer_first;
 
+            real *temp_pointer_second = a_new_top;
+            a_new_top = a_top;
+            a_top = temp_pointer_second;
+
+            real *temp_pointer_third = a_new_bottom;
+            a_new_bottom = a_bottom;
+            a_bottom = temp_pointer_third;
+
             iter++;
 
             if (threadIdx.x == 0 && threadIdx.y == 0) {
@@ -48,14 +57,16 @@ namespace MultiGPUPeer {
                 iteration_done[1] = iter;
             }
 
-            grid.sync();
+            cg::sync(grid);
         }
     }
 }
 
-__global__ void boundary_sync_kernel(
-    real* a_new, const real* a, const int iy_start, const int iy_end, const int nx, real* a_new_top,
-    const int top_iy, real* a_new_bottom, const int bottom_iy, const int iter,
+__global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
+    real* a_new, real* a, const int iy_start, const int iy_end,
+    const int nx, real* a_new_top, real *a_top, const int top_iy,
+    real *a_new_bottom, real *a_bottom, const int bottom_iy,
+    const int iter,
     const volatile int* local_is_top_neighbor_done_writing_to_me,
     const volatile int* local_is_bottom_neighbor_done_writing_to_me,
     volatile int* remote_am_done_writing_to_top_neighbor,
@@ -65,14 +76,15 @@ __global__ void boundary_sync_kernel(
     unsigned int ix = threadIdx.x + 1;
     unsigned int col = iy * blockDim.x + ix;
 
-    // wait until 0
+    cg::thread_block cta = cg::this_thread_block();
+    cg::grid_group grid = cg::this_grid();
+
     if (threadIdx.x == 0 && threadIdx.y == 0) {
-        while (iteration_done[1] != iter) {}
+        while (iteration_done[1] != iter) {
+        }
     }
 
-    __syncthreads();
-
-    if (col < nx) {
+    if (col < nx - 1) {
         // Wait until top GPU puts its bottom row as my top halo
         while (local_is_top_neighbor_done_writing_to_me[iter % 2] != iter) {
         }
@@ -96,8 +108,6 @@ __global__ void boundary_sync_kernel(
         a_new_top[top_iy * nx + col] = first_row_val;
         a_new_bottom[bottom_iy * nx + col] = last_row_val;
     }
-
-    __syncthreads();
 
     if (threadIdx.x == 0 && threadIdx.y == 0) {
         remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
