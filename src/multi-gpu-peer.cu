@@ -42,11 +42,11 @@ namespace MultiGPUPeer {
 
             iter++;
 
-            // wait until 1
             if (threadIdx.x == 0 && threadIdx.y == 0) {
-                while (!iteration_done[0]) {}
-
-                iteration_done[1] = 1;
+                //                printf("Expected %d got %d\n", iter, iteration_done[0]);
+                while (iteration_done[0] != iter) {
+                }
+                iteration_done[1] = iter;
             }
 
             grid.sync();
@@ -67,9 +67,9 @@ __global__ void boundary_sync_kernel(
     unsigned int col = iy * blockDim.x + ix;
 
     // wait until 0
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
-        while (!iteration_done[1]) {}
-    }
+//    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        while (iteration_done[1] != iter) {}
+//    }
 
     __syncthreads();
 
@@ -104,7 +104,7 @@ __global__ void boundary_sync_kernel(
         remote_am_done_writing_to_top_neighbor[(iter + 1) % 2] = iter + 1;
         remote_am_done_writing_to_bottom_neighbor[(iter + 1) % 2] = iter + 1;
 
-        iteration_done[0] = 1;
+        iteration_done[0] = iter + 1;
     }
 }
 
@@ -167,22 +167,6 @@ int MultiGPUPeer::init(int argc, char **argv) {
 
     int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
 
-    int* flag[2];
-//    CUDA_RT_CALL(cudaMalloc(&flag[0], 1 * sizeof(int)));
-//    CUDA_RT_CALL(cudaMalloc(&flag[1], 1 * sizeof(int)))
-
-//    CUDA_RT_CALL(cudaMemset(&flag[0], 0, 1 * sizeof(int)));
-//    CUDA_RT_CALL(cudaMemset(&flag[1], 0, 1 * sizeof(int)));
-
-    CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
-    CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
-
-    CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
-    CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
-
-    CUDA_RT_CALL(cudaMemset(flag[0], 1, sizeof(int)));
-    CUDA_RT_CALL(cudaMemset(flag[1], 1, sizeof(int)));
-
 #pragma omp parallel num_threads(num_devices)
     {
         const int dev_id = omp_get_thread_num();
@@ -215,6 +199,22 @@ int MultiGPUPeer::init(int argc, char **argv) {
         const int bottom = (dev_id + 1) % num_devices;
 
 #pragma omp barrier
+
+        int* flag[2];
+        //    CUDA_RT_CALL(cudaMalloc(&flag[0], 1 * sizeof(int)));
+        //    CUDA_RT_CALL(cudaMalloc(&flag[1], 1 * sizeof(int)))
+
+        //    CUDA_RT_CALL(cudaMemset(&flag[0], 0, 1 * sizeof(int)));
+        //    CUDA_RT_CALL(cudaMemset(&flag[1], 0, 1 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(flag, 2 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(flag + 1, 2 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMemset(flag[0], 0, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(flag[1], 0, 2 * sizeof(int)));
 
         CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + 2) * sizeof(real)));
@@ -275,20 +275,9 @@ int MultiGPUPeer::init(int argc, char **argv) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
 
 #pragma omp barrier
-
-        cudaEvent_t start_event;
-        cudaEvent_t stop_event;
-
-        CUDA_RT_CALL(cudaEventCreateWithFlags(&start_event, cudaEventDefault));
-        CUDA_RT_CALL(cudaEventCreateWithFlags(&stop_event, cudaEventDefault));
-
-        CUDA_RT_CALL(cudaEventRecord(start_event, 0));
-
         // Inner domain
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)MultiGPUPeer::jacobi_kernel, dimGrid,
                                                  dimBlock, kernelArgs, 0, inner_domain_stream));
-
-//        CUDA_RT_CALL(cudaGetLastError());
 
         for (int iter = 0; iter < iter_max; iter++) {
             // Boundary
@@ -298,26 +287,12 @@ int MultiGPUPeer::init(int argc, char **argv) {
                 is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
                 is_top_done_computing_flags[bottom], flag[0], dev_id);
 
-            //            std::cout << dev_id << ": " << iter << std::endl;
-
-//            CUDA_RT_CALL(cudaGetLastError());
-            CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
-
-            std::cout << "Boundary done" << std::endl;
+//            std::cout << "Boundary done" << std::endl;
         }
-
-        std::cout << "All done" << std::endl;
-
-        CUDA_RT_CALL(cudaEventRecord(stop_event, 0));
-//        CUDA_RT_CALL(cudaEventSynchronize(stop_event));
 
         std::cout << "OK" << std::endl;
 
-        CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
-
-        CUDA_RT_CALL(cudaEventDestroy(start_event));
-        CUDA_RT_CALL(cudaEventDestroy(stop_event));
     }
 
     return 0;
