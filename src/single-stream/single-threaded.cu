@@ -14,83 +14,90 @@
 namespace cg = cooperative_groups;
 
 namespace SSSingleThreaded {
-    __global__ void jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end,
-                                  const int nx, real *a_new_top, real *a_top, const int top_iy,
-                                  real *a_new_bottom, real *a_bottom, const int bottom_iy,
-                                  const int iter_max,
-                                  volatile int *local_is_top_neighbor_done_writing_to_me,
-                                  volatile int *local_is_bottom_neighbor_done_writing_to_me,
-                                  volatile int *remote_am_done_writing_to_top_neighbor,
-                                  volatile int *remote_am_done_writing_to_bottom_neighbor) {
+    __global__ void __launch_bounds__(1024, 1)
+    jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
+                  const int tile_nx, const int num_tiles, real *a_new_top, real *a_top,
+                  const int top_iy, real *a_new_bottom, real *a_bottom, const int bottom_iy,
+                  const int iter_max, volatile int *local_is_top_neighbor_done_writing_to_me,
+                  volatile int *local_is_bottom_neighbor_done_writing_to_me,
+                  volatile int *remote_am_done_writing_to_top_neighbor,
+                  volatile int *remote_am_done_writing_to_bottom_neighbor) {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        unsigned int grid_dim_x = (nx + blockDim.x - 1) / blockDim.x;
+        unsigned int grid_dim_x = (tile_nx + blockDim.x - 1) / blockDim.x;
         unsigned int block_idx_y = blockIdx.x / grid_dim_x;
         unsigned int block_idx_x = blockIdx.x % grid_dim_x;
 
         unsigned int iy = block_idx_y * blockDim.y + threadIdx.y + iy_start;
-        unsigned int ix = block_idx_x * blockDim.x + threadIdx.x + 1;
+        unsigned int base_ix = block_idx_x * blockDim.x + threadIdx.x + 1;
 
-        //    real local_l2_norm = 0.0;
         int iter = 0;
 
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
         int temp_iter_mod = 0;
 
+        int tile_start_nx = 0;
+        int tile_end_nx = 0;
+
+        int cur_iter_tile_flag_idx;
+        int next_iter_tile_flag_idx;
+
         while (iter < iter_max) {
-            //    One thread block does communication (and a bit of computation)
-            if (blockIdx.x == gridDim.x - 1 && blockIdx.y == gridDim.y - 1) {
-                unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
+            for (int tile_idx = 0; tile_idx < num_tiles; tile_idx++) {
+                unsigned int ix = base_ix + tile_idx * tile_nx - (tile_idx != 0);
 
-                if (col < nx - 1) {
-                    // Wait until top GPU puts its bottom row as my top halo
-                    while (local_is_top_neighbor_done_writing_to_me[cur_iter_mod] != iter) {
+                tile_start_nx = tile_idx * tile_nx;
+                tile_end_nx = tile_start_nx + tile_nx;
+
+                tile_start_nx += tile_idx == 0;
+                tile_end_nx -= (tile_idx == num_tiles - 1);
+
+                cur_iter_tile_flag_idx = tile_idx + cur_iter_mod * num_tiles;
+                next_iter_tile_flag_idx = tile_idx + next_iter_mod * num_tiles;
+
+                //    One thread block does communication (and a bit of computation)
+                if (blockIdx.x == gridDim.x - 1) {
+                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
+
+                    if (col <= (tile_end_nx - 1)) {
+                        // Wait until top GPU puts its bottom row as my top halo
+                        while (local_is_top_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
+                               iter) {
+                        }
+
+                        const real first_row_val =
+                                0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                                        a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
+                        a_new[iy_start * nx + col] = first_row_val;
+
+                        while (local_is_bottom_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
+                               iter) {
+                        }
+
+                        const real last_row_val =
+                                0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+                                        a[(iy_end - 2) * nx + col] + a[(iy_end) * nx + col]);
+                        a_new[(iy_end - 1) * nx + col] = last_row_val;
+
+                        // Communication
+                        a_new_top[top_iy * nx + col] = first_row_val;
+                        a_new_bottom[bottom_iy * nx + col] = last_row_val;
                     }
 
-                    const real first_row_val =
-                            0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                    a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
-                    a_new[iy_start * nx + col] = first_row_val;
+                    cg::sync(cta);
 
-                    while (local_is_bottom_neighbor_done_writing_to_me[cur_iter_mod] != iter) {
+                    if (threadIdx.x == 0 && threadIdx.y == 0) {
+                        remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] = iter + 1;
+                        remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] = iter + 1;
                     }
-
-                    const real last_row_val =
-                            0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                    a[(iy_end - 2) * nx + col] + a[(iy_end) * nx + col]);
-                    a_new[(iy_end - 1) * nx + col] = last_row_val;
-
-                    //                if (calculate_norm) {
-                    //                    real first_row_residue = first_row_val - a[iy_start * nx +
-                    //                    col]; real last_row_residue = last_row_val - a[iy_end * nx +
-                    //                    col];
-                    //
-                    //                    local_l2_norm += first_row_residue * first_row_residue;
-                    //                    local_l2_norm += last_row_residue * last_row_residue;
-                    //                }
-
-                    // Communication
-                    a_new_top[top_iy * nx + col] = first_row_val;
-                    a_new_bottom[bottom_iy * nx + col] = last_row_val;
+                } else if (iy > iy_start && iy < (iy_end - 1) && ix >= tile_start_nx &&
+                           ix <= (tile_end_nx - 1)) {
+                    const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                    a_new[iy * nx + ix] = new_val;
                 }
-
-                cg::sync(cta);
-
-                if (threadIdx.x == 0 && threadIdx.y == 0) {
-                    remote_am_done_writing_to_top_neighbor[next_iter_mod] = iter + 1;
-                    remote_am_done_writing_to_bottom_neighbor[next_iter_mod] = iter + 1;
-                }
-            } else if (iy > iy_start && iy < (iy_end - 1) && ix < (nx - 1)) {
-                const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                             a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                a_new[iy * nx + ix] = new_val;
-
-                //            if (calculate_norm) {
-                //                real residue = new_val - a[iy * nx + ix];
-                //                local_l2_norm += residue * residue;
-                //            }
             }
 
             real *temp_pointer_first = a_new;
@@ -141,7 +148,11 @@ int SSSingleThreaded::init(int argc, char *argv[]) {
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
-    //    real l2_norm = 1.0;
+
+    // For now, I am assuming the height is exactly divisible by the number of devices
+    int height_per_gpu = ny / num_devices;
+    int tile_nx = std::min(MAX_NUM_ELEM_PER_GPU / height_per_gpu, nx);
+    int num_tiles = nx / tile_nx;
 
     for (int dev_id = 0; dev_id < num_devices; ++dev_id) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
@@ -175,11 +186,14 @@ int SSSingleThreaded::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 2 * sizeof(int)));
-        CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, 2 * num_tiles * sizeof(int)));
+        CUDA_RT_CALL(
+                cudaMalloc(is_bottom_done_computing_flags + dev_id, 2 * num_tiles * sizeof(int)));
 
-        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, sizeof(int)));
-        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0, sizeof(int)));
+        CUDA_RT_CALL(
+                cudaMemset(is_top_done_computing_flags[dev_id], 0, 2 * num_tiles * sizeof(int)));
+        CUDA_RT_CALL(
+                cudaMemset(is_bottom_done_computing_flags[dev_id], 0, 2 * num_tiles * sizeof(int)));
 
         // Calculate local domain boundaries
         int iy_start_global;  // My start index in the global array
@@ -219,7 +233,6 @@ int SSSingleThreaded::init(int argc, char *argv[]) {
 
     constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 32;
-//    constexpr int num_threads = 1024;
 
     // Assuming that all GPUs have same number of SMs
     // Should take minimum in future
@@ -247,6 +260,8 @@ int SSSingleThreaded::init(int argc, char *argv[]) {
                               (void *) &iy_start,
                               (void *) &iy_end[dev_id],
                               (void *) &nx,
+                              (void *) &tile_nx,
+                              (void *) &num_tiles,
                               (void *) &a_new[top],
                               (void *) &a[top],
                               (void *) &iy_end[top],
@@ -282,8 +297,8 @@ int SSSingleThreaded::init(int argc, char *argv[]) {
         }
     }
 
-    report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
-                   start, stop, compare_to_single_gpu);
+    report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start, stop,
+                   compare_to_single_gpu);
 
     return 0;
 }
