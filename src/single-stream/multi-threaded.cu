@@ -138,6 +138,14 @@ int SSMultiThreaded::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
     //    real l2_norm = 1.0;
 
+    if (compare_to_single_gpu) {
+        CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
+        CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
+
+        // Passing 0 for nccheck for now
+        runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
+    }
+
 #pragma omp parallel num_threads(num_devices)
     {
         //        real* l2_norm_d;
@@ -148,13 +156,7 @@ int SSMultiThreaded::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(nullptr));
 
-        if (compare_to_single_gpu && 0 == dev_id) {
-            CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
-            CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
-            // Passing 0 for nccheck for now
-            runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
-        }
 
 #pragma omp barrier
 
