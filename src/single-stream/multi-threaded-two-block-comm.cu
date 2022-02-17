@@ -46,13 +46,13 @@ namespace SSMultiThreadedTwoBlockComm {
 
         while (iter < iter_max) {
             for (int tile_idx = 0; tile_idx < num_tiles; tile_idx++) {
-                unsigned int ix = base_ix + tile_idx * tile_nx;
+                unsigned int ix = base_ix + tile_idx * tile_nx - (tile_idx != 0);
 
                 tile_start_nx = tile_idx * tile_nx;
                 tile_end_nx = tile_start_nx + tile_nx;
 
-                tile_start_nx += int(tile_idx == 0);
-                tile_end_nx -= int(tile_idx == num_tiles - 1);
+                tile_start_nx += tile_idx == 0;
+                tile_end_nx -= (tile_idx == num_tiles - 1);
 
                 cur_iter_tile_flag_idx = tile_idx + cur_iter_mod * num_tiles;
                 next_iter_tile_flag_idx = tile_idx + next_iter_mod * num_tiles;
@@ -94,7 +94,7 @@ namespace SSMultiThreadedTwoBlockComm {
                                         a[(iy_end - 2) * nx + col] + a[iy_end * nx + col]);
                         a_new[(iy_end - 1) * nx + col] = last_row_val;
 
-                        //     // Communication
+                        // Communication
                         a_new_bottom[bottom_iy * nx + col] = last_row_val;
                     }
 
