@@ -72,9 +72,7 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
     volatile int* remote_am_done_writing_to_top_neighbor,
     volatile int* remote_am_done_writing_to_bottom_neighbor,
     volatile int* iteration_done, const int dev_id) {
-    unsigned int iy = threadIdx.y + iy_start;
-    unsigned int ix = threadIdx.x + 1;
-    unsigned int col = iy * blockDim.x + ix;
+    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
 
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
