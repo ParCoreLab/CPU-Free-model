@@ -103,7 +103,7 @@ namespace SSMultiThreadedTwoBlockComm {
                     if (threadIdx.x == 0 && threadIdx.y == 0) {
                         remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] = iter + 1;
                     }
-                } else if (iy < (iy_end - 1) && ix >= tile_start_nx &&
+                } else if (iy > iy_start && iy < (iy_end - 1) && ix >= tile_start_nx &&
                            ix <= (tile_end_nx - 1)) {
                     const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                                  a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);

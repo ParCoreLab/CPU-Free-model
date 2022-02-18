@@ -92,7 +92,7 @@ namespace SSMultiThreaded {
                         remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] = iter + 1;
                         remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] = iter + 1;
                     }
-                } else if (iy < (iy_end - 1) && ix >= tile_start_nx &&
+                } else if (iy > iy_start && iy < (iy_end - 1) && ix >= tile_start_nx &&
                            ix <= (tile_end_nx - 1)) {
                     const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                                  a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
@@ -162,6 +162,7 @@ int SSMultiThreaded::init(int argc, char *argv[]) {
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(nullptr));
+
 
 
 #pragma omp barrier
