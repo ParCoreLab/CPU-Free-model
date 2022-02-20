@@ -16,21 +16,24 @@ namespace cg = cooperative_groups;
 namespace SSMultiThreadedTwoBlockComm {
     __global__ void __launch_bounds__(1024, 1)
     jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
-                  const int tile_nx, const int num_tiles, real *a_new_top, real *a_top,
-                  const int top_iy, real *a_new_bottom, real *a_bottom, const int bottom_iy,
-                  const int iter_max, volatile int *local_is_top_neighbor_done_writing_to_me,
+                  const int tile_size, const int num_tiles_x, const int num_tiles_y,
+                  real *a_new_top, real *a_top, const int top_iy, real *a_new_bottom,
+                  real *a_bottom, const int bottom_iy, const int iter_max,
+                  volatile int *local_is_top_neighbor_done_writing_to_me,
                   volatile int *local_is_bottom_neighbor_done_writing_to_me,
                   volatile int *remote_am_done_writing_to_top_neighbor,
                   volatile int *remote_am_done_writing_to_bottom_neighbor) {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        unsigned int grid_dim_x = (tile_nx + blockDim.x - 1) / blockDim.x;
+        unsigned int grid_dim_x = (tile_size + blockDim.x - 1) / blockDim.x;
         unsigned int block_idx_y = blockIdx.x / grid_dim_x;
         unsigned int block_idx_x = blockIdx.x % grid_dim_x;
 
-        unsigned int iy = block_idx_y * blockDim.y + threadIdx.y + iy_start;
+        unsigned int base_iy = block_idx_y * blockDim.y + threadIdx.y + iy_start;
         unsigned int base_ix = block_idx_x * blockDim.x + threadIdx.x + 1;
+
+        int num_tiles = num_tiles_x * num_tiles_y;
 
         int iter = 0;
 
@@ -38,76 +41,96 @@ namespace SSMultiThreadedTwoBlockComm {
         int next_iter_mod = 1;
         int temp_iter_mod = 0;
 
+        int tile_start_ny = 0;
+        int tile_end_ny = 0;
         int tile_start_nx = 0;
         int tile_end_nx = 0;
+
+        int tile_idx = 0;
 
         int cur_iter_tile_flag_idx;
         int next_iter_tile_flag_idx;
 
         while (iter < iter_max) {
-            for (int tile_idx = 0; tile_idx < num_tiles; tile_idx++) {
-                unsigned int ix = base_ix + tile_idx * tile_nx - (tile_idx != 0);
+            for (int tile_idx_y = 0; tile_idx_y < num_tiles_y; tile_idx_y++) {
+                unsigned int iy = base_iy + tile_idx_y * tile_size - iy_start * (tile_idx_y != 0);
 
-                tile_start_nx = tile_idx * tile_nx;
-                tile_end_nx = tile_start_nx + tile_nx;
+                tile_start_ny = tile_idx_y * tile_size + iy_start * (tile_idx_y == 0);
+                tile_end_ny = (tile_idx_y + 1) * tile_size - (tile_idx_y == num_tiles_y - 1);
 
-                tile_start_nx += tile_idx == 0;
-                tile_end_nx -= (tile_idx == num_tiles - 1);
+                for (int tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
+                    unsigned int ix = base_ix + tile_idx_x * tile_size - (tile_idx_x != 0);
 
-                cur_iter_tile_flag_idx = tile_idx + cur_iter_mod * num_tiles;
-                next_iter_tile_flag_idx = tile_idx + next_iter_mod * num_tiles;
+                    tile_start_nx = tile_idx_x * tile_size + (tile_idx_x == 0);
+                    tile_end_nx = (tile_idx_x + 1) * tile_size - (tile_idx_x == num_tiles_x - 1);
 
-                //    One thread block does communication (and a bit of computation)
-                if (blockIdx.x == gridDim.x - 1) {
-                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
+                    tile_idx = tile_idx_y * num_tiles_x + tile_idx_x;
 
-                    if (col <= (tile_end_nx - 1)) {
-                        // Wait until top GPU puts its bottom row as my top halo
-                        while (local_is_top_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
-                               iter) {
+                    cur_iter_tile_flag_idx = tile_idx + cur_iter_mod * num_tiles;
+                    next_iter_tile_flag_idx = tile_idx + next_iter_mod * num_tiles;
+
+                    //    One thread block does communication (and a bit of computation)
+                    if (blockIdx.x == gridDim.x - 1) {
+                        if (tile_idx_y == 0) {
+                            unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
+
+                            if (col <= (tile_end_nx - 1)) {
+                                // Wait until top GPU puts its bottom row as my top halo
+                                while (
+                                        local_is_top_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
+                                        iter) {
+                                }
+
+                                const real first_row_val =
+                                        0.25 *
+                                        (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                                         a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
+                                a_new[iy_start * nx + col] = first_row_val;
+
+                                // Communication
+                                a_new_top[top_iy * nx + col] = first_row_val;
+                            }
+
+                            cg::sync(cta);
+
+                            if (threadIdx.x == 0 && threadIdx.y == 0) {
+                                remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] =
+                                        iter + 1;
+                            }
+                        }
+                    } else if (blockIdx.x == gridDim.x - 2) {
+                        if (tile_idx_y == num_tiles_y - 1) {
+                            unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
+
+                            if (col <= (tile_end_nx - 1)) {
+                                while (local_is_bottom_neighbor_done_writing_to_me
+                                       [cur_iter_tile_flag_idx] != iter) {
+                                }
+
+                                const real last_row_val =
+                                        0.25 *
+                                        (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+                                         a[(iy_end - 2) * nx + col] + a[iy_end * nx + col]);
+                                a_new[(iy_end - 1) * nx + col] = last_row_val;
+
+                                // Communication
+                                a_new_bottom[bottom_iy * nx + col] = last_row_val;
+                            }
+
+                            cg::sync(cta);
+
+                            if (threadIdx.x == 0 && threadIdx.y == 0) {
+                                remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] =
+                                        iter + 1;
+                            }
                         }
 
-                        const real first_row_val =
-                                0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                        a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
-                        a_new[iy_start * nx + col] = first_row_val;
-
-                        // Communication
-                        a_new_top[top_iy * nx + col] = first_row_val;
+                    } else if (iy >= tile_start_ny && iy <= (tile_end_ny - 1) && ix >= tile_start_nx &&
+                               ix <= (tile_end_nx - 1)) {
+                        const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                                     a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                        a_new[iy * nx + ix] = new_val;
                     }
-
-                    cg::sync(cta);
-
-                    if (threadIdx.x == 0 && threadIdx.y == 0) {
-                        remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] = iter + 1;
-                    }
-                } else if (blockIdx.x == gridDim.x - 2) {
-                    unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
-
-                    if (col <= (tile_end_nx - 1)) {
-                        while (local_is_bottom_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
-                               iter) {
-                        }
-
-                        const real last_row_val =
-                                0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                        a[(iy_end - 2) * nx + col] + a[iy_end * nx + col]);
-                        a_new[(iy_end - 1) * nx + col] = last_row_val;
-
-                        // Communication
-                        a_new_bottom[bottom_iy * nx + col] = last_row_val;
-                    }
-
-                    cg::sync(cta);
-
-                    if (threadIdx.x == 0 && threadIdx.y == 0) {
-                        remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] = iter + 1;
-                    }
-                } else if (iy > iy_start && iy < (iy_end - 1) && ix >= tile_start_nx &&
-                           ix <= (tile_end_nx - 1)) {
-                    const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                    a_new[iy * nx + ix] = new_val;
                 }
             }
 
@@ -183,6 +206,11 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
         // For now, I am assuming the height is exactly divisible by the number of devices
         int height_per_gpu = ny / num_devices;
 
+        // A tile will be TILE_SIZE in both dimensions
+        int num_tiles_x = nx / TILE_SIZE;
+        int num_tiles_y = height_per_gpu / TILE_SIZE;
+        int num_tiles = num_tiles_x * num_tiles_y;
+
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
         if (dev_id < num_ranks_low)
             chunk_size = chunk_size_low;
@@ -191,9 +219,6 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
 
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         const int bottom = (dev_id + 1) % num_devices;
-
-        int tile_nx = std::min(MAX_NUM_ELEM_PER_GPU / height_per_gpu, nx);
-        int num_tiles = nx / tile_nx;
 
         if (top != dev_id) {
             int canAccessPeer = 0;
@@ -268,8 +293,9 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
                               (void *) &iy_start,
                               (void *) &iy_end[dev_id],
                               (void *) &nx,
-                              (void *) &tile_nx,
-                              (void *) &num_tiles,
+                              (void *) &TILE_SIZE,
+                              (void *) &num_tiles_x,
+                              (void *) &num_tiles_y,
                               (void *) &a_new[top],
                               (void *) &a[top],
                               (void *) &iy_end[top],
