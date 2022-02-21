@@ -56,11 +56,15 @@ namespace SSMultiThreadedTwoBlockComm {
                 tile_start_ny = tile_idx_y * tile_size + iy_start * (tile_idx_y == 0);
                 tile_end_ny = (tile_idx_y + 1) * tile_size - (tile_idx_y == num_tiles_y - 1);
 
+                tile_end_ny = min(tile_end_ny, iy_end);
+
                 for (int tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
                     unsigned int ix = base_ix + tile_idx_x * tile_size - (tile_idx_x != 0);
 
                     tile_start_nx = tile_idx_x * tile_size + (tile_idx_x == 0);
                     tile_end_nx = (tile_idx_x + 1) * tile_size - (tile_idx_x == num_tiles_x - 1);
+
+                    tile_end_nx = min(tile_end_nx, nx - 1);
 
                     //    One thread block does communication (and a bit of computation)
                     if (blockIdx.x == gridDim.x - 1) {
@@ -207,8 +211,8 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
         int height_per_gpu = ny / num_devices;
 
         // A tile will be TILE_SIZE in both dimensions
-        int num_tiles_x = nx / TILE_SIZE;
-        int num_tiles_y = height_per_gpu / TILE_SIZE;
+        int num_tiles_x = nx / TILE_SIZE + (nx % TILE_SIZE != 0);
+        int num_tiles_y = height_per_gpu / TILE_SIZE + (height_per_gpu % TILE_SIZE != 0);
         int num_flags = 4 * num_tiles_x;
 
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
