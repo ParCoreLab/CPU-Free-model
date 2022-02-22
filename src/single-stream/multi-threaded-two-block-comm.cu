@@ -54,9 +54,8 @@ namespace SSMultiThreadedTwoBlockComm {
                 unsigned int iy = base_iy + tile_idx_y * tile_size - iy_start * (tile_idx_y != 0);
 
                 tile_start_ny = tile_idx_y * tile_size + iy_start * (tile_idx_y == 0);
-                tile_end_ny = (tile_idx_y + 1) * tile_size - (tile_idx_y == num_tiles_y - 1);
-
-                tile_end_ny = min(tile_end_ny, iy_end);
+                tile_end_ny =
+                        (tile_idx_y == num_tiles_y - 1) ? iy_end - 1 : (tile_idx_y + 1) * tile_size;
 
                 for (int tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
                     unsigned int ix = base_ix + tile_idx_x * tile_size - (tile_idx_x != 0);
