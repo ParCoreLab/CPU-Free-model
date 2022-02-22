@@ -72,7 +72,7 @@ namespace SSMultiThreadedTwoBlockComm {
 
                             cur_iter_tile_flag_idx = tile_idx_x + cur_iter_mod * num_flags;
                             next_iter_tile_flag_idx =
-                                    (num_tiles_x + tile_idx_x) + next_iter_mod * num_flags;
+                                    (num_tiles_x + tile_idx_x) % num_tiles_x + next_iter_mod * num_flags;
 
                             if (col <= (tile_end_nx - 1)) {
                                 // Wait until top GPU puts its bottom row as my top halo
@@ -103,7 +103,7 @@ namespace SSMultiThreadedTwoBlockComm {
                             unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
 
                             cur_iter_tile_flag_idx =
-                                    (num_tiles_x + tile_idx_x) + cur_iter_mod * num_flags;
+                                    (num_tiles_x + tile_idx_x) % num_tiles_x + cur_iter_mod * num_flags;
                             next_iter_tile_flag_idx = tile_idx_x + next_iter_mod * num_flags;
 
                             if (col <= (tile_end_nx - 1)) {
