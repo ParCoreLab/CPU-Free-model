@@ -11,7 +11,7 @@ typedef float real;
 typedef int (*initfunc_t)(int argc, char **argv);
 
 constexpr int MAX_NUM_DEVICES{32};
-constexpr real tol = 1.0e-4;
+constexpr real tol = 1.0e-8;
 const real PI{static_cast<real>(2.0 * std::asin(1.0))};
 constexpr int MAX_NUM_ELEM_PER_GPU = 256 * 256;
 constexpr int TILE_SIZE = 256;
