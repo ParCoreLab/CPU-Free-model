@@ -317,6 +317,13 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
+        // Need to swap pointers on CPU if iteration count is odd
+        // Technically, we don't know the iteration number (since we'll be doing l2-norm)
+        // Could write iter to CPU when kernel is done
+        if (iter_max % 2 == 1) {
+            std::swap(a_new[dev_id], a[dev_id]);
+        }
+
 #pragma omp barrier
         double stop = omp_get_wtime();
 
