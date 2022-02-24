@@ -51,7 +51,7 @@ namespace SSMultiThreadedTwoBlockComm {
 
         while (iter < iter_max) {
             for (int tile_idx_y = 0; tile_idx_y < num_tiles_y; tile_idx_y++) {
-                tile_start_ny = (tile_idx_y == 0) ? iy_start : tile_idx_y * tile_size;
+                tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size;
                 tile_end_ny =
                         (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) * tile_size;
 
