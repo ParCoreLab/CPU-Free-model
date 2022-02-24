@@ -34,6 +34,7 @@ namespace SSMultiThreadedTwoBlockComm {
         int base_ix = block_idx_x * blockDim.x + threadIdx.x;
 
         int num_flags = 2 * num_tiles_x;
+        int num_tiles = num_tiles_x * num_tiles_y;
 
         int iter = 0;
 
@@ -41,98 +42,95 @@ namespace SSMultiThreadedTwoBlockComm {
         int next_iter_mod = 1;
         int temp_iter_mod = 0;
 
-        int tile_start_ny = 0;
-        int tile_end_ny = 0;
-        int tile_start_nx = 0;
-        int tile_end_nx = 0;
-
-        int cur_iter_tile_flag_idx;
-        int next_iter_tile_flag_idx;
-
         while (iter < iter_max) {
-            for (int tile_idx_y = 0; tile_idx_y < num_tiles_y; tile_idx_y++) {
-                tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size;
-                tile_end_ny =
+            for (int tile_idx = 0; tile_idx < num_tiles; tile_idx++) {
+                int tile_idx_y = tile_idx / num_tiles_x;
+                int tile_idx_x = tile_idx % num_tiles_x;
+
+                int tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size;
+                int tile_end_ny =
                         (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) * tile_size;
 
+                int tile_start_nx = (tile_idx_x == 0) ? 1 : tile_idx_x * tile_size;
+                int tile_end_nx =
+                        (tile_idx_x == (num_tiles_x - 1)) ? nx - 1 : (tile_idx_x + 1) * tile_size;
+
                 int iy = base_iy + tile_start_ny;
+                int ix = base_ix + tile_start_nx;
 
-                for (int tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
-                    tile_start_nx = (tile_idx_x == 0) ? 1 : tile_idx_x * tile_size;
-                    tile_end_nx =
-                            (tile_idx_x == (num_tiles_x - 1)) ? nx - 1 : (tile_idx_x + 1) * tile_size;
+                if (blockIdx.x == gridDim.x - 1) {
+                    if (tile_idx_y == 0) {
+                        int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
 
-                    int ix = base_ix + tile_start_nx;
+                        int cur_iter_tile_flag_idx = tile_idx_x + cur_iter_mod * num_flags;
+                        int next_iter_tile_flag_idx =
+                                (num_tiles_x + tile_idx_x) + next_iter_mod * num_flags;
 
-                    //    One thread block does communication (and a bit of computation)
-                    if (blockIdx.x == gridDim.x - 1) {
-                        if (tile_idx_y == 0) {
-                            int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
+                        if (col <= (tile_end_nx - 1)) {
+                            cg::coalesced_group active = cg::coalesced_threads();
 
-                            cur_iter_tile_flag_idx = tile_idx_x + cur_iter_mod * num_flags;
-                            next_iter_tile_flag_idx =
-                                    (num_tiles_x + tile_idx_x) + next_iter_mod * num_flags;
-
-                            if (col <= (tile_end_nx - 1)) {
-                                // Wait until top GPU puts its bottom row as my top halo
+                            if (active.thread_rank() == 0) {
                                 while (
                                         local_is_top_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
                                         iter) {
                                 }
-
-                                const real first_row_val =
-                                        0.25 *
-                                        (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                         a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
-                                a_new[iy_start * nx + col] = first_row_val;
-
-                                // Communication
-                                a_new_top[top_iy * nx + col] = first_row_val;
                             }
 
-                            cg::sync(cta);
+                            cg::sync(active);
 
-                            if (threadIdx.x == 0 && threadIdx.y == 0) {
-                                remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] =
-                                        iter + 1;
-                            }
+                            const real first_row_val =
+                                    0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                                            a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
+
+                            a_new[iy_start * nx + col] = first_row_val;
+                            a_new_top[top_iy * nx + col] = first_row_val;
                         }
-                    } else if (blockIdx.x == gridDim.x - 2) {
-                        if (tile_idx_y == (num_tiles_y - 1)) {
-                            int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
 
-                            cur_iter_tile_flag_idx =
-                                    (num_tiles_x + tile_idx_x) + cur_iter_mod * num_flags;
-                            next_iter_tile_flag_idx = tile_idx_x + next_iter_mod * num_flags;
+                        cg::sync(cta);
 
-                            if (col <= (tile_end_nx - 1)) {
+                        if (cta.thread_rank() == 0) {
+                            remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] = iter + 1;
+                        }
+                    }
+                } else if (blockIdx.x == gridDim.x - 2) {
+                    if (tile_idx_y == (num_tiles_y - 1)) {
+                        int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
+
+                        int cur_iter_tile_flag_idx =
+                                (num_tiles_x + tile_idx_x) + cur_iter_mod * num_flags;
+                        int next_iter_tile_flag_idx = tile_idx_x + next_iter_mod * num_flags;
+
+                        if (col <= (tile_end_nx - 1)) {
+                            cg::coalesced_group active = cg::coalesced_threads();
+
+                            if (active.thread_rank() == 0) {
                                 while (local_is_bottom_neighbor_done_writing_to_me
                                        [cur_iter_tile_flag_idx] != iter) {
                                 }
-
-                                const real last_row_val =
-                                        0.25 *
-                                        (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                         a[(iy_end - 2) * nx + col] + a[iy_end * nx + col]);
-                                a_new[(iy_end - 1) * nx + col] = last_row_val;
-
-                                // Communication
-                                a_new_bottom[bottom_iy * nx + col] = last_row_val;
                             }
 
-                            cg::sync(cta);
+                            cg::sync(active);
 
-                            if (threadIdx.x == 0 && threadIdx.y == 0) {
-                                remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] =
-                                        iter + 1;
-                            }
+                            const real last_row_val =
+                                    0.25 *
+                                    (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+                                     a[(iy_end - 2) * nx + col] + a[iy_end * nx + col]);
+
+                            a_new[(iy_end - 1) * nx + col] = last_row_val;
+                            a_new_bottom[bottom_iy * nx + col] = last_row_val;
                         }
-                    } else if (iy >= tile_start_ny && iy <= (tile_end_ny - 1) && ix >= tile_start_nx &&
-                               ix <= (tile_end_nx - 1)) {
-                        const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                                     a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                        a_new[iy * nx + ix] = new_val;
+
+                        cg::sync(cta);
+
+                        if (cta.thread_rank() == 0) {
+                            remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] =
+                                    iter + 1;
+                        }
                     }
+                } else if (iy <= (tile_end_ny - 1) && ix <= (tile_end_nx - 1)) {
+                    const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                    a_new[iy * nx + ix] = new_val;
                 }
             }
 
