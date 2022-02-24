@@ -26,12 +26,12 @@ namespace SSMultiThreadedTwoBlockComm {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        unsigned int grid_dim_x = (tile_size + blockDim.x - 1) / blockDim.x;
-        unsigned int block_idx_y = blockIdx.x / grid_dim_x;
-        unsigned int block_idx_x = blockIdx.x % grid_dim_x;
+        int grid_dim_x = (tile_size + blockDim.x - 1) / blockDim.x;
+        int block_idx_y = blockIdx.x / grid_dim_x;
+        int block_idx_x = blockIdx.x % grid_dim_x;
 
-        unsigned int base_iy = block_idx_y * blockDim.y + threadIdx.y;
-        unsigned int base_ix = block_idx_x * blockDim.x + threadIdx.x;
+        int base_iy = block_idx_y * blockDim.y + threadIdx.y;
+        int base_ix = block_idx_x * blockDim.x + threadIdx.x;
 
         int num_flags = 2 * num_tiles_x;
 
@@ -55,19 +55,19 @@ namespace SSMultiThreadedTwoBlockComm {
                 tile_end_ny =
                         (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) * tile_size;
 
-                unsigned int iy = base_iy + tile_start_ny;
+                int iy = base_iy + tile_start_ny;
 
                 for (int tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
                     tile_start_nx = (tile_idx_x == 0) ? 1 : tile_idx_x * tile_size;
                     tile_end_nx =
                             (tile_idx_x == (num_tiles_x - 1)) ? nx - 1 : (tile_idx_x + 1) * tile_size;
 
-                    unsigned int ix = base_ix + tile_start_nx;
+                    int ix = base_ix + tile_start_nx;
 
                     //    One thread block does communication (and a bit of computation)
                     if (blockIdx.x == gridDim.x - 1) {
                         if (tile_idx_y == 0) {
-                            unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
+                            int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
 
                             cur_iter_tile_flag_idx = tile_idx_x + cur_iter_mod * num_flags;
                             next_iter_tile_flag_idx =
@@ -99,7 +99,7 @@ namespace SSMultiThreadedTwoBlockComm {
                         }
                     } else if (blockIdx.x == gridDim.x - 2) {
                         if (tile_idx_y == (num_tiles_y - 1)) {
-                            unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
+                            int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
 
                             cur_iter_tile_flag_idx =
                                     (num_tiles_x + tile_idx_x) + cur_iter_mod * num_flags;
