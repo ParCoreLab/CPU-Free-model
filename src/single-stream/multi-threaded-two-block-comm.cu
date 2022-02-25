@@ -132,6 +132,8 @@ namespace SSMultiThreadedTwoBlockComm {
                                                  a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
                     a_new[iy * nx + ix] = new_val;
                 }
+
+                cg::sync(cta);
             }
 
             real *temp_pointer_first = a_new;
