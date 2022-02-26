@@ -133,7 +133,7 @@ namespace SSMultiThreadedTwoBlockComm {
                     a_new[iy * nx + ix] = new_val;
                 }
 
-                cg::sync(cta);
+                cg::sync(grid);
             }
 
             real *temp_pointer_first = a_new;
