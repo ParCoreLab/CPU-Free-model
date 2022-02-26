@@ -114,7 +114,7 @@ namespace SSMultiThreadedTwoBlockComm {
                             const real last_row_val =
                                     0.25 *
                                     (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                     a[(iy_end - 2) * nx + col] + a[iy_end * nx + col]);
+                                     a[iy_end * nx + col] + a[(iy_end - 2) * nx + col]);
 
                             a_new[(iy_end - 1) * nx + col] = last_row_val;
                             a_new_bottom[bottom_iy * nx + col] = last_row_val;
