@@ -17,8 +17,11 @@ namespace SSMultiThreadedTwoBlockComm {
 __global__ void __launch_bounds__(1024, 1)
     jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
                   const int tile_size, const int num_tiles_x, const int num_tiles_y,
-                  real *a_new_top, real *a_top, const int top_iy, real *a_new_bottom,
-                  real *a_bottom, const int bottom_iy, const int iter_max,
+                  const int top_iy, const int bottom_iy, const int iter_max,
+                  real *local_halo_buffer_for_top_neighbor,
+                  real *local_halo_buffer_for_bottom_neighbor,
+                  real *remote_my_halo_buffer_on_top_neighbor,
+                  real *remote_my_halo_buffer_on_bottom_neighbor,
                   volatile int *local_is_top_neighbor_done_writing_to_me,
                   volatile int *local_is_bottom_neighbor_done_writing_to_me,
                   volatile int *remote_am_done_writing_to_top_neighbor,
@@ -88,19 +91,17 @@ __global__ void __launch_bounds__(1024, 1)
 
                         if (col < tile_end_nx) {
                             const real first_row_val =
-                                0.25 *
-                                (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                 a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
+                                0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                                        a[(iy_start + 1) * nx + col] +
+                                        remote_my_halo_buffer_on_top_neighbor[col]);
 
                             a_new[iy_start * nx + col] = first_row_val;
-                            a_new_top[top_iy * nx + col] = first_row_val;
+                            local_halo_buffer_for_top_neighbor[col] = first_row_val;
                         }
 
                         cg::sync(cta);
 
                         if (cta.thread_rank() == 0) {
-                            __threadfence_system();
-
                             remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] =
                                 iter + 1;
                         }
@@ -124,17 +125,16 @@ __global__ void __launch_bounds__(1024, 1)
                             const real last_row_val =
                                 0.25 *
                                 (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                 a[iy_end * nx + col] + a[(iy_end - 2) * nx + col]);
+                                 remote_my_halo_buffer_on_bottom_neighbor[col] +
+                                 a[(iy_end - 2) * nx + col]);
 
                             a_new[(iy_end - 1) * nx + col] = last_row_val;
-                            a_new_bottom[bottom_iy * nx + col] = last_row_val;
+                            local_halo_buffer_for_bottom_neighbor[col] = last_row_val;
                         }
 
                         cg::sync(cta);
 
                         if (cta.thread_rank() == 0) {
-                            __threadfence_system();
-
                             remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] =
                                 iter + 1;
                         }
@@ -150,14 +150,6 @@ __global__ void __launch_bounds__(1024, 1)
         real *temp_pointer_first = a_new;
         a_new = a;
         a = temp_pointer_first;
-
-        real *temp_pointer_second = a_new_top;
-        a_new_top = a_top;
-        a_top = temp_pointer_second;
-
-        real *temp_pointer_third = a_new_bottom;
-        a_new_bottom = a_bottom;
-        a_bottom = temp_pointer_third;
 
         iter++;
 
@@ -180,23 +172,22 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
     real *a_new[MAX_NUM_DEVICES];
     int iy_end[MAX_NUM_DEVICES];
 
+    real *halo_buffer_for_top_neighbor[MAX_NUM_DEVICES];
+    real *halo_buffer_for_bottom_neighbor[MAX_NUM_DEVICES];
+
+    int *is_top_done_computing_flags[MAX_NUM_DEVICES];
+    int *is_bottom_done_computing_flags[MAX_NUM_DEVICES];
+
     real *a_ref_h;
     real *a_h;
 
     double runtime_serial_non_persistent = 0.0;
 
-    int *is_top_done_computing_flags[MAX_NUM_DEVICES];
-    int *is_bottom_done_computing_flags[MAX_NUM_DEVICES];
-
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
-    //    real l2_norm = 1.0;
 
 #pragma omp parallel num_threads(num_devices)
     {
-        //        real* l2_norm_d;
-        //        real* l2_norm_h;
-
         int dev_id = omp_get_thread_num();
 
         CUDA_RT_CALL(cudaSetDevice(dev_id));
@@ -206,7 +197,6 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
-            // Passing 0 for nccheck for now
             runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
         }
 
@@ -216,10 +206,8 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
         int chunk_size_low = (ny - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
-        // For now, I am assuming the height is exactly divisible by the number of devices
         int height_per_gpu = ny / num_devices;
 
-        // A tile will be TILE_SIZE in both dimensions
         int num_tiles_x = nx / TILE_SIZE + (nx % TILE_SIZE != 0);
         int num_tiles_y = height_per_gpu / TILE_SIZE + (height_per_gpu % TILE_SIZE != 0);
         int num_flags = 4 * num_tiles_x;
@@ -260,6 +248,12 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
 
         CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
+
+        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, nx * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, nx * sizeof(real)));
+
+        CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, nx * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, nx * sizeof(real)));
 
         CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, num_flags * sizeof(int)));
         CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, num_flags * sizeof(int)));
@@ -307,13 +301,13 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
                               (void *)&TILE_SIZE,
                               (void *)&num_tiles_x,
                               (void *)&num_tiles_y,
-                              (void *)&a_new[top],
-                              (void *)&a[top],
                               (void *)&iy_end[top],
-                              (void *)&a_new[bottom],
-                              (void *)&a[bottom],
                               (void *)&iy_start_bottom,
                               (void *)&iter_max,
+                              (void *)&halo_buffer_for_top_neighbor[dev_id],
+                              (void *)&halo_buffer_for_bottom_neighbor[dev_id],
+                              (void *)&halo_buffer_for_bottom_neighbor[top],
+                              (void *)&halo_buffer_for_top_neighbor[bottom],
                               (void *)&is_top_done_computing_flags[dev_id],
                               (void *)&is_bottom_done_computing_flags[dev_id],
                               (void *)&is_bottom_done_computing_flags[top],
