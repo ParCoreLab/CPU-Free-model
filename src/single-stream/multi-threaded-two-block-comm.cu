@@ -91,14 +91,12 @@ __global__ void __launch_bounds__(1024, 1)
 
                         if (col < tile_end_nx) {
                             const real first_row_val =
-                                0.25 *
-                                (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                 a[(iy_start + 1) * nx + col] +
-                                 remote_my_halo_buffer_on_top_neighbor[nx * cur_iter_mod + col]);
+                                0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                                        a[(iy_start + 1) * nx + col] +
+                                        remote_my_halo_buffer_on_top_neighbor[col]);
 
                             a_new[iy_start * nx + col] = first_row_val;
-                            local_halo_buffer_for_top_neighbor[nx * next_iter_mod + col] =
-                                first_row_val;
+                            local_halo_buffer_for_top_neighbor[col] = first_row_val;
                         }
 
                         cg::sync(cta);
@@ -127,12 +125,11 @@ __global__ void __launch_bounds__(1024, 1)
                             const real last_row_val =
                                 0.25 *
                                 (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                 remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + col] +
+                                 remote_my_halo_buffer_on_bottom_neighbor[col] +
                                  a[(iy_end - 2) * nx + col]);
 
                             a_new[(iy_end - 1) * nx + col] = last_row_val;
-                            local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + col] =
-                                last_row_val;
+                            local_halo_buffer_for_bottom_neighbor[col] = last_row_val;
                         }
 
                         cg::sync(cta);
@@ -252,11 +249,11 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * sizeof(real)));
-        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, nx * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, nx * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, 2 * nx * sizeof(real)));
-        CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, nx * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, nx * sizeof(real)));
 
         CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, num_flags * sizeof(int)));
         CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, num_flags * sizeof(int)));
