@@ -26,31 +26,37 @@ __global__ void __launch_bounds__(1024, 1)
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
+    unsigned int grid_dim_x = (nx + blockDim.x - 1) / blockDim.x;
+    unsigned int block_idx_y = blockIdx.x / grid_dim_x;
+    unsigned int block_idx_x = blockIdx.x % grid_dim_x;
+
     unsigned int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
     unsigned int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
     int iter = 0;
 
     while (iter < iter_max) {
-        if (iy > iy_start && iy < iy_end - 1 && ix < (nx - 1)) {
+        if (iy > iy_start && iy < (iy_end - 1) && ix < (nx - 1)){
             const real new_val = ZERO_TWENTY_FIVE * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                                      a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
             a_new[iy * nx + ix] = new_val;
+
+            printf("%d\n", iy * nx + ix);
         }
 
         cta.sync();
 
-        real *temp_pointer_first = a_new;
-        a_new = a;
-        a = temp_pointer_first;
-
-        real *temp_pointer_second = a_new_top;
-        a_new_top = a_top;
-        a_top = temp_pointer_second;
-
-        real *temp_pointer_third = a_new_bottom;
-        a_new_bottom = a_bottom;
-        a_bottom = temp_pointer_third;
+//        real *temp_pointer_first = a_new;
+//        a_new = a;
+//        a = temp_pointer_first;
+//
+//        real *temp_pointer_second = a_new_top;
+//        a_new_top = a_top;
+//        a_top = temp_pointer_second;
+//
+//        real *temp_pointer_third = a_new_bottom;
+//        a_new_bottom = a_bottom;
+//        a_bottom = temp_pointer_third;
 
         iter++;
 
@@ -76,15 +82,8 @@ __global__ void __launch_bounds__(1024, 1)
                          volatile int *iteration_done, const int dev_id) {
     unsigned int col = threadIdx.y * blockDim.x + threadIdx.x + 1;
 
-//        cg::thread_block cta = cg::this_thread_block();
-    //    cg::grid_group grid = cg::this_grid();
-
-//        if (threadIdx.x == 0 && threadIdx.y == 0) {
     while (iteration_done[1] != iter) {
     }
-//        }
-
-    __syncthreads();
 
     if (col < nx - 1) {
         // Wait until top GPU puts its bottom row as my top halo
@@ -92,18 +91,16 @@ __global__ void __launch_bounds__(1024, 1)
         }
 
         const real first_row_val =
-            ZERO_TWENTY_FIVE * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
-
+            0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
+                    a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
         a_new[iy_start * nx + col] = first_row_val;
 
         while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
         }
 
         const real last_row_val =
-            ZERO_TWENTY_FIVE * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                a[(iy_end - 2) * nx + col] + a[(iy_end)*nx + col]);
-
+            0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+                    a[(iy_end - 2) * nx + col] + a[(iy_end) * nx + col]);
         a_new[(iy_end - 1) * nx + col] = last_row_val;
 
         // Communication
@@ -164,6 +161,9 @@ int MultiGPUPeer::init(int argc, char **argv) {
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, devID));
     int numSms = deviceProp.multiProcessorCount;
 
+    dim3 dim_grid(numSms - 1, 1, 1);
+    dim3 dim_block(32, 32);
+
     int numBlocksPerSm = 0;
     int numThreads = THREADS_PER_BLOCK;
 
@@ -193,20 +193,6 @@ int MultiGPUPeer::init(int argc, char **argv) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(nullptr));
 
-        // For debugging locally
-        if (num_devices > 1) {
-            int canAccessPeer = 0;
-            const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
-
-            CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
-            if (canAccessPeer) {
-                CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
-            } else {
-                std::cerr << "P2P access required from " << dev_id << " to " << top << std::endl;
-                std::exit(1);
-            }
-        }
-
 #pragma omp barrier
         if (dev_id < num_ranks_low) {
             chunk_size = chunk_size_low;
@@ -216,6 +202,27 @@ int MultiGPUPeer::init(int argc, char **argv) {
 
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         const int bottom = (dev_id + 1) % num_devices;
+
+        if (top != dev_id) {
+            int canAccessPeer = 0;
+            CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
+            if (canAccessPeer) {
+                CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
+            } else {
+                std::cerr << "P2P access required from " << dev_id << " to " << top << std::endl;
+            }
+            if (top != bottom) {
+                canAccessPeer = 0;
+                CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, bottom));
+                if (canAccessPeer) {
+                    CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom, 0));
+                } else {
+                    std::cerr << "P2P access required from " << dev_id << " to " << bottom
+                              << std::endl;
+                }
+            }
+        }
+
 
 #pragma omp barrier
 
@@ -324,18 +331,22 @@ int MultiGPUPeer::init(int argc, char **argv) {
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeer::jacobi_kernel, dimGrid,
                                                  dimBlock, kernelArgs, 0, inner_domain_stream));
 
-        auto &a_ref = a[dev_id];
-        auto &a_new_ref = a_new[dev_id];
-        auto &a_top = a[top];
-        auto &a_new_top = a_new[top];
-        auto &a_bottom = a[bottom];
-        auto &a_new_bottom = a_new[bottom];
+//        auto &a_ref = a[dev_id];
+//        auto &a_new_ref = a_new[dev_id];
+//        auto &a_top = a[top];
+//        auto &a_new_top = a_new[top];
+//        auto &a_bottom = a[bottom];
+//        auto &a_new_bottom = a_new[bottom];
+
+        real *a_ref[2] = { a_new[dev_id], a[dev_id]};
+        real *a_top[2] = { a[top], a_new[top] };
+        real *a_bottom[2] = { a[bottom], a_new[bottom] };
 
         for (int iter = 0; iter < iter_max; iter++) {
             // Boundary
-            boundary_sync_kernel<<<1, dimBlock, 0, boundary_sync_stream>>>(
-                a_new_ref, a_ref, iy_start, iy_end[dev_id], nx, a_new_top, a_top, iy_end[top],
-                a_new_bottom, a_bottom, iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
+            boundary_sync_kernel<<<1, dim_block, 0, boundary_sync_stream>>>(
+                a_new[dev_id], a[dev_id], iy_start, iy_end[dev_id], nx, a_new[top], a[top], iy_end[top],
+                a_new[bottom], a[bottom], iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
                 is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
                 is_top_done_computing_flags[bottom], flag[0], dev_id);
 
@@ -353,10 +364,18 @@ int MultiGPUPeer::init(int argc, char **argv) {
             //            a_new_bottom = a_bottom;
             //            a_bottom = temp_pointer_third;
 
-            std::swap(a_ref, a_new_ref);
-            std::swap(a_top, a_new_top);
-            std::swap(a_bottom, a_new_bottom);
+//            std::swap(a_ref, a_new_ref);
+//            std::swap(a_top, a_new_top);
+//            std::swap(a_bottom, a_new_bottom);
         }
+
+//        std::swap(a_ref, a_new_ref);
+//        std::swap(a_top, a_new_top);
+//        std::swap(a_bottom, a_new_bottom);
+
+        std::swap(a[dev_id], a_new[dev_id]);
+//        std::swap(a[top], a_new[top]);
+//        std::swap(a[bottom], a_new[bottom]);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
