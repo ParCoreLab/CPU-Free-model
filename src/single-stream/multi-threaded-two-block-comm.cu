@@ -101,7 +101,7 @@ __global__ void __launch_bounds__(1024, 1)
                                 first_row_val;
                         }
 
-                        cg::sync(active);
+                        cg::sync(cta);
 
                         if (cta.thread_rank() == 0) {
                             remote_am_done_writing_to_top_neighbor[next_iter_tile_flag_idx] =
@@ -135,11 +135,9 @@ __global__ void __launch_bounds__(1024, 1)
                                 last_row_val;
                         }
 
-                        cg::sync(active);
+                        cg::sync(cta);
 
-                        if (active.thread_rank() == 0) {
-                            //                            for (int i = 0; i < 10000; i++) {iter++;
-                            //                            iter--;}
+                        if (cta.thread_rank() == 0) {
                             remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] =
                                 iter + 1;
                         }
