@@ -28,17 +28,21 @@ int main(int argc, char *argv[]) {
             std::make_pair("Baseline Single Threaded Copy", BaselineSingleThreadedCopy::init)};
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
-
-    std::cout << "Versions (select with -v):"
-              << "\n";
-    for (int i = 0; i < versions.size(); ++i) {
-        auto &v = versions[i];
-        std::cout << i << ": " << v.first << "\n";
-    }
-    std::cout << std::endl;
+    const bool silent = get_arg(argv, argv + argc, "-s");
 
     auto &selected = versions[selection];
 
-    std::cout << "Running " << selected.first << "\n" << std::endl;
+    if (!silent) {
+        std::cout << "Versions (select with -v):"
+                  << "\n";
+        for (int i = 0; i < versions.size(); ++i) {
+            auto &v = versions[i];
+            std::cout << i << ": " << v.first << "\n";
+        }
+        std::cout << std::endl;
+
+        std::cout << "Running " << selected.first << "\n" << std::endl;
+    }
+
     return selected.second(argc, argv);
 }
