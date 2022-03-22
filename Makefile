@@ -18,6 +18,8 @@ endif
 #NVCC_FLAGS += -Xcompiler -fopenmp -lineinfo -DUSE_NVTX -lnvToolsExt $(GENCODE_FLAGS) -std=c++17
 NVCC_FLAGS += -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=`command -v ${CC}`
 
+MAKEFLAGS += -j$(shell grep -c 'processor' /proc/cpuinfo)
+
 SRC=$(shell sh -c "find ./src/ -name '*.cu'")
 OUT=$(SRC:=.o)
 #OBJECTS := $(patsubst ./src/%.cu, obj/%.o, $(SRC))
