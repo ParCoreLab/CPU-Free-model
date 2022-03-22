@@ -1,48 +1,46 @@
 #!/bin/bash
 
-MAX_NUM_GPUS=8
-CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
+#SBATCH --job-name=stencil-bench
+#SBATCH --ntasks=4
+#SBATCH --gres=gpu:4
+#SBATCH --partition hgx2q
+#SBATCH --time=01:00:00
+#SBATCH --output=sbatch_output.log
 
-VERSIONS=(
-    "Single Stream Multi Threaded"
-    "Single Stream Multi Threaded 2TB"
-    "Single Stream Single Threaded"
-    "Single Stream Single Threaded 2TB"
-)
+. ./scripts/modules.sh
 
-STARTING_NX=256
-STARTING_NY=256
-NUM_ITER=1000000
-NUM_RUNS=5
+BIN="./jacobi -s 1"
+V_SINGLE=6
+V_OURS=1
+V_BASELINE=6
 
-EXECUTABLE=$1
+NXNY="20480"
 
-for version_idx in ${!VERSIONS[@]}; do
-    echo "Running ${VERSIONS[version_idx]}"; echo ""
+MAX_NUM_GPUS=$(nvidia-smi --list-gpus | wc -l)
+CUDA_VISIBLE_DEVICES_SETTING=("0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
+DOMAIN_SIZES=("256" "1024" "2048" "4096" "8192" "16384")
+NUM_ITERS="100000"
 
-    NX=${STARTING_NX}
-    NY=${STARTING_NY}
+function runp() {
+    echo "$1"
+    eval "$1"
+}
 
-    for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS*=2 )); do
-        export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_SETTING[${NUM_GPUS}]}
+for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS+=1 )); do
+    export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_SETTING[${NUM_GPUS}]}
 
-        echo "Num GPUS: ${NUM_GPUS}"
-        echo -n "${NUM_ITER} iterations on grid ${NX}x${NY}"
-
-        for (( i=1; i <= ${NUM_RUNS}; i++ )); do
-            execution_time=$(${EXECUTABLE} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
-            echo -n "${execution_time} on run ${i}"
-        done
-
-        printf "\n\n"
-
-        if [[ $NX -le $NY ]]; then
-            NX=$((2*NX))
-        else
-            NY=$((2*NY))
-        fi
+    echo Baseline "$NUM_ITERS" iterations "$NUM_GPUS" GPUs
+    # Baseline
+    for d in "${DOMAIN_SIZES[@]}"; do
+        runp "$BIN -v $V_BASELINE -nx $d -ny $d -niter $NUM_ITERS"
     done
 
-    echo "-------------------------------------"
+    echo Ours "$NUM_ITERS" iterations "$NUM_GPUS" GPUs
+    # Our version
+    for d in "${DOMAIN_SIZES[@]}"; do
+        runp "$BIN -v $V_OURS -nx $d -ny $d -niter $NUM_ITERS"
+    done
+
+    printf '\n'
 done
 
