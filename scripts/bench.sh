@@ -18,7 +18,8 @@ V_BASELINE=6
 OUT_CSV="/dev/stdout"
 echo "version,nx,ny,niter,num_gpus,execution_time" >> "$OUT_CSV"
 
-MAX_NUM_GPUS=$(nvidia-smi --list-gpus | wc -l)
+#MAX_NUM_GPUS=$(nvidia-smi --list-gpus | wc -l)
+MAX_NUM_GPUS=4
 
 # First element reserved for pretty output in the loop
 CUDA_VISIBLE_DEVICES_SETTING=("x" "0" "0,1" "0,1,2,3" "0,1,2,3,4,5,6,7")
@@ -54,6 +55,4 @@ for ((NUM_GPUS = 1; NUM_GPUS <= MAX_NUM_GPUS; NUM_GPUS += 1)); do
 
     # Baseline
     runp "$V_BASELINE" "$nx" "$ny" "$NUM_ITERS" "$NUM_GPUS"
-
-    printf '\n'
 done
