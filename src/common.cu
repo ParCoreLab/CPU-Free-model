@@ -139,11 +139,11 @@ double single_gpu(const int nx, const int ny, const int iter_max, real *const a_
 
     if (print)
         printf(
-                "Single GPU jacobi relaxation (non-persistent kernel): %d iterations on %d x %d mesh "
-                "with "
-                "norm "
-                "check every %d iterations\n",
-                iter_max, ny, nx, nccheck);
+            "Single GPU jacobi relaxation (non-persistent kernel): %d iterations on %d x %d mesh "
+            "with "
+            "norm "
+            "check every %d iterations\n",
+            iter_max, ny, nx, nccheck);
 
     constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 32;
@@ -163,7 +163,7 @@ double single_gpu(const int nx, const int ny, const int iter_max, real *const a_
 
         //        calculate_norm = (iter % nccheck) == 0 || (print && ((iter % 100) == 0));
         jacobi_kernel_single_gpu<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
-                a_new, a, nullptr, iy_start, iy_end, nx, calculate_norm);
+            a_new, a, nullptr, iy_start, iy_end, nx, calculate_norm);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));
 
@@ -245,10 +245,10 @@ double single_gpu_persistent(const int nx, const int ny, const int iter_max, rea
 
     if (print)
         printf(
-                "Single GPU jacobi relaxation (persistent kernel): %d iterations on %d x %d mesh with "
-                "norm "
-                "check every %d iterations\n",
-                iter_max, ny, nx, nccheck);
+            "Single GPU jacobi relaxation (persistent kernel): %d iterations on %d x %d mesh with "
+            "norm "
+            "check every %d iterations\n",
+            iter_max, ny, nx, nccheck);
 
     constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 32;
@@ -259,13 +259,13 @@ double single_gpu_persistent(const int nx, const int ny, const int iter_max, rea
     bool calculate_norm = false;
     //    real l2_norm = 1.0;
 
-    void *kernelArgs[] = {(void *) &a_new, (void *) &a, (void *) &iy_start,
-                          (void *) &iy_end, (void *) &nx, (void *) &calculate_norm,
-                          (void *) &iter_max};
+    void *kernelArgs[] = {(void *)&a_new,   (void *)&a,  (void *)&iy_start,
+                          (void *)&iy_end,  (void *)&nx, (void *)&calculate_norm,
+                          (void *)&iter_max};
 
     double start = omp_get_wtime();
 
-    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) jacobi_kernel_single_gpu_persistent, dim_grid,
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)jacobi_kernel_single_gpu_persistent, dim_grid,
                                              dim_block, kernelArgs, 0, nullptr));
 
     CUDA_RT_CALL(cudaGetLastError());
@@ -284,8 +284,8 @@ double single_gpu_persistent(const int nx, const int ny, const int iter_max, rea
 }
 
 void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const int num_devices,
-                    const double runtime_serial_non_persistent, const double start, const double stop,
-                    const bool compare_to_single_gpu) {
+                    const double runtime_serial_non_persistent, const double start,
+                    const double stop, const bool compare_to_single_gpu) {
     bool result_correct = true;
 
     if (compare_to_single_gpu) {
@@ -303,16 +303,16 @@ void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const 
     }
 
     if (result_correct) {
-        printf("Num GPUs: %d.\n", num_devices);
+        // printf("Num GPUs: %d.\n", num_devices);
         printf("Execution time: %8.4f s\n", (stop - start));
 
         if (compare_to_single_gpu) {
             printf(
-                    "Non-persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
-                    "efficiency: %8.2f \n",
-                    ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
-                    runtime_serial_non_persistent / (stop - start),
-                    runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
+                "Non-persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
+                "efficiency: %8.2f \n",
+                ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
+                runtime_serial_non_persistent / (stop - start),
+                runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
         }
     }
 }
