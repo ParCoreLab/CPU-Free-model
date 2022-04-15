@@ -5,6 +5,8 @@
 #SBATCH --gres=gpu:8
 #SBATCH --time=03:00:00
 
+. ./scripts/modules.sh > /dev/null
+
 MAX_NUM_GPUS=8
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
 
