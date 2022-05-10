@@ -1,4 +1,3 @@
-# Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
 NVCC=nvcc
 GENCODE_SM30	:= -gencode arch=compute_30,code=sm_30
 GENCODE_SM35	:= -gencode arch=compute_35,code=sm_35
@@ -27,7 +26,6 @@ OBJECTS := $(addprefix obj/,$(SRC:.cu=.o))
 #HED=$(shell sh -c find . -name '*.*h')
 
 jacobi: $(OBJECTS)
-	echo $(OBJECTS)
 	$(NVCC) $(NVCC_FLAGS) -I./include -o $@ $^
 
 $(OBJECTS): obj/%.o: %.cu
@@ -37,5 +35,6 @@ $(OBJECTS): obj/%.o: %.cu
 run: jacobi
 	./jacobi
 
-clean: jacobi
-	rm ./jacobi
+clean:
+	$(RM) ./jacobi
+	$(RM) -r ./obj
