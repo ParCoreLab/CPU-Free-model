@@ -10,8 +10,8 @@
 
 #include <cooperative_groups.h>
 
-#include "../include/common.h"
-#include "../include/multi-gpu-peer.cuh"
+#include "../../include/common.h"
+#include "../../include/multi-stream/multi-gpu-peer.cuh"
 
 namespace cg = cooperative_groups;
 
@@ -41,22 +41,22 @@ __global__ void __launch_bounds__(1024, 1)
                                                      a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
             a_new[iy * nx + ix] = new_val;
 
-            printf("%d\n", iy * nx + ix);
+//            printf("%d\n", iy * nx + ix);
         }
 
         cta.sync();
 
-//        real *temp_pointer_first = a_new;
-//        a_new = a;
-//        a = temp_pointer_first;
-//
-//        real *temp_pointer_second = a_new_top;
-//        a_new_top = a_top;
-//        a_top = temp_pointer_second;
-//
-//        real *temp_pointer_third = a_new_bottom;
-//        a_new_bottom = a_bottom;
-//        a_bottom = temp_pointer_third;
+        real *temp_pointer_first = a_new;
+        a_new = a;
+        a = temp_pointer_first;
+
+        real *temp_pointer_second = a_new_top;
+        a_new_top = a_top;
+        a_top = temp_pointer_second;
+
+        real *temp_pointer_third = a_new_bottom;
+        a_new_bottom = a_bottom;
+        a_bottom = temp_pointer_third;
 
         iter++;
 
@@ -69,7 +69,6 @@ __global__ void __launch_bounds__(1024, 1)
         cg::sync(grid);
     }
 }
-}  // namespace MultiGPUPeer
 
 __global__ void __launch_bounds__(1024, 1)
     boundary_sync_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
@@ -94,6 +93,7 @@ __global__ void __launch_bounds__(1024, 1)
             0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
                     a[(iy_start + 1) * nx + col] + a[(iy_start - 1) * nx + col]);
         a_new[iy_start * nx + col] = first_row_val;
+        a_new_top[top_iy * nx + col] = first_row_val;
 
         while (local_is_bottom_neighbor_done_writing_to_me[iter % 2] != iter) {
         }
@@ -102,9 +102,6 @@ __global__ void __launch_bounds__(1024, 1)
             0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
                     a[(iy_end - 2) * nx + col] + a[(iy_end) * nx + col]);
         a_new[(iy_end - 1) * nx + col] = last_row_val;
-
-        // Communication
-        a_new_top[top_iy * nx + col] = first_row_val;
         a_new_bottom[bottom_iy * nx + col] = last_row_val;
     }
 
@@ -117,6 +114,7 @@ __global__ void __launch_bounds__(1024, 1)
         iteration_done[0] = iter + 1;
     }
 }
+}  // namespace MultiGPUPeer
 
 constexpr int THREADS_PER_BLOCK = 1024;
 
@@ -338,15 +336,15 @@ int MultiGPUPeer::init(int argc, char **argv) {
 //        auto &a_bottom = a[bottom];
 //        auto &a_new_bottom = a_new[bottom];
 
-        real *a_ref[2] = { a_new[dev_id], a[dev_id]};
-        real *a_top[2] = { a[top], a_new[top] };
-        real *a_bottom[2] = { a[bottom], a_new[bottom] };
+        real *a_ref[2] = { a_new[dev_id], a[dev_id] };
+        real *a_top[2] = { a_new[top], a[top] };
+        real *a_bottom[2] = { a_new[bottom], a[bottom] };
 
         for (int iter = 0; iter < iter_max; iter++) {
             // Boundary
-            boundary_sync_kernel<<<1, dim_block, 0, boundary_sync_stream>>>(
-                a_new[dev_id], a[dev_id], iy_start, iy_end[dev_id], nx, a_new[top], a[top], iy_end[top],
-                a_new[bottom], a[bottom], iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
+            MultiGPUPeer::boundary_sync_kernel<<<1, dim_block, 0, boundary_sync_stream>>>(
+                a_ref[iter % 2], a_ref[(iter + 1) % 2], iy_start, iy_end[dev_id], nx, a_top[iter % 2], a_top[(iter + 1) % 2], iy_end[top],
+                a_bottom[iter % 2], a_bottom[(iter + 1) % 2], iy_start_bottom, iter, is_top_done_computing_flags[dev_id],
                 is_bottom_done_computing_flags[dev_id], is_bottom_done_computing_flags[top],
                 is_top_done_computing_flags[bottom], flag[0], dev_id);
 
@@ -373,9 +371,12 @@ int MultiGPUPeer::init(int argc, char **argv) {
 //        std::swap(a_top, a_new_top);
 //        std::swap(a_bottom, a_new_bottom);
 
-        std::swap(a[dev_id], a_new[dev_id]);
-//        std::swap(a[top], a_new[top]);
-//        std::swap(a[bottom], a_new[bottom]);
+        // If odd number
+        if (iter_max % 2 != 0) {
+            std::swap(a[dev_id], a_new[dev_id]);
+            std::swap(a[top], a_new[top]);
+            std::swap(a[bottom], a_new[bottom]);
+        }
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
