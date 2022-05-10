@@ -6,6 +6,7 @@
 #include "../include/baseline/single-threaded-copy.cuh"
 
 #include "../include/common.h"
+#include "../include/multi-stream/multi-gpu-peer-tiling-half.cuh"
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
 #include "../include/multi-stream/multi-gpu-peer.cuh"
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
@@ -28,7 +29,9 @@ int main(int argc, char *argv[]) {
         make_pair("Baseline Multi Threaded Copy Overlap", BaselineMultiThreadedCopyOverlap::init),
         make_pair("Baseline Multi Threaded P2P", BaselineMultiThreadedP2P::init),
         make_pair("Baseline Single Threaded Copy", BaselineSingleThreadedCopy::init),
-        make_pair("Double stream multi threaded with Tiling", MultiGPUPeerTiling::init)};
+        make_pair("Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
+        make_pair("Double stream multi threaded with Tiling but one kernel is not cooperative",
+                  MultiGPUPeerTilingHalf::init)};
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
     const bool silent = get_arg(argv, argv + argc, "-s");
@@ -40,7 +43,7 @@ int main(int argc, char *argv[]) {
                   << "\n";
         for (int i = 0; i < versions.size(); ++i) {
             auto &v = versions[i];
-            std::cout << i << ": " << v.first << "\n";
+            std::cout << i << ":\t" << v.first << "\n";
         }
         std::cout << std::endl;
 
