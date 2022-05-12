@@ -75,8 +75,14 @@ __global__ void __launch_bounds__(1024, 1) jacobi_kernel(
                                                  a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
                     a_new[iy * nx + ix] = new_val;
                 }
+
+                cg::sync(grid);
             }
+
+            cg::sync(grid);
         }
+
+        cg::sync(grid);
 
         real *temp_pointer_first = a_new;
         a_new = a;
@@ -88,9 +94,11 @@ __global__ void __launch_bounds__(1024, 1) jacobi_kernel(
 
         iter++;
 
+        cg::sync(grid);
+
         if (threadIdx.x == 0 && threadIdx.y == 0) {
-//            while (iteration_done[0] != iter) {
-//            }
+            while (iteration_done[0] != iter) {
+            }
             iteration_done[1] = iter;
         }
 
@@ -112,8 +120,8 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
     //    cg::grid_group grid = cg::this_grid();
 
     int grid_dim_x = (tile_size + blockDim.x - 1) / blockDim.x;
-    int block_idx_y = blockIdx.x / grid_dim_x;
-    int block_idx_x = blockIdx.x % grid_dim_x;
+    int block_idx_y = blockIdx.x; // / grid_dim_x;
+    int block_idx_x = blockIdx.x; // % grid_dim_x;
 
     int base_iy = block_idx_y * blockDim.y + threadIdx.y;
     int base_ix = block_idx_x * blockDim.x + threadIdx.x;
@@ -141,6 +149,9 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
     int ix;
 
     while (iter < iter_max) {
+        // This is not iteration_done, it is iteration_can_i_continue_to_what
+        while (iteration_done[1] != iter) {}
+
         for (tile_idx_y = 0; tile_idx_y < num_tiles_y; tile_idx_y++) {
             for (tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
                 tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size;
@@ -154,9 +165,7 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
                 iy = base_iy + tile_start_ny;
                 ix = base_ix + tile_start_nx;
 
-                // This is not iteration_done, it is iteration_can_i_continue_to_what
-//                while (iteration_done[1] != iter) {
-//                }
+                __syncthreads();
 
                 // Block 1
                 {
@@ -174,7 +183,7 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
                             }
                         }
 
-//                        cg::sync(cta);
+                        //                        cg::sync(cta);
                         __syncthreads();
 
                         if (col < tile_end_nx) {
@@ -189,7 +198,7 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
                                 first_row_val;
                         }
 
-//                        cg::sync(cta);
+                        //                        cg::sync(cta);
                         __syncthreads();
 
                         if (threadIdx.x == 0 && threadIdx.y == 0) {
@@ -198,6 +207,8 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
                         }
                     }
                 }
+
+                __syncthreads();
 
                 // Block 2
                 {
@@ -213,7 +224,7 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
                             }
                         }
 
-//                        cg::sync(cta);
+                        //                        cg::sync(cta);
                         __syncthreads();
 
                         if (col < tile_end_nx) {
@@ -228,16 +239,23 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
                                 last_row_val;
                         }
 
-//                        cg::sync(cta);
+                        //                        cg::sync(cta);
                         __syncthreads();
 
                         if (threadIdx.x == 0 && threadIdx.y == 0) {
-                            remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] = iter + 1;
+                            remote_am_done_writing_to_bottom_neighbor[next_iter_tile_flag_idx] =
+                                iter + 1;
                         }
                     }
                 }
+
+                __syncthreads();
             }
+
+            __syncthreads();
         }
+
+        __syncthreads();
 
         real *temp_pointer_first = a_new;
         a_new = a;
@@ -248,6 +266,8 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
         temp_iter_mod = cur_iter_mod;
         cur_iter_mod = next_iter_mod;
         next_iter_mod = temp_iter_mod;
+
+        __syncthreads();
 
         if (threadIdx.x == 0 && threadIdx.y == 0) {
             iteration_done[0] = iter;
