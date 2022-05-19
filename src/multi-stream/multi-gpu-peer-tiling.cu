@@ -88,6 +88,8 @@ __global__ void __launch_bounds__(1024, 1) jacobi_kernel(
         cur_iter_mod = next_iter_mod;
         next_iter_mod = temp_iter_mod;
 
+        cg::sync(grid);
+
         if (threadIdx.x == 0 && threadIdx.y == 0) {
             while (iteration_done[0] != iter) {
             }
@@ -141,6 +143,8 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
     int ix;
 
     while (iter < iter_max) {
+        while (iteration_done[1] != iter) {}
+
         for (tile_idx_y = 0; tile_idx_y < num_tiles_y; tile_idx_y++) {
             for (tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
                 tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size;
@@ -154,11 +158,7 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
                 iy = base_iy + tile_start_ny;
                 ix = base_ix + tile_start_nx;
 
-                while (iteration_done[1] != iter) {
-                }
-
-                // Block 1
-                {
+                if (blockIdx.x == gridDim.x - 1) {
                     int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
 
                     cur_iter_tile_flag_idx = tile_idx_x + cur_iter_mod * num_flags;
@@ -167,10 +167,10 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
 
                     if (tile_idx_y == 0) {
                         if (cta.thread_rank() == 0) {
-                            //                            while (
-                            //                                local_is_top_neighbor_done_writing_to_me[cur_iter_tile_flag_idx]
-                            //                                != iter) {
-                            //                            }
+                            while (
+                                local_is_top_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
+                                iter) {
+                            }
                         }
 
                         cg::sync(cta);
@@ -194,10 +194,7 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
                                 iter + 1;
                         }
                     }
-                }
-
-                // Block 2
-                {
+                } else if (blockIdx.x == gridDim.x - 2) {
                     int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
 
                     cur_iter_tile_flag_idx = (num_tiles_x + tile_idx_x) + cur_iter_mod * num_flags;
@@ -205,11 +202,9 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
 
                     if (tile_idx_y == (num_tiles_y - 1)) {
                         if (cta.thread_rank() == 0) {
-                            //                            while
-                            //                            (local_is_bottom_neighbor_done_writing_to_me
-                            //                                       [cur_iter_tile_flag_idx] !=
-                            //                                       iter) {
-                            //                            }
+                            while (local_is_bottom_neighbor_done_writing_to_me
+                                       [cur_iter_tile_flag_idx] != iter) {
+                            }
                         }
 
                         cg::sync(cta);
@@ -247,8 +242,10 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
         cur_iter_mod = next_iter_mod;
         next_iter_mod = temp_iter_mod;
 
+        cg::sync(grid);
+
         if (threadIdx.x == 0 && threadIdx.y == 0) {
-            iteration_done[0] = iter + 1;
+            iteration_done[0] = iter;
         }
 
         cg::sync(grid);
@@ -438,7 +435,7 @@ int MultiGPUPeerTiling::init(int argc, char *argv[]) {
                                       (void *)&is_bottom_done_computing_flags[dev_id],
                                       (void *)&is_bottom_done_computing_flags[top],
                                       (void *)&is_top_done_computing_flags[bottom],
-                                      (void *)&iteration_done_flags[1]};
+                                      (void *)&iteration_done_flags[0]};
 
 #pragma omp barrier
         double start = omp_get_wtime();
@@ -449,12 +446,14 @@ int MultiGPUPeerTiling::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
         CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-//        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTiling::jacobi_kernel,
-//                                                 dim_grid, dim_block, kernelArgsInner, 0,
-//                                                 inner_domain_stream));
+        // THE KERNELS ARE SERIALIZED!
+        // perhaps only on V100
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTiling::jacobi_kernel,
+                                                 dim_grid, dim_block, kernelArgsInner, 0,
+                                                 inner_domain_stream));
 
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTiling::boundary_sync_kernel,
-                                                 dim_grid, dim_block, kernelArgsBoundary, 0,
+                                                 2, dim_block, kernelArgsBoundary, 0,
                                                  boundary_sync_stream));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
