@@ -18,10 +18,10 @@ __global__ void __launch_bounds__(1024, 1)
     jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
                   const int tile_size, const int num_tiles_x, const int num_tiles_y,
                   const int top_iy, const int bottom_iy, const int iter_max,
-                  real *local_halo_buffer_for_top_neighbor,
-                  real *local_halo_buffer_for_bottom_neighbor,
-                  real *remote_my_halo_buffer_on_top_neighbor,
-                  real *remote_my_halo_buffer_on_bottom_neighbor,
+                  volatile real *local_halo_buffer_for_top_neighbor,
+                  volatile real *local_halo_buffer_for_bottom_neighbor,
+                  volatile real *remote_my_halo_buffer_on_top_neighbor,
+                  volatile real *remote_my_halo_buffer_on_bottom_neighbor,
                   volatile int *local_is_top_neighbor_done_writing_to_me,
                   volatile int *local_is_bottom_neighbor_done_writing_to_me,
                   volatile int *remote_am_done_writing_to_top_neighbor,
@@ -211,6 +211,15 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
 
         int height_per_gpu = ny / num_devices;
 
+        cudaDeviceProp deviceProp{};
+        CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
+        int numSms = deviceProp.multiProcessorCount;
+
+        constexpr int dim_block_x = 32;
+        constexpr int dim_block_y = 32;
+
+        int tile_size = sqrt((numSms - 2) * dim_block_x * dim_block_y);
+
         int num_tiles_x = nx / TILE_SIZE + (nx % TILE_SIZE != 0);
         int num_tiles_y = height_per_gpu / TILE_SIZE + (height_per_gpu % TILE_SIZE != 0);
         int num_flags = 4 * num_tiles_x;
@@ -285,13 +294,6 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
-
-        constexpr int dim_block_x = 32;
-        constexpr int dim_block_y = 32;
-
-        cudaDeviceProp deviceProp{};
-        CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
-        int numSms = deviceProp.multiProcessorCount;
 
         dim3 dim_grid(numSms, 1, 1);
         dim3 dim_block(dim_block_x, dim_block_y);
