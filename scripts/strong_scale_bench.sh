@@ -3,7 +3,9 @@
 #SBATCH --job-name=stencil-bench
 #SBATCH --ntasks=8
 #SBATCH --gres=gpu:8
-#SBATCH --time=04:00:00
+#SBATCH --partition hgx2q
+#SBATCH --time=03:00:00
+#SBATCH --output=sbatch_output_%j.log
 
 . ./scripts/modules.sh > /dev/null
 
