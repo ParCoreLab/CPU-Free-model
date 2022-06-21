@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
         make_pair("Double stream multi threaded with Tiling but one kernel is not cooperative",
                   MultiGPUPeerTilingHalf::init)};
 
-    const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
+    const int selection = get_argval<int>(argv, argv + argc, "-v", 1);
     const bool silent = get_arg(argv, argv + argc, "-s");
 
     auto &selected = versions[selection];
