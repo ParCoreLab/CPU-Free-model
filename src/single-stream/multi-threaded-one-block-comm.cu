@@ -60,11 +60,11 @@ __global__ void __launch_bounds__(1024, 1)
 
     while (iter < iter_max) {
         for (tile_idx_y = 0; tile_idx_y < num_tiles_y; tile_idx_y++) {
-            for (tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
-                tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size;
-                tile_end_ny =
-                    (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) * tile_size;
+            tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size;
+            tile_end_ny =
+                (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) * tile_size;
 
+            for (tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
                 tile_start_nx = (tile_idx_x == 0) ? 1 : tile_idx_x * tile_size;
                 tile_end_nx =
                     (tile_idx_x == (num_tiles_x - 1)) ? nx - 1 : (tile_idx_x + 1) * tile_size;
