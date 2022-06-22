@@ -12,10 +12,11 @@ CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2
 
 declare -A version_name_to_idx_map
 
+version_name_to_idx_map["Single Stream Multi Threaded 1TB"]=0
 version_name_to_idx_map["Single Stream Multi Threaded 2TB"]=1
-version_name_to_idx_map["Baseline Multi Threaded Copy"]=5
-version_name_to_idx_map["Baseline Multi Threaded Copy Overlap"]=6
-version_name_to_idx_map["Baseline Multi Threaded P2P"]=7
+version_name_to_idx_map["Baseline Multi Threaded Copy"]=3
+version_name_to_idx_map["Baseline Multi Threaded Copy Overlap"]=4
+version_name_to_idx_map["Baseline Multi Threaded P2P"]=5
 
 BIN="./jacobi -s 1"
 

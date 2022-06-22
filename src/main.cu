@@ -11,8 +11,6 @@
 #include "../include/multi-stream/multi-gpu-peer.cuh"
 #include "../include/single-stream/multi-threaded-one-block-comm.cuh"
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
-#include "../include/single-stream/single-threaded-two-block-comm.cuh"
-#include "../include/single-stream/single-threaded.cuh"
 
 using std::make_pair;
 
@@ -22,9 +20,6 @@ int main(int argc, char *argv[]) {
                   SSMultiThreadedOneBlockComm::init),
         make_pair("Single stream multi threaded (two thread blocks communicate)",
                   SSMultiThreadedTwoBlockComm::init),
-        make_pair("Single stream single threaded", SSSingleThreaded::init),
-        make_pair("Single stream single threaded (two thread blocks communicate)",
-                  SSSingleThreadedTwoBlockComm::init),
         make_pair("Double stream multi threaded", MultiGPUPeer::init),
         make_pair("Baseline Multi Threaded Copy", BaselineMultiThreadedCopy::init),
         make_pair("Baseline Multi Threaded Copy Overlap", BaselineMultiThreadedCopyOverlap::init),
