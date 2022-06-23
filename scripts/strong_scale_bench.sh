@@ -19,11 +19,8 @@ version_name_to_idx_map["Baseline Multi Threaded Copy"]=3
 version_name_to_idx_map["Baseline Multi Threaded Copy Overlap"]=4
 version_name_to_idx_map["Baseline Multi Threaded P2P"]=5
 
-version_name_to_idx_map["Two Stream"]=7
-
 version_name_to_idx_map["Single Stream Multi Threaded 1TB (No Compute)"]=9
 version_name_to_idx_map["Single Stream Multi Threaded 2TB (No Compute)"]=10
-version_name_to_idx_map["Two Stream (No Compute)"]=11
 
 BIN="./jacobi -s 1"
 
