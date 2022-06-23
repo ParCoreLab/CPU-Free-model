@@ -9,8 +9,13 @@
 #include "../include/multi-stream/multi-gpu-peer-tiling-half.cuh"
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
 #include "../include/multi-stream/multi-gpu-peer.cuh"
+
 #include "../include/single-stream/multi-threaded-one-block-comm.cuh"
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
+
+#include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
+#include "../include/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
+#include "../include/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
 
 using std::make_pair;
 
@@ -20,6 +25,7 @@ int main(int argc, char *argv[]) {
                   SSMultiThreadedOneBlockComm::init),
         make_pair("Single stream multi threaded (two thread blocks communicate)",
                   SSMultiThreadedTwoBlockComm::init),
+
         make_pair("Double stream multi threaded", MultiGPUPeer::init),
         make_pair("Baseline Multi Threaded Copy", BaselineMultiThreadedCopy::init),
         make_pair("Baseline Multi Threaded Copy Overlap", BaselineMultiThreadedCopyOverlap::init),
@@ -27,7 +33,15 @@ int main(int argc, char *argv[]) {
         make_pair("Baseline Single Threaded Copy", BaselineSingleThreadedCopy::init),
         make_pair("Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
         make_pair("Double stream multi threaded with Tiling but one kernel is not cooperative",
-                  MultiGPUPeerTilingHalf::init)};
+                  MultiGPUPeerTilingHalf::init),
+
+        make_pair("Single stream multi threaded (one thread block communicates; no computation)",
+                  SSMultiThreadedOneBlockCommNoCompute::init),
+        make_pair("Single stream multi threaded (two thread blocks communicate; no computation)",
+                  SSMultiThreadedTwoBlockCommNoCompute::init),
+        make_pair("Double stream multi threaded with Tiling (no computation)",
+                  MultiGPUPeerTilingNoCompute::init),
+    };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
     const bool silent = get_arg(argv, argv + argc, "-s");
