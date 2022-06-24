@@ -56,7 +56,7 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
             echo "${execution_time} on run ${i}"
         done
 
-        printf "\n\n"
+        printf "\n"
     done
 
     echo "-------------------------------------"
