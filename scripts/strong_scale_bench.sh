@@ -14,10 +14,15 @@ CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2
 
 declare -A version_name_to_idx_map
 
+version_name_to_idx_map["Single Stream Multi Threaded 1TB"]=0
 version_name_to_idx_map["Single Stream Multi Threaded 2TB"]=1
-version_name_to_idx_map["Baseline Multi Threaded Copy"]=5
-version_name_to_idx_map["Baseline Multi Threaded Copy Overlap"]=6
-version_name_to_idx_map["Baseline Multi Threaded P2P"]=7
+
+version_name_to_idx_map["Baseline Multi Threaded Copy"]=3
+version_name_to_idx_map["Baseline Multi Threaded Copy Overlap"]=4
+version_name_to_idx_map["Baseline Multi Threaded P2P"]=5
+
+version_name_to_idx_map["Single Stream Multi Threaded 1TB (No Compute)"]=9
+version_name_to_idx_map["Single Stream Multi Threaded 2TB (No Compute)"]=10
 
 BIN="./jacobi -s 1"
 
@@ -46,14 +51,14 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
         export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_SETTING[${NUM_GPUS}]}
 
         echo "Num GPUS: ${NUM_GPUS}"
-        echo -n "${NUM_ITER} iterations on grid ${NY}x${NX}"
+        echo "${NUM_ITER} iterations on grid ${NY}x${NX}"
 
         for (( i=1; i <= ${NUM_RUNS}; i++ )); do
             execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
-            echo -n "${execution_time} on run ${i}"
+            echo "${execution_time} on run ${i}"
         done
 
-        printf "\n\n"
+        printf "\n"
     done
 
     echo "-------------------------------------"
