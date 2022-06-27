@@ -1,140 +1,246 @@
+
 Running Single Stream Multi Threaded 2TB
 
 Num GPUS: 1
-1000000 iterations on grid 1024x1024
-Execution time:  17.8950 s on run 1
-Execution time:  17.9166 s on run 2
-Execution time:  17.8729 s on run 3
-Execution time:  17.8742 s on run 4
-Execution time:  17.8747 s on run 5
+100000 iterations on grid 8192x4096
+Execution time:  51.0636 s on run 1
+Execution time:  51.0732 s on run 2
+Execution time:  51.0721 s on run 3
+Execution time:  51.0730 s on run 4
+Execution time:  51.0731 s on run 5
 
 Num GPUS: 2
-1000000 iterations on grid 1024x2048
-Execution time:  17.9886 s on run 1
-Execution time:  17.9709 s on run 2
-Execution time:  18.0546 s on run 3
-Execution time:  17.9705 s on run 4
-Execution time:  18.0534 s on run 5
+100000 iterations on grid 8192x8192
+Execution time:  52.2437 s on run 1
+Execution time:  52.2312 s on run 2
+Execution time:  52.2307 s on run 3
+Execution time:  52.2305 s on run 4
+Execution time:  52.2310 s on run 5
 
 Num GPUS: 4
-1000000 iterations on grid 2048x2048
-Execution time:  18.1544 s on run 1
-Execution time:  18.1409 s on run 2
-Execution time:  18.1415 s on run 3
-Execution time:  18.1408 s on run 4
-Execution time:  18.1412 s on run 5
+100000 iterations on grid 8192x16384
+Execution time:  53.5927 s on run 1
+Execution time:  53.6250 s on run 2
+Execution time:  53.5598 s on run 3
+Execution time:  53.5837 s on run 4
+Execution time:  53.6187 s on run 5
 
 Num GPUS: 8
-1000000 iterations on grid 2048x4096
-Execution time:  28.5900 s on run 1
-Execution time:  28.5784 s on run 2
-Execution time:  28.6019 s on run 3
-Execution time:  28.5901 s on run 4
-Execution time:  28.6040 s on run 5
+100000 iterations on grid 16384x16384
+Execution time:  53.5913 s on run 1
+Execution time:  53.6087 s on run 2
+Execution time:  53.6016 s on run 3
+Execution time:  53.6052 s on run 4
+Execution time:  53.6058 s on run 5
 
 -------------------------------------
 Running Baseline Multi Threaded P2P
 
 Num GPUS: 1
-1000000 iterations on grid 1024x1024
-Execution time:  11.5451 s on run 1
-Execution time:  11.6504 s on run 2
-Execution time:  11.4721 s on run 3
-Execution time:  11.4093 s on run 4
-Execution time:  11.4286 s on run 5
+100000 iterations on grid 8192x4096
+Execution time:  39.7281 s on run 1
+Execution time:  39.7204 s on run 2
+Execution time:  39.7253 s on run 3
+Execution time:  39.7456 s on run 4
+Execution time:  39.7487 s on run 5
 
 Num GPUS: 2
-1000000 iterations on grid 1024x2048
-Execution time:  23.6352 s on run 1
-Execution time:  23.9029 s on run 2
-Execution time:  26.6000 s on run 3
-Execution time:  24.8707 s on run 4
-Execution time:  22.4448 s on run 5
+100000 iterations on grid 8192x8192
+Execution time:  38.0978 s on run 1
+Execution time:  38.0939 s on run 2
+Execution time:  38.0882 s on run 3
+Execution time:  38.0959 s on run 4
+Execution time:  38.0908 s on run 5
 
 Num GPUS: 4
-1000000 iterations on grid 2048x2048
-Execution time:  52.9940 s on run 1
-Execution time:  51.2256 s on run 2
-Execution time:  47.2315 s on run 3
-Execution time:  45.2429 s on run 4
-Execution time:  53.3527 s on run 5
+100000 iterations on grid 8192x16384
+Execution time:  37.8973 s on run 1
+Execution time:  37.8976 s on run 2
+Execution time:  37.9023 s on run 3
+Execution time:  37.8831 s on run 4
+Execution time:  37.9111 s on run 5
 
 Num GPUS: 8
-1000000 iterations on grid 2048x4096
-Execution time: 111.7277 s on run 1
-Execution time: 113.1770 s on run 2
-Execution time: 115.4148 s on run 3
-Execution time: 106.4683 s on run 4
-Execution time: 115.8628 s on run 5
+100000 iterations on grid 16384x16384
+Execution time:  41.3896 s on run 1
+Execution time:  42.8547 s on run 2
+Execution time:  52.6120 s on run 3
+Execution time:  64.4739 s on run 4
+Execution time:  40.0752 s on run 5
+
+-------------------------------------
+Running Single Stream Multi Threaded 1TB
+
+Num GPUS: 1
+100000 iterations on grid 8192x4096
+Execution time:  49.6312 s on run 1
+Execution time:  49.6379 s on run 2
+Execution time:  49.6370 s on run 3
+Execution time:  49.6382 s on run 4
+Execution time:  49.6387 s on run 5
+
+Num GPUS: 2
+100000 iterations on grid 8192x8192
+Execution time:  50.3886 s on run 1
+Execution time:  50.3757 s on run 2
+Execution time:  50.3807 s on run 3
+Execution time:  50.3899 s on run 4
+Execution time:  50.3718 s on run 5
+
+Num GPUS: 4
+100000 iterations on grid 8192x16384
+Execution time:  51.4267 s on run 1
+Execution time:  51.4198 s on run 2
+Execution time:  51.4183 s on run 3
+Execution time:  51.4183 s on run 4
+Execution time:  51.4156 s on run 5
+
+Num GPUS: 8
+100000 iterations on grid 16384x16384
+Execution time:  51.4469 s on run 1
+Execution time:  51.4580 s on run 2
+Execution time:  51.4879 s on run 3
+Execution time:  51.4469 s on run 4
+Execution time:  51.4600 s on run 5
 
 -------------------------------------
 Running Baseline Multi Threaded Copy
 
 Num GPUS: 1
-1000000 iterations on grid 1024x1024
-Execution time:  33.9652 s on run 1
-Execution time:  33.8380 s on run 2
-Execution time:  34.2933 s on run 3
-Execution time:  34.3396 s on run 4
-Execution time:  33.7258 s on run 5
+100000 iterations on grid 8192x4096
+Execution time:  41.6543 s on run 1
+Execution time:  41.5541 s on run 2
+Execution time:  41.5709 s on run 3
+Execution time:  41.5847 s on run 4
+Execution time:  41.5852 s on run 5
 
 Num GPUS: 2
-1000000 iterations on grid 1024x2048
-Execution time:  45.7407 s on run 1
-Execution time:  47.0544 s on run 2
-Execution time:  47.7725 s on run 3
-Execution time:  48.0224 s on run 4
-Execution time:  46.6827 s on run 5
+100000 iterations on grid 8192x8192
+Execution time:  39.2800 s on run 1
+Execution time:  39.2722 s on run 2
+Execution time:  39.2740 s on run 3
+Execution time:  39.2592 s on run 4
+Execution time:  39.2789 s on run 5
 
 Num GPUS: 4
-1000000 iterations on grid 2048x2048
-Execution time:  89.8087 s on run 1
-Execution time:  90.9613 s on run 2
-Execution time:  89.0023 s on run 3
-Execution time:  91.4535 s on run 4
-Execution time:  84.4379 s on run 5
+100000 iterations on grid 8192x16384
+Execution time:  39.2856 s on run 1
+Execution time:  39.2938 s on run 2
+Execution time:  39.2862 s on run 3
+Execution time:  39.3069 s on run 4
+Execution time:  39.2910 s on run 5
 
 Num GPUS: 8
-1000000 iterations on grid 2048x4096
-Execution time: 197.9378 s on run 1
-Execution time: 189.9431 s on run 2
-Execution time: 188.7422 s on run 3
-Execution time: 180.1057 s on run 4
-Execution time: 187.4730 s on run 5
+100000 iterations on grid 16384x16384
+Execution time:  42.6373 s on run 1
+Execution time:  44.3696 s on run 2
+Execution time:  53.9703 s on run 3
+Execution time:  57.4742 s on run 4
+Execution time:  78.4313 s on run 5
+
+-------------------------------------
+Running Single Stream Multi Threaded 1TB (No Compute)
+
+Num GPUS: 1
+100000 iterations on grid 8192x4096
+Execution time:  18.9554 s on run 1
+Execution time:  18.9558 s on run 2
+Execution time:  18.9566 s on run 3
+Execution time:  18.9553 s on run 4
+Execution time:  18.9556 s on run 5
+
+Num GPUS: 2
+100000 iterations on grid 8192x8192
+Execution time:  23.8186 s on run 1
+Execution time:  23.7990 s on run 2
+Execution time:  23.7971 s on run 3
+Execution time:  23.7989 s on run 4
+Execution time:  23.7986 s on run 5
+
+Num GPUS: 4
+100000 iterations on grid 8192x16384
+Execution time:  32.5461 s on run 1
+Execution time:  32.5247 s on run 2
+Execution time:  32.5250 s on run 3
+Execution time:  32.5245 s on run 4
+Execution time:  32.5257 s on run 5
+
+Num GPUS: 8
+100000 iterations on grid 16384x16384
+Execution time:  31.5823 s on run 1
+Execution time:  31.5465 s on run 2
+Execution time:  31.5866 s on run 3
+Execution time:  31.5570 s on run 4
+Execution time:  31.5738 s on run 5
+
+-------------------------------------
+Running Single Stream Multi Threaded 2TB (No Compute)
+
+Num GPUS: 1
+100000 iterations on grid 8192x4096
+Execution time:  18.9695 s on run 1
+Execution time:  18.9707 s on run 2
+Execution time:  18.9709 s on run 3
+Execution time:  18.9556 s on run 4
+Execution time:  18.9559 s on run 5
+
+Num GPUS: 2
+100000 iterations on grid 8192x8192
+Execution time:  23.8317 s on run 1
+Execution time:  23.7988 s on run 2
+Execution time:  23.8000 s on run 3
+Execution time:  23.7993 s on run 4
+Execution time:  23.8002 s on run 5
+
+Num GPUS: 4
+100000 iterations on grid 8192x16384
+Execution time:  32.5571 s on run 1
+Execution time:  32.5277 s on run 2
+Execution time:  32.5230 s on run 3
+Execution time:  32.5257 s on run 4
+Execution time:  32.5251 s on run 5
+
+Num GPUS: 8
+100000 iterations on grid 16384x16384
+Execution time:  31.5787 s on run 1
+Execution time:  31.5654 s on run 2
+Execution time:  31.5629 s on run 3
+Execution time:  31.5609 s on run 4
+Execution time:  31.5674 s on run 5
 
 -------------------------------------
 Running Baseline Multi Threaded Copy Overlap
 
 Num GPUS: 1
-1000000 iterations on grid 1024x1024
-Execution time:  34.6752 s on run 1
-Execution time:  35.2694 s on run 2
-Execution time:  34.9464 s on run 3
-Execution time:  35.0346 s on run 4
-Execution time:  35.3235 s on run 5
+100000 iterations on grid 8192x4096
+Execution time:  40.8845 s on run 1
+Execution time:  40.9147 s on run 2
+Execution time:  40.8875 s on run 3
+Execution time:  40.8897 s on run 4
+Execution time:  40.8916 s on run 5
 
 Num GPUS: 2
-1000000 iterations on grid 1024x2048
-Execution time:  62.7161 s on run 1
-Execution time:  62.8374 s on run 2
-Execution time:  63.1044 s on run 3
-Execution time:  63.9416 s on run 4
-Execution time:  63.6009 s on run 5
+100000 iterations on grid 8192x8192
+Execution time:  38.0119 s on run 1
+Execution time:  38.0157 s on run 2
+Execution time:  38.0158 s on run 3
+Execution time:  38.0119 s on run 4
+Execution time:  38.0159 s on run 5
 
 Num GPUS: 4
-1000000 iterations on grid 2048x2048
-Execution time:  97.3522 s on run 1
-Execution time: 102.9490 s on run 2
-Execution time:  97.8157 s on run 3
-Execution time: 104.4056 s on run 4
-Execution time: 101.8558 s on run 5
+100000 iterations on grid 8192x16384
+Execution time:  38.0186 s on run 1
+Execution time:  38.0161 s on run 2
+Execution time:  38.0153 s on run 3
+Execution time:  38.0186 s on run 4
+Execution time:  38.0281 s on run 5
 
 Num GPUS: 8
-1000000 iterations on grid 2048x4096
-Execution time: 201.0477 s on run 1
-Execution time: 191.6233 s on run 2
-Execution time: 180.4732 s on run 3
-Execution time: 201.6268 s on run 4
-Execution time: 195.1912 s on run 5
+100000 iterations on grid 16384x16384
+Execution time:  38.9951 s on run 1
+Execution time:  44.4820 s on run 2
+Execution time:  39.9661 s on run 3
+Execution time:  41.6082 s on run 4
+Execution time:  38.4175 s on run 5
 
 -------------------------------------
