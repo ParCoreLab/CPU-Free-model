@@ -16,8 +16,8 @@ namespace cg = cooperative_groups;
 namespace SSMultiThreadedOneBlockComm {
 __global__ void __launch_bounds__(1024, 1)
     jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
-                  const int tile_size, const int num_tiles_x, const int num_tiles_y,
-                  const int top_iy, const int bottom_iy, const int iter_max,
+                  const int tile_size_x, const int tile_size_y, const int num_tiles_x,
+                  const int num_tiles_y, const int top_iy, const int bottom_iy, const int iter_max,
                   volatile real *local_halo_buffer_for_top_neighbor,
                   volatile real *local_halo_buffer_for_bottom_neighbor,
                   volatile real *remote_my_halo_buffer_on_top_neighbor,
@@ -29,7 +29,7 @@ __global__ void __launch_bounds__(1024, 1)
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
-    int grid_dim_x = (tile_size + blockDim.x - 1) / blockDim.x;
+    int grid_dim_x = (tile_size_x + blockDim.x - 1) / blockDim.x;
     int block_idx_y = blockIdx.x / grid_dim_x;
     int block_idx_x = blockIdx.x % grid_dim_x;
 
@@ -60,14 +60,14 @@ __global__ void __launch_bounds__(1024, 1)
 
     while (iter < iter_max) {
         for (tile_idx_y = 0; tile_idx_y < num_tiles_y; tile_idx_y++) {
-            tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size;
+            tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size_y;
             tile_end_ny =
-                (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) * tile_size;
+                (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) * tile_size_y;
 
             for (tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
-                tile_start_nx = (tile_idx_x == 0) ? 1 : tile_idx_x * tile_size;
+                tile_start_nx = (tile_idx_x == 0) ? 1 : tile_idx_x * tile_size_x;
                 tile_end_nx =
-                    (tile_idx_x == (num_tiles_x - 1)) ? nx - 1 : (tile_idx_x + 1) * tile_size;
+                    (tile_idx_x == (num_tiles_x - 1)) ? nx - 1 : (tile_idx_x + 1) * tile_size_x;
 
                 iy = base_iy + tile_start_ny;
                 ix = base_ix + tile_start_nx;
@@ -218,10 +218,17 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[]) {
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
 
-        int tile_size = sqrt((numSms - 2) * dim_block_x * dim_block_y);
+        // int tile_size_x = 128;
+        // int tile_size_y = 608;
 
-        int num_tiles_x = nx / TILE_SIZE + (nx % TILE_SIZE != 0);
-        int num_tiles_y = height_per_gpu / TILE_SIZE + (height_per_gpu % TILE_SIZE != 0);
+        // int tile_size_x = 1024;
+        // int tile_size_y = 128;
+
+        int tile_size_x = 256;
+        int tile_size_y = 288;
+
+        int num_tiles_x = nx / tile_size_x + (nx % tile_size_x != 0);
+        int num_tiles_y = height_per_gpu / tile_size_y + (height_per_gpu % tile_size_y != 0);
         int num_flags = 4 * num_tiles_x;
 
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
@@ -303,7 +310,8 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[]) {
                               (void *)&iy_start,
                               (void *)&iy_end[dev_id],
                               (void *)&nx,
-                              (void *)&TILE_SIZE,
+                              (void *)&tile_size_x,
+                              (void *)&tile_size_y,
                               (void *)&num_tiles_x,
                               (void *)&num_tiles_y,
                               (void *)&iy_end[top],
