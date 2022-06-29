@@ -225,7 +225,14 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[]) {
         // int tile_size_y = 128;
 
         int tile_size_x = 256;
-        int tile_size_y = 288;
+        int tile_size_y;
+
+        int grid_dim_x = (tile_size_x + dim_block_x - 1) / dim_block_x;
+        int max_thread_blocks_y = (numSms - 1) / grid_dim_x;
+
+        tile_size_y = dim_block_y * max_thread_blocks_y;
+
+        printf("%d %d\n", tile_size_x, tile_size_y);
 
         int num_tiles_x = nx / tile_size_x + (nx % tile_size_x != 0);
         int num_tiles_y = height_per_gpu / tile_size_y + (height_per_gpu % tile_size_y != 0);
