@@ -37,7 +37,7 @@ __global__ void __launch_bounds__(1024, 1)
     int base_iy = block_idx_y * blockDim.y + threadIdx.y;
     int base_ix = block_idx_x * blockDim.x + threadIdx.x;
 
-    int num_flags = 2 * num_comp_tiles_x;
+    int num_flags = 2 * num_comm_tiles;
 
     int iter = 0;
 
