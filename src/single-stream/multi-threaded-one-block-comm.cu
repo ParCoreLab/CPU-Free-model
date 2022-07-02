@@ -45,26 +45,12 @@ __global__ void __launch_bounds__(1024, 1)
     int next_iter_mod = 1;
     int temp_iter_mod = 0;
 
-    int cur_iter_comm_tile_flag_idx;
-    int next_iter_comm_tile_flag_idx;
-
-    int comm_tile_idx;
-    int comp_tile_idx_x;
-    int comp_tile_idx_y;
-
-    int comm_tile_start;
-    int comm_tile_end;
-    int comp_tile_start_ny;
-    int comp_tile_end_ny;
-    int comp_tile_start_nx;
-    int comp_tile_end_nx;
-
-    int iy;
-    int ix;
-
     while (iter < iter_max) {
         if (blockIdx.x == gridDim.x - 1) {
-            for (comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++) {
+            int comm_tile_start;
+            int comm_tile_end;
+
+            for (int comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++) {
                 comm_tile_start = (comm_tile_idx == 0) ? 1 : comm_tile_idx * comm_tile_size;
                 comm_tile_end = (comm_tile_idx == (num_comm_tiles - 1))
                                     ? nx - 1
@@ -72,11 +58,9 @@ __global__ void __launch_bounds__(1024, 1)
 
                 int col = threadIdx.y * blockDim.x + threadIdx.x + comm_tile_start;
 
-                cur_iter_comm_tile_flag_idx = comm_tile_idx + cur_iter_mod * num_flags;
-                next_iter_comm_tile_flag_idx =
-                    (num_comm_tiles + comm_tile_idx) + next_iter_mod * num_flags;
-
                 if (cta.thread_rank() == 0) {
+                    int cur_iter_comm_tile_flag_idx = comm_tile_idx + cur_iter_mod * num_flags;
+
                     while (local_is_top_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
                            iter) {
                     }
@@ -97,16 +81,18 @@ __global__ void __launch_bounds__(1024, 1)
                 cg::sync(cta);
 
                 if (cta.thread_rank() == 0) {
+                    int next_iter_comm_tile_flag_idx =
+                        (num_comm_tiles + comm_tile_idx) + next_iter_mod * num_flags;
+
                     remote_am_done_writing_to_top_neighbor[next_iter_comm_tile_flag_idx] = iter + 1;
                 }
 
                 cg::sync(cta);
 
-                cur_iter_comm_tile_flag_idx =
-                    (num_comm_tiles + comm_tile_idx) + cur_iter_mod * num_flags;
-                next_iter_comm_tile_flag_idx = comm_tile_idx + next_iter_mod * num_flags;
-
                 if (cta.thread_rank() == 0) {
+                    int cur_iter_comm_tile_flag_idx =
+                        (num_comm_tiles + comm_tile_idx) + cur_iter_mod * num_flags;
+
                     while (
                         local_is_bottom_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
                         iter) {
@@ -128,26 +114,38 @@ __global__ void __launch_bounds__(1024, 1)
                 cg::sync(cta);
 
                 if (cta.thread_rank() == 0) {
+                    int next_iter_comm_tile_flag_idx = comm_tile_idx + next_iter_mod * num_flags;
+
                     remote_am_done_writing_to_bottom_neighbor[next_iter_comm_tile_flag_idx] =
                         iter + 1;
                 }
             }
         } else {
-            for (comp_tile_idx_y = 0; comp_tile_idx_y < num_comp_tiles_y; comp_tile_idx_y++) {
+            int comp_tile_start_ny;
+            int comp_tile_end_ny;
+            int comp_tile_start_nx;
+            int comp_tile_end_nx;
+
+            int iy;
+            int ix;
+
+            for (int comp_tile_idx_y = 0; comp_tile_idx_y < num_comp_tiles_y; comp_tile_idx_y++) {
                 comp_tile_start_ny =
                     (comp_tile_idx_y == 0) ? iy_start + 1 : comp_tile_idx_y * comp_tile_size_y;
                 comp_tile_end_ny = (comp_tile_idx_y == (num_comp_tiles_y - 1))
                                        ? iy_end - 1
                                        : (comp_tile_idx_y + 1) * comp_tile_size_y;
 
-                for (comp_tile_idx_x = 0; comp_tile_idx_x < num_comp_tiles_x; comp_tile_idx_x++) {
+                iy = base_iy + comp_tile_start_ny;
+
+                for (int comp_tile_idx_x = 0; comp_tile_idx_x < num_comp_tiles_x;
+                     comp_tile_idx_x++) {
                     comp_tile_start_nx =
                         (comp_tile_idx_x == 0) ? 1 : comp_tile_idx_x * comp_tile_size_x;
                     comp_tile_end_nx = (comp_tile_idx_x == (num_comp_tiles_x - 1))
                                            ? nx - 1
                                            : (comp_tile_idx_x + 1) * comp_tile_size_x;
 
-                    iy = base_iy + comp_tile_start_ny;
                     ix = base_ix + comp_tile_start_nx;
 
                     if (iy < comp_tile_end_ny && ix < comp_tile_end_nx) {
