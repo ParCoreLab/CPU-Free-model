@@ -14,7 +14,10 @@
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
 
 #include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
+#include "../include/no-compute/multi-threaded-copy-no-compute.cuh"
+#include "../include/no-compute/multi-threaded-copy-overlap-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
+#include "../include/no-compute/multi-threaded-p2p-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
 
 using std::make_pair;
@@ -41,6 +44,12 @@ int main(int argc, char *argv[]) {
                   SSMultiThreadedTwoBlockCommNoCompute::init),
         make_pair("Double stream multi threaded with Tiling (no computation)",
                   MultiGPUPeerTilingNoCompute::init),
+        make_pair("Baseline Multi Threaded Copy (No computation)",
+                  BaselineMultiThreadedCopyNoCompute::init),
+        make_pair("Baseline Multi Threaded Copy Overlap (No Computation)",
+                  BaselineMultiThreadedCopyOverlapNoCompute::init),
+        make_pair("Baseline Multi Threaded P2P (No Computation)",
+                  BaselineMultiThreadedP2PNoCompute::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
