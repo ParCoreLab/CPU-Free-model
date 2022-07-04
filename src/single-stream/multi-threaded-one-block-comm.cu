@@ -233,7 +233,7 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[]) {
 
         comp_tile_size_y = dim_block_y * max_thread_blocks_y;
 
-        printf("Computation tile dimensions: %dx%d\n", comp_tile_size_x, comp_tile_size_y);
+        // printf("Computation tile dimensions: %dx%d\n", comp_tile_size_x, comp_tile_size_y);
 
         int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
         int num_comp_tiles_y =
@@ -243,7 +243,7 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[]) {
         int num_comm_tiles = nx / comm_tile_size + (nx % comm_tile_size != 0);
         int num_flags = 4 * num_comm_tiles;
 
-        printf("Number of communication tiles: %d\n", num_comm_tiles);
+        // printf("Number of communication tiles: %d\n", num_comm_tiles);
 
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
         if (dev_id < num_ranks_low)
