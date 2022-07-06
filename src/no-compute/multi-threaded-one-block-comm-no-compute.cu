@@ -37,8 +37,6 @@ __global__ void __launch_bounds__(1024, 1)
     int base_iy = block_idx_y * blockDim.y + threadIdx.y;
     int base_ix = block_idx_x * blockDim.x + threadIdx.x;
 
-    int num_flags = 2 * num_comm_tiles;
-
     int iter = 0;
 
     int cur_iter_mod = 0;
@@ -47,14 +45,13 @@ __global__ void __launch_bounds__(1024, 1)
 
     while (iter < iter_max) {
         if (blockIdx.x == gridDim.x - 1) {
-            int comm_tile_start;
-            int comm_tile_end;
+            int num_flags = 2 * num_comm_tiles;
 
             for (int comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++) {
-                comm_tile_start = (comm_tile_idx == 0) ? 1 : comm_tile_idx * comm_tile_size;
-                comm_tile_end = (comm_tile_idx == (num_comm_tiles - 1))
-                                    ? nx - 1
-                                    : (comm_tile_idx + 1) * comm_tile_size;
+                int comm_tile_start = (comm_tile_idx == 0) ? 1 : comm_tile_idx * comm_tile_size;
+                int comm_tile_end = (comm_tile_idx == (num_comm_tiles - 1))
+                                        ? nx - 1
+                                        : (comm_tile_idx + 1) * comm_tile_size;
 
                 int col = threadIdx.y * blockDim.x + threadIdx.x + comm_tile_start;
 
@@ -127,32 +124,26 @@ __global__ void __launch_bounds__(1024, 1)
                 }
             }
         } else {
-            int comp_tile_start_ny;
-            int comp_tile_end_ny;
-            int comp_tile_start_nx;
-            int comp_tile_end_nx;
-
-            int iy;
-            int ix;
-
             for (int comp_tile_idx_y = 0; comp_tile_idx_y < num_comp_tiles_y; comp_tile_idx_y++) {
-                comp_tile_start_ny =
+                int comp_tile_start_ny =
                     (comp_tile_idx_y == 0) ? iy_start + 1 : comp_tile_idx_y * comp_tile_size_y;
-                comp_tile_end_ny = (comp_tile_idx_y == (num_comp_tiles_y - 1))
-                                       ? iy_end - 1
-                                       : (comp_tile_idx_y + 1) * comp_tile_size_y;
 
-                iy = base_iy + comp_tile_start_ny;
+                int iy = base_iy + comp_tile_start_ny;
+
+                int comp_tile_end_ny = (comp_tile_idx_y == (num_comp_tiles_y - 1))
+                                           ? iy_end - 1
+                                           : (comp_tile_idx_y + 1) * comp_tile_size_y;
 
                 for (int comp_tile_idx_x = 0; comp_tile_idx_x < num_comp_tiles_x;
                      comp_tile_idx_x++) {
-                    comp_tile_start_nx =
+                    int comp_tile_start_nx =
                         (comp_tile_idx_x == 0) ? 1 : comp_tile_idx_x * comp_tile_size_x;
-                    comp_tile_end_nx = (comp_tile_idx_x == (num_comp_tiles_x - 1))
-                                           ? nx - 1
-                                           : (comp_tile_idx_x + 1) * comp_tile_size_x;
 
-                    ix = base_ix + comp_tile_start_nx;
+                    int ix = base_ix + comp_tile_start_nx;
+
+                    int comp_tile_end_nx = (comp_tile_idx_x == (num_comp_tiles_x - 1))
+                                               ? nx - 1
+                                               : (comp_tile_idx_x + 1) * comp_tile_size_x;
 
                     if (iy < comp_tile_end_ny && ix < comp_tile_end_nx) {
                         // const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
