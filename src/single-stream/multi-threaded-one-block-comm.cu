@@ -49,9 +49,6 @@ __global__ void __launch_bounds__(1024, 1)
 
             for (int comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++) {
                 int comm_tile_start = (comm_tile_idx == 0) ? 1 : comm_tile_idx * comm_tile_size;
-                int comm_tile_end = (comm_tile_idx == (num_comm_tiles - 1))
-                                        ? nx - 1
-                                        : (comm_tile_idx + 1) * comm_tile_size;
 
                 int col = threadIdx.y * blockDim.x + threadIdx.x + comm_tile_start;
 
@@ -64,6 +61,10 @@ __global__ void __launch_bounds__(1024, 1)
                 }
 
                 cg::sync(cta);
+
+                int comm_tile_end = (comm_tile_idx == (num_comm_tiles - 1))
+                                        ? nx - 1
+                                        : (comm_tile_idx + 1) * comm_tile_size;
 
                 if (col < comm_tile_end) {
                     const real first_row_val =
