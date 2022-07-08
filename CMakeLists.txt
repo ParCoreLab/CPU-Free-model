@@ -13,8 +13,8 @@ add_link_options("-fopenmp")
 add_executable(
         2D_Stencil
         src/main.cu
-        src/multi-gpu-peer.cu include/multi-gpu-peer.cuh
         src/common.cu include/common.h
+        src/multi-stream/multi-gpu-peer.cu include/multi-stream/multi-gpu-peer.cuh
         src/single-stream/multi-threaded.cu include/single-stream/multi-threaded.cuh
         src/single-stream/single-threaded.cu include/single-stream/single-threaded.cuh
         src/single-stream/multi-threaded-two-block-comm.cu include/single-stream/multi-threaded-two-block-comm.cuh
