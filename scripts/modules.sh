@@ -1,6 +1,7 @@
 #!/bin/sh
 
 module load nvidia/nvhpc/22.3
+module load gcc/11.2.0
 
 COMM_LIBS_PATH="$NVHPC_ROOT"/comm_libs
 
