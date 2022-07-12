@@ -41,7 +41,6 @@ __global__ void __launch_bounds__(1024, 1)
 
     int cur_iter_mod = 0;
     int next_iter_mod = 1;
-    int temp_iter_mod = 0;
 
     while (iter < iter_max) {
         if (blockIdx.x == gridDim.x - 1) {
@@ -166,15 +165,14 @@ __global__ void __launch_bounds__(1024, 1)
             }
         }
 
-        real *temp_pointer_first = a_new;
+        real *temp_pointer = a_new;
         a_new = a;
-        a = temp_pointer_first;
+        a = temp_pointer;
 
         iter++;
 
-        temp_iter_mod = cur_iter_mod;
-        cur_iter_mod = next_iter_mod;
-        next_iter_mod = temp_iter_mod;
+        next_iter_mod = cur_iter_mod;
+        cur_iter_mod = 1 - cur_iter_mod;
 
         cg::sync(grid);
     }
