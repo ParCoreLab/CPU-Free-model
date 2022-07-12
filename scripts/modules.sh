@@ -1,8 +1,9 @@
 #!/bin/sh
 
-module load cuda11.6/toolkit/11.6.0
-module load cuda11.6/nsight/11.6.0
-module load gcc/11.1.0
-module load cmake/gcc/3.22.0
+module load nvidia/nvhpc/22.3
 
-export CC="g++-11"
+COMM_LIBS_PATH="$NVHPC_ROOT"/comm_libs
+
+export NVCC="$CC"c # sorry
+export MPI_HOME="$COMM_LIBS_PATH"/mpi
+export NVSHMEM_HOME="$COMM_LIBS_PATH"/nvshmem
