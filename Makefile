@@ -37,6 +37,9 @@ $(OBJECTS): obj/%.o: %.cu
 run: jacobi
 	./jacobi
 
+runmpi: jacobi
+	$(MPIRUN) -np 2 ./jacobi -s 1 -v 8
+
 clean:
 	$(RM) ./jacobi
 	$(RM) -r ./obj
