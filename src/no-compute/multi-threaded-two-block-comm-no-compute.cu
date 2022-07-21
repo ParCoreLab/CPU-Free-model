@@ -18,8 +18,7 @@ __global__ void __launch_bounds__(1024, 1)
     jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
                   const int comp_tile_size_x, const int comp_tile_size_y, const int comm_tile_size,
                   const int num_comp_tiles_x, const int num_comp_tiles_y, const int num_comm_tiles,
-                  const int top_iy, const int bottom_iy, const int iter_max,
-                  volatile real *local_halo_buffer_for_top_neighbor,
+                  const int iter_max, volatile real *local_halo_buffer_for_top_neighbor,
                   volatile real *local_halo_buffer_for_bottom_neighbor,
                   volatile real *remote_my_halo_buffer_on_top_neighbor,
                   volatile real *remote_my_halo_buffer_on_bottom_neighbor,
@@ -310,7 +309,6 @@ int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[]) {
 
         int iy_start = 1;
         iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
-        int iy_start_bottom = 0;
 
         // Set diriclet boundary conditions on left and right border
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
@@ -333,8 +331,6 @@ int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[]) {
                               (void *)&num_comp_tiles_x,
                               (void *)&num_comp_tiles_y,
                               (void *)&num_comm_tiles,
-                              (void *)&iy_end[top],
-                              (void *)&iy_start_bottom,
                               (void *)&iter_max,
                               (void *)&halo_buffer_for_top_neighbor[dev_id],
                               (void *)&halo_buffer_for_bottom_neighbor[dev_id],

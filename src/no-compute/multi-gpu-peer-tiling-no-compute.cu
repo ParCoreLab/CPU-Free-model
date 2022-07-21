@@ -14,23 +14,19 @@
 namespace cg = cooperative_groups;
 
 namespace MultiGPUPeerTilingNoCompute {
-__global__ void __launch_bounds__(1024, 1) jacobi_kernel(
-        real *a_new, real *a,
-        const int iy_start, const int iy_end, const int nx,
-        const int comp_tile_size_x, const int comp_tile_size_y,
-        const int num_comp_tiles_x, const int num_comp_tiles_y,
-        const int top_iy, const int bottom_iy,
-        const int iter_max,
-        volatile real *local_halo_buffer_for_top_neighbor,
-        volatile real *local_halo_buffer_for_bottom_neighbor,
-        volatile real *remote_my_halo_buffer_on_top_neighbor,
-        volatile real *remote_my_halo_buffer_on_bottom_neighbor,
-        volatile int *local_is_top_neighbor_done_writing_to_me,
-        volatile int *local_is_bottom_neighbor_done_writing_to_me,
-        volatile int *remote_am_done_writing_to_top_neighbor,
-        volatile int *remote_am_done_writing_to_bottom_neighbor,
-        volatile int *iteration_done) {
-
+__global__ void __launch_bounds__(1024, 1)
+    jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
+                  const int comp_tile_size_x, const int comp_tile_size_y,
+                  const int num_comp_tiles_x, const int num_comp_tiles_y, const int iter_max,
+                  volatile real *local_halo_buffer_for_top_neighbor,
+                  volatile real *local_halo_buffer_for_bottom_neighbor,
+                  volatile real *remote_my_halo_buffer_on_top_neighbor,
+                  volatile real *remote_my_halo_buffer_on_bottom_neighbor,
+                  volatile int *local_is_top_neighbor_done_writing_to_me,
+                  volatile int *local_is_bottom_neighbor_done_writing_to_me,
+                  volatile int *remote_am_done_writing_to_top_neighbor,
+                  volatile int *remote_am_done_writing_to_bottom_neighbor,
+                  volatile int *iteration_done) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
@@ -69,22 +65,23 @@ __global__ void __launch_bounds__(1024, 1) jacobi_kernel(
             comp_tile_start_ny =
                 (comp_tile_idx_y == 0) ? iy_start + 1 : comp_tile_idx_y * comp_tile_size_y;
             comp_tile_end_ny = (comp_tile_idx_y == (num_comp_tiles_y - 1))
-                                    ? iy_end - 1
-                                    : (comp_tile_idx_y + 1) * comp_tile_size_y;
+                                   ? iy_end - 1
+                                   : (comp_tile_idx_y + 1) * comp_tile_size_y;
 
             for (comp_tile_idx_x = 0; comp_tile_idx_x < num_comp_tiles_x; comp_tile_idx_x++) {
                 comp_tile_start_nx =
                     (comp_tile_idx_x == 0) ? 1 : comp_tile_idx_x * comp_tile_size_x;
                 comp_tile_end_nx = (comp_tile_idx_x == (num_comp_tiles_x - 1))
-                                        ? nx - 1
-                                        : (comp_tile_idx_x + 1) * comp_tile_size_x;
+                                       ? nx - 1
+                                       : (comp_tile_idx_x + 1) * comp_tile_size_x;
 
                 iy = base_iy + comp_tile_start_ny;
                 ix = base_ix + comp_tile_start_nx;
 
                 if (iy < comp_tile_end_ny && ix < comp_tile_end_nx) {
                     // const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                    //                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                    //                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx +
+                    //                                 ix]);
                     // a_new[iy * nx + ix] = new_val;
                 }
             }
@@ -112,22 +109,18 @@ __global__ void __launch_bounds__(1024, 1) jacobi_kernel(
     }
 }
 
-__global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
-    real *a_new, real *a,
-    const int iy_start, const int iy_end, const int nx,
-    const int comm_tile_size, const int num_comm_tiles,
-    const int top_iy, const int bottom_iy,
-    const int iter_max,
-    volatile real *local_halo_buffer_for_top_neighbor,
-    volatile real *local_halo_buffer_for_bottom_neighbor,
-    volatile real *remote_my_halo_buffer_on_top_neighbor,
-    volatile real *remote_my_halo_buffer_on_bottom_neighbor,
-    volatile int *local_is_top_neighbor_done_writing_to_me,
-    volatile int *local_is_bottom_neighbor_done_writing_to_me,
-    volatile int *remote_am_done_writing_to_top_neighbor,
-    volatile int *remote_am_done_writing_to_bottom_neighbor,
-    volatile int *iteration_done) {
-
+__global__ void __launch_bounds__(1024, 1)
+    boundary_sync_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
+                         const int comm_tile_size, const int num_comm_tiles, const int iter_max,
+                         volatile real *local_halo_buffer_for_top_neighbor,
+                         volatile real *local_halo_buffer_for_bottom_neighbor,
+                         volatile real *remote_my_halo_buffer_on_top_neighbor,
+                         volatile real *remote_my_halo_buffer_on_bottom_neighbor,
+                         volatile int *local_is_top_neighbor_done_writing_to_me,
+                         volatile int *local_is_bottom_neighbor_done_writing_to_me,
+                         volatile int *remote_am_done_writing_to_top_neighbor,
+                         volatile int *remote_am_done_writing_to_bottom_neighbor,
+                         volatile int *iteration_done) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
@@ -150,7 +143,8 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
     int comm_tile_end;
 
     while (iter < iter_max) {
-        while (iteration_done[1] != iter) {}
+        while (iteration_done[1] != iter) {
+        }
 
         if (blockIdx.x == gridDim.x - 1) {
             for (comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++) {
@@ -214,11 +208,12 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
                 if (col < comm_tile_end) {
                     // const real last_row_val =
                     //     0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                    //             remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + col] +
-                    //             a[(iy_end - 2) * nx + col]);
+                    //             remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + col]
+                    //             + a[(iy_end - 2) * nx + col]);
 
                     // a_new[(iy_end - 1) * nx + col] = last_row_val;
-                    // local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + col] = last_row_val;
+                    // local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + col] =
+                    // last_row_val;
                 }
 
                 cg::sync(cta);
@@ -397,7 +392,6 @@ int MultiGPUPeerTilingNoCompute::init(int argc, char *argv[]) {
 
         int iy_start = 1;
         iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
-        int iy_start_bottom = 0;
 
         // Set diriclet boundary conditions on left and right border
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
@@ -410,46 +404,42 @@ int MultiGPUPeerTilingNoCompute::init(int argc, char *argv[]) {
         dim3 dim_block(dim_block_x, dim_block_y);
 
         void *kernelArgsInner[] = {(void *)&a_new[dev_id],
-                                    (void *)&a[dev_id],
-                                    (void *)&iy_start,
-                                    (void *)&iy_end[dev_id],
-                                    (void *)&nx,
-                                    (void *)&comp_tile_size_x,
-                                    (void *)&comp_tile_size_y,
-                                    (void *)&num_comp_tiles_x,
-                                    (void *)&num_comp_tiles_y,
-                                    (void *)&iy_end[top],
-                                    (void *)&iy_start_bottom,
-                                    (void *)&iter_max,
-                                    (void *)&halo_buffer_for_top_neighbor[dev_id],
-                                    (void *)&halo_buffer_for_bottom_neighbor[dev_id],
-                                    (void *)&halo_buffer_for_bottom_neighbor[top],
-                                    (void *)&halo_buffer_for_top_neighbor[bottom],
-                                    (void *)&is_top_done_computing_flags[dev_id],
-                                    (void *)&is_bottom_done_computing_flags[dev_id],
-                                    (void *)&is_bottom_done_computing_flags[top],
-                                    (void *)&is_top_done_computing_flags[bottom],
-                                    (void *)&iteration_done_flags[0]};
+                                   (void *)&a[dev_id],
+                                   (void *)&iy_start,
+                                   (void *)&iy_end[dev_id],
+                                   (void *)&nx,
+                                   (void *)&comp_tile_size_x,
+                                   (void *)&comp_tile_size_y,
+                                   (void *)&num_comp_tiles_x,
+                                   (void *)&num_comp_tiles_y,
+                                   (void *)&iter_max,
+                                   (void *)&halo_buffer_for_top_neighbor[dev_id],
+                                   (void *)&halo_buffer_for_bottom_neighbor[dev_id],
+                                   (void *)&halo_buffer_for_bottom_neighbor[top],
+                                   (void *)&halo_buffer_for_top_neighbor[bottom],
+                                   (void *)&is_top_done_computing_flags[dev_id],
+                                   (void *)&is_bottom_done_computing_flags[dev_id],
+                                   (void *)&is_bottom_done_computing_flags[top],
+                                   (void *)&is_top_done_computing_flags[bottom],
+                                   (void *)&iteration_done_flags[0]};
 
         void *kernelArgsBoundary[] = {(void *)&a_new[dev_id],
-                                        (void *)&a[dev_id],
-                                        (void *)&iy_start,
-                                        (void *)&iy_end[dev_id],
-                                        (void *)&nx,
-                                        (void *)&comm_tile_size,
-                                        (void *)&num_comm_tiles,
-                                        (void *)&iy_end[top],
-                                        (void *)&iy_start_bottom,
-                                        (void *)&iter_max,
-                                        (void *)&halo_buffer_for_top_neighbor[dev_id],
-                                        (void *)&halo_buffer_for_bottom_neighbor[dev_id],
-                                        (void *)&halo_buffer_for_bottom_neighbor[top],
-                                        (void *)&halo_buffer_for_top_neighbor[bottom],
-                                        (void *)&is_top_done_computing_flags[dev_id],
-                                        (void *)&is_bottom_done_computing_flags[dev_id],
-                                        (void *)&is_bottom_done_computing_flags[top],
-                                        (void *)&is_top_done_computing_flags[bottom],
-                                        (void *)&iteration_done_flags[0]};
+                                      (void *)&a[dev_id],
+                                      (void *)&iy_start,
+                                      (void *)&iy_end[dev_id],
+                                      (void *)&nx,
+                                      (void *)&comm_tile_size,
+                                      (void *)&num_comm_tiles,
+                                      (void *)&iter_max,
+                                      (void *)&halo_buffer_for_top_neighbor[dev_id],
+                                      (void *)&halo_buffer_for_bottom_neighbor[dev_id],
+                                      (void *)&halo_buffer_for_bottom_neighbor[top],
+                                      (void *)&halo_buffer_for_top_neighbor[bottom],
+                                      (void *)&is_top_done_computing_flags[dev_id],
+                                      (void *)&is_bottom_done_computing_flags[dev_id],
+                                      (void *)&is_bottom_done_computing_flags[top],
+                                      (void *)&is_top_done_computing_flags[bottom],
+                                      (void *)&iteration_done_flags[0]};
 
 #pragma omp barrier
         double start = omp_get_wtime();
@@ -466,9 +456,9 @@ int MultiGPUPeerTilingNoCompute::init(int argc, char *argv[]) {
                                                  dim_grid, dim_block, kernelArgsInner, 0,
                                                  inner_domain_stream));
 
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNoCompute::boundary_sync_kernel,
-                                                 2, dim_block, kernelArgsBoundary, 0,
-                                                 boundary_sync_stream));
+        CUDA_RT_CALL(
+            cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNoCompute::boundary_sync_kernel,
+                                        2, dim_block, kernelArgsBoundary, 0, boundary_sync_stream));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 

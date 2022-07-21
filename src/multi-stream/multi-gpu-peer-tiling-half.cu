@@ -108,10 +108,9 @@ __global__ void __launch_bounds__(1024, 1) jacobi_kernel(
 
 __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
     real *a_new, real *a, const int iy_start, const int iy_end, const int nx, const int tile_size,
-    const int num_tiles_x, const int num_tiles_y, const int top_iy, const int bottom_iy,
-    const int iter_max, real *local_halo_buffer_for_top_neighbor,
-    real *local_halo_buffer_for_bottom_neighbor, real *remote_my_halo_buffer_on_top_neighbor,
-    real *remote_my_halo_buffer_on_bottom_neighbor,
+    const int num_tiles_x, const int num_tiles_y, const int iter_max,
+    real *local_halo_buffer_for_top_neighbor, real *local_halo_buffer_for_bottom_neighbor,
+    real *remote_my_halo_buffer_on_top_neighbor, real *remote_my_halo_buffer_on_bottom_neighbor,
     volatile int *local_is_top_neighbor_done_writing_to_me,
     volatile int *local_is_bottom_neighbor_done_writing_to_me,
     volatile int *remote_am_done_writing_to_top_neighbor,
@@ -120,8 +119,8 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
     //    cg::grid_group grid = cg::this_grid();
 
     int grid_dim_x = (tile_size + blockDim.x - 1) / blockDim.x;
-    int block_idx_y = blockIdx.x; // / grid_dim_x;
-    int block_idx_x = blockIdx.x; // % grid_dim_x;
+    int block_idx_y = blockIdx.x;  // / grid_dim_x;
+    int block_idx_x = blockIdx.x;  // % grid_dim_x;
 
     int base_iy = block_idx_y * blockDim.y + threadIdx.y;
     int base_ix = block_idx_x * blockDim.x + threadIdx.x;
@@ -150,7 +149,8 @@ __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
 
     while (iter < iter_max) {
         // This is not iteration_done, it is iteration_can_i_continue_to_what
-        while (iteration_done[1] != iter) {}
+        while (iteration_done[1] != iter) {
+        }
 
         for (tile_idx_y = 0; tile_idx_y < num_tiles_y; tile_idx_y++) {
             for (tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
@@ -401,7 +401,6 @@ int MultiGPUPeerTilingHalf::init(int argc, char *argv[]) {
 
         int iy_start = 1;
         iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
-        int iy_start_bottom = 0;
 
         // Set diriclet boundary conditions on left and right border
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
@@ -428,8 +427,6 @@ int MultiGPUPeerTilingHalf::init(int argc, char *argv[]) {
                                    (void *)&TILE_SIZE,
                                    (void *)&num_tiles_x,
                                    (void *)&num_tiles_y,
-                                   (void *)&iy_end[top],
-                                   (void *)&iy_start_bottom,
                                    (void *)&iter_max,
                                    (void *)&halo_buffer_for_top_neighbor[dev_id],
                                    (void *)&halo_buffer_for_bottom_neighbor[dev_id],
@@ -449,8 +446,6 @@ int MultiGPUPeerTilingHalf::init(int argc, char *argv[]) {
                                       (void *)&TILE_SIZE,
                                       (void *)&num_tiles_x,
                                       (void *)&num_tiles_y,
-                                      (void *)&iy_end[top],
-                                      (void *)&iy_start_bottom,
                                       (void *)&iter_max,
                                       (void *)&halo_buffer_for_top_neighbor[dev_id],
                                       (void *)&halo_buffer_for_bottom_neighbor[dev_id],
@@ -474,10 +469,11 @@ int MultiGPUPeerTilingHalf::init(int argc, char *argv[]) {
         // THE KERNELS ARE SERIALIZED!
         // perhaps only on V100
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingHalf::jacobi_kernel,
-                                                 dim_grid, dim_block, kernelArgsInner, 0, inner_domain_stream));
+                                                 dim_grid, dim_block, kernelArgsInner, 0,
+                                                 inner_domain_stream));
 
-        CUDA_RT_CALL(cudaLaunchKernel((void *)MultiGPUPeerTilingHalf::boundary_sync_kernel,
-                                      1, dim_block, kernelArgsBoundary, 0, boundary_sync_stream));
+        CUDA_RT_CALL(cudaLaunchKernel((void *)MultiGPUPeerTilingHalf::boundary_sync_kernel, 1,
+                                      dim_block, kernelArgsBoundary, 0, boundary_sync_stream));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
