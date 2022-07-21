@@ -14,11 +14,19 @@
 namespace cg = cooperative_groups;
 
 namespace SSMultiThreadedOneBlockComm {
+__constant__ int iy_start;
+__constant__ int iy_end;
+__constant__ int nx;
+__constant__ int comp_tile_size_x;
+__constant__ int comp_tile_size_y;
+__constant__ int comm_tile_size;
+__constant__ int num_comp_tiles_x;
+__constant__ int num_comp_tiles_y;
+__constant__ int num_comm_tiles;
+__constant__ int iter_max;
+
 __global__ void __launch_bounds__(1024, 1)
-    jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
-                  const int comp_tile_size_x, const int comp_tile_size_y, const int comm_tile_size,
-                  const int num_comp_tiles_x, const int num_comp_tiles_y, const int num_comm_tiles,
-                  const int iter_max, volatile real *local_halo_buffer_for_top_neighbor,
+    jacobi_kernel(real *a_new, real *a, volatile real *local_halo_buffer_for_top_neighbor,
                   volatile real *local_halo_buffer_for_bottom_neighbor,
                   volatile real *remote_my_halo_buffer_on_top_neighbor,
                   volatile real *remote_my_halo_buffer_on_bottom_neighbor,
@@ -307,18 +315,26 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[]) {
         dim3 dim_grid(numSms, 1, 1);
         dim3 dim_block(dim_block_x, dim_block_y);
 
+        cudaMemcpyToSymbol(SSMultiThreadedOneBlockComm::iy_start, &iy_start, sizeof(iy_start));
+        cudaMemcpyToSymbol(SSMultiThreadedOneBlockComm::iy_end, &iy_end[dev_id],
+                           sizeof(iy_end[dev_id]));
+        cudaMemcpyToSymbol(SSMultiThreadedOneBlockComm::nx, &nx, sizeof(nx));
+        cudaMemcpyToSymbol(SSMultiThreadedOneBlockComm::comp_tile_size_x, &comp_tile_size_x,
+                           sizeof(comp_tile_size_x));
+        cudaMemcpyToSymbol(SSMultiThreadedOneBlockComm::comp_tile_size_y, &comp_tile_size_y,
+                           sizeof(comp_tile_size_y));
+        cudaMemcpyToSymbol(SSMultiThreadedOneBlockComm::comm_tile_size, &comm_tile_size,
+                           sizeof(comm_tile_size));
+        cudaMemcpyToSymbol(SSMultiThreadedOneBlockComm::num_comp_tiles_x, &num_comp_tiles_x,
+                           sizeof(num_comp_tiles_x));
+        cudaMemcpyToSymbol(SSMultiThreadedOneBlockComm::num_comp_tiles_y, &num_comp_tiles_y,
+                           sizeof(num_comp_tiles_y));
+        cudaMemcpyToSymbol(SSMultiThreadedOneBlockComm::num_comm_tiles, &num_comm_tiles,
+                           sizeof(num_comm_tiles));
+        cudaMemcpyToSymbol(SSMultiThreadedOneBlockComm::iter_max, &iter_max, sizeof(iter_max));
+
         void *kernelArgs[] = {(void *)&a_new[dev_id],
                               (void *)&a[dev_id],
-                              (void *)&iy_start,
-                              (void *)&iy_end[dev_id],
-                              (void *)&nx,
-                              (void *)&comp_tile_size_x,
-                              (void *)&comp_tile_size_y,
-                              (void *)&comm_tile_size,
-                              (void *)&num_comp_tiles_x,
-                              (void *)&num_comp_tiles_y,
-                              (void *)&num_comm_tiles,
-                              (void *)&iter_max,
                               (void *)&halo_buffer_for_top_neighbor[dev_id],
                               (void *)&halo_buffer_for_bottom_neighbor[dev_id],
                               (void *)&halo_buffer_for_bottom_neighbor[top],
