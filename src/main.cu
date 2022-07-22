@@ -4,11 +4,12 @@
 #include "../include/baseline/multi-threaded-copy.cuh"
 #include "../include/baseline/multi-threaded-p2p.cuh"
 #include "../include/baseline/single-threaded-copy.cuh"
+#include "../include/baseline/nvshmem.cuh"
+#include "../include/baseline/nvshmem_opt.cuh"
 
 #include "../include/common.h"
 // #include "../include/multi-stream/multi-gpu-peer-tiling-half.cuh"
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
-// #include "../include/multi-stream/multi-gpu-peer.cuh"
 
 #include "../include/PERKS/multi-stream-perks.cuh"
 
@@ -31,11 +32,12 @@ int main(int argc, char *argv[]) {
         make_pair("Single stream multi threaded (two thread blocks communicate)",
                   SSMultiThreadedTwoBlockComm::init),
 
-        // make_pair("Double stream multi threaded", MultiGPUPeer::init),
         make_pair("Baseline Multi Threaded Copy", BaselineMultiThreadedCopy::init),
         make_pair("Baseline Multi Threaded Copy Overlap", BaselineMultiThreadedCopyOverlap::init),
         make_pair("Baseline Multi Threaded P2P", BaselineMultiThreadedP2P::init),
         make_pair("Baseline Single Threaded Copy", BaselineSingleThreadedCopy::init),
+        make_pair("Baseline Nvshmem", BaselineNvshmem::init),
+        make_pair("Baseline Nvshmem Optimized", BaselineNvshmemOptimized::init),
         make_pair("Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
         // make_pair("Double stream multi threaded with Tiling but one kernel is not cooperative",
                 //   MultiGPUPeerTilingHalf::init),
