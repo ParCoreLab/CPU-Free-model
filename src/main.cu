@@ -6,9 +6,11 @@
 #include "../include/baseline/single-threaded-copy.cuh"
 
 #include "../include/common.h"
-#include "../include/multi-stream/multi-gpu-peer-tiling-half.cuh"
+// #include "../include/multi-stream/multi-gpu-peer-tiling-half.cuh"
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
 // #include "../include/multi-stream/multi-gpu-peer.cuh"
+
+#include "../include/PERKS/multi-stream-perks.cuh"
 
 #include "../include/single-stream/multi-threaded-one-block-comm.cuh"
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
@@ -35,8 +37,9 @@ int main(int argc, char *argv[]) {
         make_pair("Baseline Multi Threaded P2P", BaselineMultiThreadedP2P::init),
         make_pair("Baseline Single Threaded Copy", BaselineSingleThreadedCopy::init),
         make_pair("Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
-        make_pair("Double stream multi threaded with Tiling but one kernel is not cooperative",
-                  MultiGPUPeerTilingHalf::init),
+        // make_pair("Double stream multi threaded with Tiling but one kernel is not cooperative",
+                //   MultiGPUPeerTilingHalf::init),
+        make_pair("Multi Stream PERKS", MultiStreamPERKS::init),
 
         make_pair("Single stream multi threaded (one thread block communicates; no computation)",
                   SSMultiThreadedOneBlockCommNoCompute::init),
