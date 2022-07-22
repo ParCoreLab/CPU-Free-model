@@ -43,15 +43,9 @@ __global__ void __launch_bounds__(1024, 1)
     int next_iter_mod = 1;
     int temp_iter_mod = 0;
 
-    int cur_iter_comm_tile_flag_idx;
-    int next_iter_comm_tile_flag_idx;
-
-    int comm_tile_idx;
     int comp_tile_idx_x;
     int comp_tile_idx_y;
 
-    int comm_tile_start;
-    int comm_tile_end;
     int comp_tile_start_ny;
     int comp_tile_end_ny;
     int comp_tile_start_nx;
@@ -136,8 +130,6 @@ __global__ void __launch_bounds__(1024, 1)
     int next_iter_comm_tile_flag_idx;
 
     int comm_tile_idx;
-    int comp_tile_idx_x;
-    int comp_tile_idx_y;
 
     int comm_tile_start;
     int comm_tile_end;
