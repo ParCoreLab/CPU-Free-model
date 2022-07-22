@@ -110,8 +110,8 @@ __global__ void __launch_bounds__(1024, 1)
 
 __global__ void __launch_bounds__(1024, 1)
     boundary_sync_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
-                         const int comm_tile_size, const int num_comm_tiles, const int top_iy,
-                         const int bottom_iy, const int iter_max,
+                         const int comm_tile_size, const int num_comm_tiles,
+                         const int iter_max,
                          volatile real *local_halo_buffer_for_top_neighbor,
                          volatile real *local_halo_buffer_for_bottom_neighbor,
                          volatile real *remote_my_halo_buffer_on_top_neighbor,
