@@ -11,7 +11,13 @@
 #include "../../include/common.h"
 #include "../../include/PERKS/multi-stream-perks.cuh"
 
-// #include "./jacobi-general-kernel.cuh"
+// goddamn perks stuff
+// #include "./common/common.hpp"
+// #include "./common/cuda_common.cuh"
+// #include <cuda_runtime.h>
+#include "./common/jacobi_reference.hpp"
+#include "./common/jacobi_cuda.cuh"
+#include "config.cuh"
 
 namespace cg = cooperative_groups;
 
@@ -237,7 +243,7 @@ __global__ void __launch_bounds__(1024, 1)
         cg::sync(grid);
     }
 }
-}  // namespace MultiGPUPeerTiling
+}  // namespace MultiStreamPERKS
 
 int MultiStreamPERKS::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
@@ -443,17 +449,36 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
         CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
+        // real (*input)[nx] = (real (*)[nx])
+        // getRandom2DArray<real>(ny, nx);
+        // real (*output)[nx] = (real (*)[nx])
+        // getZero2DArray<real>(ny, nx);
+
+        int err = jacobi_iterative(
+            a_new[dev_id],
+            ny, nx,
+            a[dev_id],
+            256,
+            0,
+            iter_max,
+            false,
+            true,
+            false,
+            -1,
+            true
+        );
+
+        std::cout << "Ran PERKS. Err: " << err << std::endl;
+
         // THE KERNELS ARE SERIALIZED!
         // perhaps only on V100
         // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::jacobi_kernel,
                                                 //  dim_grid, dim_block, kernelArgsInner, 0,
                                                 //  inner_domain_stream));
 
-        
-
         // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel,
-                                                //  2, dim_block, kernelArgsBoundary, 0,
-                                                //  boundary_sync_stream));
+        //                                          2, dim_block, kernelArgsBoundary, 0,
+        //                                          boundary_sync_stream));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
