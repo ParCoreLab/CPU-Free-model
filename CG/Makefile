@@ -8,6 +8,10 @@ ifdef PROFILE
 	NVCC_FLAGS = -lineinfo --generate-line-info
 endif
 
+ifdef USE_NVTX
+        NVCC_FLAGS += -DUSE_NVTX -lnvToolsExt
+endif
+
 #NVCC_FLAGS += -Xcompiler -fopenmp -lineinfo -DUSE_NVTX -lnvToolsExt $(GENCODE_FLAGS) -std=c++17
 NVCC_FLAGS += -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(CXX)
 
@@ -19,16 +23,16 @@ OUT=$(SRC:=.o)
 OBJECTS := $(addprefix obj/,$(SRC:.cu=.o))
 #HED=$(shell sh -c find . -name '*.*h')
 
-jacobi: $(OBJECTS)
+cg: $(OBJECTS)
 	$(NVCC) $(NVCC_FLAGS) -I./include -o $@ $^
 
 $(OBJECTS): obj/%.o: %.cu
 	mkdir -p $(@D)
 	$(NVCC) -dc $(NVCC_FLAGS) -I./include -o $@ $<
 
-run: jacobi
-	./jacobi
+run: cg
+	./cg
 
 clean:
-	$(RM) ./jacobi
+	$(RM) ./cg
 	$(RM) -r ./obj
