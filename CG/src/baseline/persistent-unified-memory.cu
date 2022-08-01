@@ -40,6 +40,8 @@
 #include <set>
 #include <utility>
 
+#include <omp.h>
+
 #include "../../include/baseline/persistent-unified-memory.cuh"
 #include "../../include/common.h"
 
@@ -594,6 +596,10 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         deviceId++;
     }
 
+    // Added this line to time the different kernel operations
+    // DON'T FORGET TO REMOVE
+    numBlocksPerSm = 2;
+
     if (!numBlocksPerSm) {
         printf(
             "Max active blocks per SM is returned as 0.\n Hence, Waiving the "
@@ -691,6 +697,9 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
 
     deviceId = bestFitDeviceIds.begin();
     device_count = 0;
+
+    double start = omp_get_wtime();
+
     while (deviceId != bestFitDeviceIds.end()) {
         CUDA_RT_CALL(cudaSetDevice(*deviceId));
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)multiGpuConjugateGradient, dimGrid,
@@ -712,6 +721,10 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     }
 
     r1 = (float)*dot_result;
+
+    double stop = omp_get_wtime();
+
+    printf("Execution time: %8.4f s\n", (stop - start));
 
     printf("GPU Final, residual = %e \n  ", sqrt(r1));
 
