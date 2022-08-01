@@ -1,4 +1,4 @@
-#include "../include_3D/common.h"
+#include "../include/common.h"
 
 #include <cooperative_groups.h>
 
@@ -11,12 +11,13 @@ bool get_arg(char **begin, char **end, const std::string &arg) {
     }
     return false;
 }
-//FIX THIIIISSSSS (What does it do?)
+// FIX THIIIISSSSS (What does it do?)
 __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
-                                      const real pi, const int offset,const int nx, const int ny,
+                                      const real pi, const int offset, const int nx, const int ny,
                                       const int my_nz, const int nz) {
-    for (unsigned int iz = (blockIdx.y * blockDim.y + threadIdx.y) +(blockIdx.x * blockDim.x + threadIdx.x); iz < my_nz;
-         iz += blockDim.x * gridDim.x * blockDim.y * gridDim.y) {
+    for (unsigned int iz =
+             (blockIdx.y * blockDim.y + threadIdx.y) + (blockIdx.x * blockDim.x + threadIdx.x);
+         iz < my_nz; iz += blockDim.x * gridDim.x * blockDim.y * gridDim.y) {
         const real y0 = sin(2.0 * pi * (offset + iz) / (nz - 1));
         a[iz * ny * nx + ny * nx + 0] = y0;
         a[iz * ny * nx + ny * nx + (nx - 1)] = y0;
@@ -28,17 +29,18 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__re
 __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
                                          const real *__restrict__ const a,
                                          real *__restrict__ const l2_norm, const int iz_start,
-                                         const int iz_end, const int ny,const int nx,
+                                         const int iz_end, const int ny, const int nx,
                                          const bool calculate_norm) {
-    int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;                  
+    int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
     int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
     //    real local_l2_norm = 0.0;
 
     if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
-        const real new_val = (1/6) * (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
-                                     a[iz * ny * nx +(iy + 1) * nx + ix] + a[iz * ny * nx +(iy - 1) * nx + ix] +
-                                     a[(iz + 1)* ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
+        const real new_val =
+            (1 / 6) * (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
+                       a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
+                       a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
         a_new[iz * ny * nx + iy * nx + ix] = new_val;
 
         //        if (calculate_norm) {
@@ -52,7 +54,7 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
 }
 
 __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const int iz_start,
-                                                    const int iz_end,const int ny, const int nx,
+                                                    const int iz_end, const int ny, const int nx,
                                                     const bool calculate_norm, const int iter_max) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
@@ -67,10 +69,12 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
 
     while (iter < iter_max) {
         if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
-           const real new_val = (1/6) * (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
-                                     a[iz * ny * nx +(iy + 1) * nx + ix] + a[iz * ny * nx +(iy - 1) * nx + ix] +
-                                     a[(iz +1)* ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
-        a_new[iz * ny * nx + iy * nx + ix] = new_val;
+            const real new_val =
+                (1 / 6) *
+                (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
+                 a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
+                 a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
+            a_new[iz * ny * nx + iy * nx + ix] = new_val;
 
             if (iz_start == iz) {
                 a_new[iz_end * ny * nx + iy * nx + ix] = new_val;
@@ -100,7 +104,7 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
     //    }
 }
 
-double single_gpu(const int nx, const int ny, const int nz, const int iter_max, real *const a_ref_h,
+double single_gpu(const int nz, const int ny, const int nx, const int iter_max, real *const a_ref_h,
                   const int nccheck, const bool print) {
     real *a;
     real *a_new;
@@ -143,7 +147,8 @@ double single_gpu(const int nx, const int ny, const int nz, const int iter_max, 
 
     if (print)
         printf(
-            "Single GPU jacobi relaxation (non-persistent kernel): %d iterations on %d x %d x %d mesh "
+            "Single GPU jacobi relaxation (non-persistent kernel): %d iterations on %d x %d x %d "
+            "mesh "
             "with "
             "norm "
             "check every %d iterations\n",
@@ -153,7 +158,8 @@ double single_gpu(const int nx, const int ny, const int nz, const int iter_max, 
     constexpr int dim_block_y = 8;
     constexpr int dim_block_z = 16;
 
-    dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y, (nz + dim_block_z - 1) / dim_block_z);
+    dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y,
+                  (nz + dim_block_z - 1) / dim_block_z);
 
     int iter = 0;
     bool calculate_norm = false;
@@ -168,8 +174,9 @@ double single_gpu(const int nx, const int ny, const int nz, const int iter_max, 
         CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, push_bottom_done, 0));
 
         //        calculate_norm = (iter % nccheck) == 0 || (print && ((iter % 100) == 0));
-        jacobi_kernel_single_gpu<<<dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0, compute_stream>>>(
-            a_new, a, nullptr, iz_start, iz_end,ny, nx, calculate_norm);
+        jacobi_kernel_single_gpu<<<dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0,
+                                   compute_stream>>>(a_new, a, nullptr, iz_start, iz_end, ny, nx,
+                                                     calculate_norm);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));
 
@@ -187,8 +194,9 @@ double single_gpu(const int nx, const int ny, const int nz, const int iter_max, 
         CUDA_RT_CALL(cudaEventRecord(push_top_done, push_top_stream));
 
         CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream, compute_done, 0));
-        CUDA_RT_CALL(cudaMemcpyAsync(a_new + iz_end * ny * nx, a_new + iz_start * ny * nx, nx * ny * sizeof(real),
-                                     cudaMemcpyDeviceToDevice, compute_stream));
+        CUDA_RT_CALL(cudaMemcpyAsync(a_new + iz_end * ny * nx, a_new + iz_start * ny * nx,
+                                     nx * ny * sizeof(real), cudaMemcpyDeviceToDevice,
+                                     compute_stream));
         CUDA_RT_CALL(cudaEventRecord(push_bottom_done, push_bottom_stream));
 
         //        if (calculate_norm) {
@@ -221,8 +229,8 @@ double single_gpu(const int nx, const int ny, const int nz, const int iter_max, 
     return (stop - start);
 }
 
-double single_gpu_persistent(const int nx, const int ny, const int nz, const int iter_max, real *const a_ref_h,
-                             const int nccheck, const bool print) {
+double single_gpu_persistent(const int nz, const int ny, const int nx, const int iter_max,
+                             real *const a_ref_h, const int nccheck, const bool print) {
     real *a;
     real *a_new;
 
@@ -251,7 +259,8 @@ double single_gpu_persistent(const int nx, const int ny, const int nz, const int
 
     if (print)
         printf(
-            "Single GPU jacobi relaxation (persistent kernel): %d iterations on %d x %d x %d mesh with "
+            "Single GPU jacobi relaxation (persistent kernel): %d iterations on %d x %d x %d mesh "
+            "with "
             "norm "
             "check every %d iterations\n",
             iter_max, nx, ny, nz, nccheck);
@@ -260,15 +269,15 @@ double single_gpu_persistent(const int nx, const int ny, const int nz, const int
     constexpr int dim_block_y = 8;
     constexpr int dim_block_z = 16;
 
-    dim3 dim_block(dim_block_x, dim_block_y,dim_block_z);
-    dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y, (nz + dim_block_z - 1) / dim_block_z);
+    dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
+    dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y,
+                  (nz + dim_block_z - 1) / dim_block_z);
 
     bool calculate_norm = false;
     //    real l2_norm = 1.0;
 
-    void *kernelArgs[] = {(void *)&a_new,   (void *)&a,  (void *)&iz_start,
-                          (void *)&iz_end, (void *)&ny,  (void *)&nx, (void *)&calculate_norm,
-                          (void *)&iter_max};
+    void *kernelArgs[] = {(void *)&a_new, (void *)&a,  (void *)&iz_start,       (void *)&iz_end,
+                          (void *)&ny,    (void *)&nx, (void *)&calculate_norm, (void *)&iter_max};
 
     double start = omp_get_wtime();
 
@@ -290,9 +299,9 @@ double single_gpu_persistent(const int nx, const int ny, const int nz, const int
     return (stop - start);
 }
 
-void report_results(const int nz,const int ny, const int nx, real *a_ref_h, real *a_h, const int num_devices,
-                    const double runtime_serial_non_persistent, const double start,
-                    const double stop, const bool compare_to_single_gpu) {
+void report_results(const int nz, const int ny, const int nx, real *a_ref_h, real *a_h,
+                    const int num_devices, const double runtime_serial_non_persistent,
+                    const double start, const double stop, const bool compare_to_single_gpu) {
     bool result_correct = true;
 
     if (compare_to_single_gpu) {
@@ -317,9 +326,10 @@ void report_results(const int nz,const int ny, const int nx, real *a_ref_h, real
 
         if (compare_to_single_gpu) {
             printf(
-                "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
+                "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: "
+                "%8.2f, "
                 "efficiency: %8.2f \n",
-                nz, ny,nx, runtime_serial_non_persistent, num_devices, (stop - start),
+                nz, ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
                 runtime_serial_non_persistent / (stop - start),
                 runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
         }

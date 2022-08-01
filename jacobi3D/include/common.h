@@ -30,21 +30,26 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
 bool get_arg(char **begin, char **end, const std::string &arg);
 
 __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
-                                      const real pi, const int offset, const int nx,
-                                      const int my_ny, const int ny);
+                                      const real pi, const int offset,const int nx, const int ny,
+                                      const int my_nz, const int nz);
 
 __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
                                          const real *__restrict__ const a,
-                                         real *__restrict__ const l2_norm, const int iy_start,
-                                         const int iy_end, const int nx, const bool calculate_norm);
+                                         real *__restrict__ const l2_norm, const int iz_start,
+                                         const int iz_end, const int ny,const int nx,
+                                         const bool calculate_norm);
 
-double single_gpu(const int nx, const int ny, const int iter_max, real *const a_ref_h,
+__global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const int iz_start,
+                                                    const int iz_end,const int ny, const int nx,
+                                                    const bool calculate_norm, const int iter_max);
+
+double single_gpu(const int nz, const int ny, const int nx, const int iter_max, real *const a_ref_h,
                   const int nccheck, const bool print);
 
-double single_gpu_persistent(const int nx, const int ny, const int iter_max, real *const a_ref_h,
+double single_gpu_persistent(const int nz, const int ny, const int nx, const int iter_max, real *const a_ref_h,
                              const int nccheck, const bool print);
 
-void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const int num_devices,
+void report_results(const int nz,const int ny, const int nx, real *a_ref_h, real *a_h, const int num_devices,
                     const double runtime_serial_non_persistent, const double start,
                     const double stop, const bool compare_to_single_gpu);
 

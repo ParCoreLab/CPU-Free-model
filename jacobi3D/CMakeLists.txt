@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(2D_Stencil CUDA CXX)
+project(3D_Stencil CUDA CXX)
 
 set(CMAKE_CUDA_STANDARD 20)
 
@@ -11,7 +11,7 @@ include_directories("${CUDA_INSTALL_DIR}/samples/common/inc/")
 add_link_options("-fopenmp")
 
 add_executable(
-        2D_Stencil
+        3D_Stencil
         src/main.cu
         src/common.cu include/common.h
         src/multi-stream/multi-gpu-peer.cu include/multi-stream/multi-gpu-peer.cuh
@@ -20,7 +20,7 @@ add_executable(
         src/single-stream/multi-threaded-two-block-comm.cu include/single-stream/multi-threaded-two-block-comm.cuh
         src/single-stream/single-threaded-two-block-comm.cu include/single-stream/single-threaded-two-block-comm.cuh)
 
-set_target_properties(2D_Stencil PROPERTIES CUDA_ARCHITECTURES "70;80")
+set_target_properties(3D_Stencil PROPERTIES CUDA_ARCHITECTURES "70;80")
 
-set_target_properties(2D_Stencil PROPERTIES
+set_target_properties(3D_Stencil PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)
