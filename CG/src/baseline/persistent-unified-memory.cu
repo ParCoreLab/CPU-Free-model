@@ -317,12 +317,11 @@ __device__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale,
 extern "C" __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x,
                                                      float *Ax, float *p, float *r,
                                                      double *dot_result, int nnz, int N, float tol,
-                                                     MultiDeviceData multi_device_data) {
+                                                     MultiDeviceData multi_device_data,
+                                                     const int iter_max) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
     PeerGroup peer_group(multi_device_data, grid);
-
-    const int max_iter = 10000;
 
     float alpha = 1.0;
     float alpham1 = -1.0;
@@ -356,7 +355,7 @@ extern "C" __global__ void multiGpuConjugateGradient(int *I, int *J, float *val,
     r1 = *dot_result;
 
     int k = 1;
-    while (r1 > tol * tol && k <= max_iter) {
+    while (r1 > tol * tol && k <= iter_max) {
         if (k > 1) {
             b = r1 / r0;
             gpuScaleVectorAndSaxpy(r, p, alpha, b, N, peer_group);
@@ -440,6 +439,8 @@ std::multimap<std::pair<int, int>, int> getIdenticalGPUs() {
 }  // namespace BaselinePersistentUnifiedMemory
 
 int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
+    const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
+
     constexpr size_t kNumGpusRequired = 2;
     int N = 0, nz = 0, *I = NULL, *J = NULL;
     float *val = NULL;
@@ -597,7 +598,6 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     }
 
     // Added this line to time the different kernel operations
-    // DON'T FORGET TO REMOVE
     numBlocksPerSm = 2;
 
     if (!numBlocksPerSm) {
@@ -687,11 +687,10 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     multi_device_data.numDevices = kNumGpusRequired;
     multi_device_data.deviceRank = 0;
 
-    void *kernelArgs[] = {
-        (void *)&I,  (void *)&J, (void *)&val, (void *)&x,
-        (void *)&Ax, (void *)&p, (void *)&r,   (void *)&dot_result,
-        (void *)&nz, (void *)&N, (void *)&tol, (void *)&multi_device_data,
-    };
+    void *kernelArgs[] = {(void *)&I,       (void *)&J, (void *)&val, (void *)&x,
+                          (void *)&Ax,      (void *)&p, (void *)&r,   (void *)&dot_result,
+                          (void *)&nz,      (void *)&N, (void *)&tol, (void *)&multi_device_data,
+                          (void *)&iter_max};
 
     printf("Launching kernel\n");
 
