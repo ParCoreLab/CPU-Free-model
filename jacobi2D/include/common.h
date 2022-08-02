@@ -38,7 +38,16 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
                                          real *__restrict__ const l2_norm, const int iy_start,
                                          const int iy_end, const int nx, const bool calculate_norm);
 
+__global__ void jacobi_kernel_single_gpu_perks(real *__restrict__ const a_new,
+                                               const real *__restrict__ const a,
+                                               real *__restrict__ const l2_norm, const int iy_start,
+                                               const int iy_end, const int nx,
+                                               const bool calculate_norm);
+
 double single_gpu(const int nx, const int ny, const int iter_max, real *const a_ref_h,
+                  const int nccheck, const bool print);
+
+double single_gpu(real *input, const int nx, const int ny, const int iter_max, real *const a_ref_h,
                   const int nccheck, const bool print);
 
 double single_gpu_persistent(const int nx, const int ny, const int iter_max, real *const a_ref_h,

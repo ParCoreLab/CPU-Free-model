@@ -21,6 +21,28 @@
 
 namespace cg = cooperative_groups;
 
+#include <cmath>
+
+real get_random() {
+  return ((real)(rand())/(real)(RAND_MAX-1));
+}
+
+real *getRandom2DArray(int width_y, int width_x) {
+  real (*a)[width_x] = (real (*)[width_x])new real[width_y*width_x];
+  for (int j = 0; j < width_y; j++)
+    for (int k = 0; k < width_x; k++) {
+      a[j][k] = get_random();
+    }
+  return (real*)a;
+}
+
+real *getZero2DArray(int width_y, int width_x) {
+  real (*a)[width_x] = (real (*)[width_x])new real[width_y*width_x];
+  memset((void*)a, 0, sizeof(real) * width_y * width_x);
+  return (real*)a;
+}
+
+
 namespace MultiStreamPERKS {
 __global__ void __launch_bounds__(1024, 1)
     jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
@@ -276,11 +298,16 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(nullptr));
 
+        // Taken from PERKS
+        // single gpu for now
+        real *input = getRandom2DArray(ny, nx);
+        real *output = getZero2DArray(ny, nx);
+
         if (compare_to_single_gpu && 0 == dev_id) {
             CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
-            runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
+            runtime_serial_non_persistent = single_gpu(input, nx, ny, iter_max, a_ref_h, 0, true);
         }
 
 #pragma omp barrier
@@ -455,10 +482,10 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         // getZero2DArray<real>(ny, nx);
 
         int err = jacobi_iterative(
-            a_new[dev_id],
+            input,
             ny, nx,
-            a[dev_id],
-            256,
+            output,
+            512,
             0,
             iter_max,
             false,
@@ -493,18 +520,26 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         double stop = omp_get_wtime();
 
         if (compare_to_single_gpu) {
-            CUDA_RT_CALL(
-                cudaMemcpy(a_h + iy_start_global * nx, a[dev_id] + nx,
-                           std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
-                           cudaMemcpyDeviceToHost));
+            // CUDA_RT_CALL(
+            //     cudaMemcpy(a_h + iy_start_global * nx, a[dev_id] + nx,
+            //                std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
+            //                cudaMemcpyDeviceToHost));
+
+            // CUDA_RT_CALL(
+                // cudaMemcpy(a_h + iy_start_global * nx, output,
+                            // std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
+                            // cudaMemcpyDeviceToHost));
         }
 
 #pragma omp barrier
 
 #pragma omp master
         {
-            report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start,
-                           stop, compare_to_single_gpu);
+            // report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start,
+            //                stop, compare_to_single_gpu);
+
+            report_results(ny, nx, a_ref_h, output, num_devices, runtime_serial_non_persistent, start,
+                stop, compare_to_single_gpu);
         }
 
         CUDA_RT_CALL(cudaFree(a_new[dev_id]));
