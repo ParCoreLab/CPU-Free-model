@@ -238,7 +238,12 @@ extern "C" __global__ void multiGpuConjugateGradient(int *I, int *J, float *val,
     r1 = *dot_result;
 
     int k = 1;
-    while (r1 > tol * tol && k <= iter_max) {
+
+    // while (r1 > tol * tol && k <= iter_max)
+
+    while (k <= iter_max) {
+        // Saxpy 1 Start
+
         if (k > 1) {
             b = r1 / r0;
             gpuScaleVectorAndSaxpy(r, p, alpha, b, N, peer_group);
@@ -248,7 +253,15 @@ extern "C" __global__ void multiGpuConjugateGradient(int *I, int *J, float *val,
 
         peer_group.sync();
 
+        // Saxpy 1 End
+
+        // SpMV Start
+
         gpuSpMV(I, J, val, nnz, N, alpha, p, Ax, peer_group);
+
+        // SpMV End
+
+        // Dot Product 1 Start
 
         if (peer_group.thread_rank() == 0) {
             *dot_result = 0.0;
@@ -263,7 +276,12 @@ extern "C" __global__ void multiGpuConjugateGradient(int *I, int *J, float *val,
             atomicAdd_system(dot_result, grid_dot_result);
             grid_dot_result = 0.0;
         }
+
         peer_group.sync();
+
+        // Dot Product 1 End
+
+        // Saxpy 2 Start
 
         a = r1 / *dot_result;
 
@@ -276,6 +294,10 @@ extern "C" __global__ void multiGpuConjugateGradient(int *I, int *J, float *val,
         r0 = r1;
 
         peer_group.sync();
+
+        // Saxpy 2 End
+
+        // Dot Product 2 Start
 
         if (peer_group.thread_rank() == 0) {
             *dot_result = 0.0;
@@ -293,7 +315,14 @@ extern "C" __global__ void multiGpuConjugateGradient(int *I, int *J, float *val,
         }
         peer_group.sync();
 
+        // Dot Product 2 End
+
+        // Saxpy 3 Start
+
         r1 = *dot_result;
+
+        // Saxpy 3 End
+
         k++;
     }
 }
@@ -324,7 +353,7 @@ std::multimap<std::pair<int, int>, int> getIdenticalGPUs() {
 int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
 
-    constexpr size_t kNumGpusRequired = 2;
+    constexpr size_t kNumGpusRequired = 1;
     int N = 0, nz = 0, *I = NULL, *J = NULL;
     float *val = NULL;
     const float tol = 1e-5f;
