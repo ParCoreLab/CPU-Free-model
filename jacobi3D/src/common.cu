@@ -13,16 +13,15 @@ bool get_arg(char **begin, char **end, const std::string &arg) {
 }
 // FIX THIIIISSSSS (What does it do?)
 __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
-                                      const real pi, const int offset, const int nx, const int ny,
-                                      const int my_nz, const int nz) {
-    for (unsigned int iz =
-             (blockIdx.y * blockDim.y + threadIdx.y) + (blockIdx.x * blockDim.x + threadIdx.x);
-         iz < my_nz; iz += blockDim.x * gridDim.x * blockDim.y * gridDim.y) {
-        const real y0 = sin(2.0 * pi * (offset + iz) / (nz - 1));
-        a[iz * ny * nx + ny * nx + 0] = y0;
-        a[iz * ny * nx + ny * nx + (nx - 1)] = y0;
-        a_new[iz * ny * nx + ny * nx + 0] = y0;
-        a_new[iz * ny * nx + ny * nx + (nx - 1)] = y0;
+                                      const real pi, const int offset, const int nxny,
+                                      const int my_ny, const int ny) {
+    for (unsigned int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny;
+         iy += blockDim.x * gridDim.x) {
+            for (unsigned int ix = 0 ;ix < nxny; ix++) {
+            const real y0 = real(ix)*real(iy);
+            a[iy * nxny + ix] = y0;
+            a_new[iy * nxny + ix] = y0;
+        }
     }
 }
 
@@ -38,7 +37,7 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
 
     if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
         const real new_val =
-            (1 / 6) * (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
+            0.1666666666666667 * (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
                        a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
                        a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
         a_new[iz * ny * nx + iy * nx + ix] = new_val;
@@ -70,7 +69,7 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
     while (iter < iter_max) {
         if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
             const real new_val =
-                (1 / 6) *
+                0.1666666666666667 *
                 (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
                  a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
                  a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
@@ -129,7 +128,7 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max, 
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * nz * sizeof(real)));
 
     // Set diriclet boundary conditions on left and right boarder
-    initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, 0, nx, ny, nz, nz);
+    initialize_boundaries<<<nz / 128 + 1, 128>>>(a_new, a, PI, 0, nx * ny, nz, nz);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -206,7 +205,7 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max, 
         //            if (print && (iter % 100) == 0) printf("%5d, %0.6f\n", iter, l2_norm);
         //        }
 
-        std::swap(a_new, a);
+        //std::swap(a_new, a);
         iter++;
     }
     POP_RANGE
@@ -226,6 +225,7 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max, 
 
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));
+
     return (stop - start);
 }
 
@@ -248,7 +248,7 @@ double single_gpu_persistent(const int nz, const int ny, const int nx, const int
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * nz * sizeof(real)));
 
     // Set diriclet boundary conditions on left and right boarder
-    initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, 0, nx, ny, nz, nz);
+    initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, 0, nx, ny, nz);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -308,11 +308,11 @@ void report_results(const int nz, const int ny, const int nx, real *a_ref_h, rea
         for (int iz = 1; result_correct && (iz < (nz - 1)); ++iz) {
             for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy) {
                 for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix) {
-                    if (std::fabs(a_ref_h[iy * nx + ix] - a_h[iy * nx + ix]) > tol) {
+                    if (std::fabs(a_ref_h[iz * ny * nx + iy * nx + ix] - a_h[iz * ny * nx + iy * nx + ix]) > tol) {
                         fprintf(stderr,
-                                "ERROR: a[%d * %d + %d] = %.8f does not match %.8f "
+                                "ERROR: a[%d * %d + %d * %d + %d] = %.8f does not match %.8f "
                                 "(reference)\n",
-                                iy, nx, ix, a_h[iy * nx + ix], a_ref_h[iy * nx + ix]);
+                                iz,ny*nx,iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix], a_ref_h[iz * ny * nx + iy * nx + ix]);
                         // result_correct = false;
                     }
                 }

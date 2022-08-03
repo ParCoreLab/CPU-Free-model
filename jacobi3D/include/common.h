@@ -30,8 +30,8 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
 bool get_arg(char **begin, char **end, const std::string &arg);
 
 __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
-                                      const real pi, const int offset,const int nx, const int ny,
-                                      const int my_nz, const int nz);
+                                      const real pi, const int offset,const int nxny,
+                                      const int my_ny, const int ny);
 
 __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
                                          const real *__restrict__ const a,
@@ -84,13 +84,14 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
 #define CUDA_RT_CALL(call)                                                                  \
     {                                                                                       \
         cudaError_t cudaStatus = call;                                                      \
-        if (cudaSuccess != cudaStatus)                                                      \
+        if (cudaSuccess != cudaStatus){                                                     \
             fprintf(stderr,                                                                 \
                     "ERROR: CUDA RT call \"%s\" in line %d of file %s failed "              \
                     "with "                                                                 \
                     "%s (%d).\n",                                                           \
                     #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus), cudaStatus); \
-    }                                                                                       \
-    noop
+            exit(-1);                                                               \
+        }                                                                                   \
+    }                                                                                       
 
 #endif  // INC_2D_STENCIL_COMMON_H
