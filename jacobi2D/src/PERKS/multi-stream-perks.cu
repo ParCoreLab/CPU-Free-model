@@ -481,21 +481,66 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         // real (*output)[nx] = (real (*)[nx])
         // getZero2DArray<real>(ny, nx);
 
-        int err = jacobi_iterative(
-            input,
-            ny, nx,
-            output,
-            512,
-            0,
-            iter_max,
-            false,
-            true,
-            false,
-            -1,
-            true
-        );
+        // int err = jacobi_iterative(
+        //     input,
+        //     ny, nx,
+        //     output,
+        //     256,
+        //     -1,
+        //     iter_max,
+        //     false,
+        //     true,
+        //     false,
+        //     -1,
+        //     true
+        // );
 
-        std::cout << "Ran PERKS. Err: " << err << std::endl;
+        real (*output)[nx] = (real (*)[nx])
+        getZero2DArray(ny, nx);
+
+        real (*output_gold)[nx] = (real (*)[nx])
+        getZero2DArray(ny, nx);
+
+        int bdimx = 256;
+        int blkpsm = 0;
+
+        bool async = false;
+        bool useSM = true;
+        bool usewarmup = false;
+        int warmupiteration = -1;
+        bool isDoubleTile = false;
+
+        jacobi_gold_iterative((real*)input, ny, nx, (real*)output_gold,iter_max);
+
+        int err = jacobi_iterative((real*)input, ny, nx, (real*)output,bdimx,blkpsm,iter_max,async,useSM,usewarmup, warmupiteration,isDoubleTile);
+        if(err == 1) {
+            printf("unsupport setting, no free space for cache with shared memory\n");
+        }
+
+        // std::cout << "Ran PERKS. Err: " << err << std::endl;
+
+        // for (int i = 0; i < nx; i++) {
+            // for (int ii = 0; ii < ny; ii++) {
+                // std::cout << output[i][ii] << "|" << output_gold[i][ii] << std::endl;
+                // std::cout << output_gold[i][ii] << std::endl;
+            // }
+        // }
+
+        int halo = iter_max;
+
+        double error =
+        checkError2D
+        (nx, (real*)output, (real*) output_gold, halo, ny-halo, halo, nx-halo);
+
+        printf("[Test] RMS Error : %e\n",error);
+
+        if (error > TOLERANCE) {
+            std::cout << "fuck " << TOLERANCE << std::endl;
+        }
+
+        // for (int i = 0; i < nx * ny; i++) {
+            // std::cout << a_ref_h[i] << std::endl;
+        // }
 
         // THE KERNELS ARE SERIALIZED!
         // perhaps only on V100
@@ -538,16 +583,16 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
             // report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start,
             //                stop, compare_to_single_gpu);
 
-            report_results(ny, nx, a_ref_h, output, num_devices, runtime_serial_non_persistent, start,
-                stop, compare_to_single_gpu);
+            // report_results(ny, nx, a_ref_h, output, num_devices, runtime_serial_non_persistent, start,
+                // stop, compare_to_single_gpu);
         }
 
-        CUDA_RT_CALL(cudaFree(a_new[dev_id]));
-        CUDA_RT_CALL(cudaFree(a[dev_id]));
+        // CUDA_RT_CALL(cudaFree(a_new[dev_id]));
+        // CUDA_RT_CALL(cudaFree(a[dev_id]));
 
         if (compare_to_single_gpu && 0 == dev_id) {
-            CUDA_RT_CALL(cudaFreeHost(a_h));
-            CUDA_RT_CALL(cudaFreeHost(a_ref_h));
+            // CUDA_RT_CALL(cudaFreeHost(a_h));
+            // CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }
     }
 
