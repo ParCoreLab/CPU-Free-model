@@ -14,14 +14,24 @@
 
 
 
-// #include "./genconfig.cuh"
+#ifdef GEN
+#include "./genconfig.cuh"
+#endif
 
+#ifdef GENWRSMALL
 #define GENWR
+#endif
 
 //#ifndef REAL
 //#define REAL float
 //#endif
 //configuration
+#if defined(NAIVENVCC)
+  #define NAIVE
+#endif
+#if defined(NAIVE)||defined(BASELINE)||defined(BASELINE_CM)
+  #define TRADITIONLAUNCH
+#endif
 #if defined(GEN)|| defined(GENWR) ||defined(PERSISTENT)
   #define PERSISTENTLAUNCH
 #endif
@@ -855,5 +865,4 @@ if(usewarmup){
 }
 
 PERKS_INITIALIZE_ALL_TYPE(PERKS_DECLARE_INITIONIZATION_ITERATIVE);
-
 

@@ -19,12 +19,15 @@
 #include "./common/jacobi_cuda.cuh"
 #include "config.cuh"
 
+#define TOLERANCE 1e-5
+
 namespace cg = cooperative_groups;
 
 #include <cmath>
 
 real get_random() {
-  return ((real)(rand())/(real)(RAND_MAX-1));
+    return ((real)(rand())/(real)(RAND_MAX-1));
+    // return 1;
 }
 
 real *getRandom2DArray(int width_y, int width_x) {
@@ -40,6 +43,33 @@ real *getZero2DArray(int width_y, int width_x) {
   real (*a)[width_x] = (real (*)[width_x])new real[width_y*width_x];
   memset((void*)a, 0, sizeof(real) * width_y * width_x);
   return (real*)a;
+}
+
+static double checkError2D
+(int width_x, const real *l_output, const real *l_reference, int y_lb, int y_ub,
+ int x_lb, int x_ub) {
+  const real (*output)[width_x] = (const real (*)[width_x])(l_output);
+  const real (*reference)[width_x] = (const real (*)[width_x])(l_reference);
+  double error = 0.0;
+  double max_error = 0.0;
+  int max_k = 0, max_j = 0;
+  for (int j = y_lb; j < y_ub; j++) 
+    for (int k = x_lb; k < x_ub; k++) {
+      //printf ("Values at index (%d,%d) are %.6f and %.6f\n", j, k, reference[j][k], output[j][k]);
+      double curr_error = output[j][k] - reference[j][k];
+      curr_error = (curr_error < 0.0 ? -curr_error : curr_error);
+      error += curr_error * curr_error;
+      if (curr_error > max_error) {
+	printf ("Values at index (%d,%d) differ : %.6f and %.6f\n", j, k, reference[j][k], output[j][k]);
+        max_error = curr_error;
+        max_k = k;
+        max_j = j;
+      }
+    }
+  printf
+    ("[Test] Max Error : %e @ (,%d,%d)\n", max_error, max_j, max_k);
+  error = sqrt(error / ( (y_ub - y_lb) * (x_ub - x_lb)));
+  return error;
 }
 
 
@@ -300,14 +330,30 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         // Taken from PERKS
         // single gpu for now
-        real *input = getRandom2DArray(ny, nx);
-        real *output = getZero2DArray(ny, nx);
+        real (*input)[nx] = (real (*)[nx])
+        getRandom2DArray(ny, nx);
+
+        real *input_ref = new real[nx * ny];
+
+        for (int i = 0; i < nx; i++){
+            for (int ii = 0; ii < ny; ii++) {
+                input_ref[ii * ny + i] = input[i][ii];
+            }
+        }
+
+        // real *output = new real[ny * nx]; //getZero2DArray(ny, nx);
+
+        // for (int i = 0; i < nx * ny; i++) {
+            // output[i] = 1;
+        // }
 
         if (compare_to_single_gpu && 0 == dev_id) {
             CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
-            runtime_serial_non_persistent = single_gpu(input, nx, ny, iter_max, a_ref_h, 0, true);
+            std::cout << "Running single gpu" << std::endl;
+
+            runtime_serial_non_persistent = single_gpu(input_ref, nx, ny, iter_max, a_ref_h, 0, true);
         }
 
 #pragma omp barrier
@@ -557,9 +603,9 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         // Need to swap pointers on CPU if iteration count is odd
         // Technically, we don't know the iteration number (since we'll be doing l2-norm)
         // Could write iter to CPU when kernel is done
-        if (iter_max % 2 == 1) {
-            std::swap(a_new[dev_id], a[dev_id]);
-        }
+        // if (iter_max % 2 == 1) {
+            // std::swap(a_new[dev_id], a[dev_id]);
+        // }
 
 #pragma omp barrier
         double stop = omp_get_wtime();

@@ -585,4 +585,3 @@ __device__ __forceinline__ void inner_general
   #undef SM2REG
   #undef REG2REG
 }
-

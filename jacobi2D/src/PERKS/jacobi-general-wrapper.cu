@@ -1,6 +1,5 @@
 #include "./config.cuh"
 // #include "./genconfig.cuh"
-#include "./common/types.hpp"
 #include "./perksconfig.cuh"
 #include "./jacobi-general-kernel.cuh"
 
