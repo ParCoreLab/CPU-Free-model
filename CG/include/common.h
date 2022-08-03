@@ -5,6 +5,10 @@
 #include <sstream>
 #include <string>
 
+template <typename T_ELEM>
+int loadMMSparseMatrix(char *filename, char elem_type, bool csrFormat, int *m, int *n, int *nnz,
+                       T_ELEM **aVal, int **aRowInd, int **aColInd, int extendSymMatrix);
+
 template <typename T>
 T get_argval(char **begin, char **end, const std::string &arg, const T default_val) {
     T argval = default_val;
