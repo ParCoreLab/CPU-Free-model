@@ -38,7 +38,7 @@ namespace SSMultiThreadedOneBlockComm
         // int grid_dim_z = (comp_tile_size_z + blockDim.z - 1) / blockDim.z;
         // there is a problem
         int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
-        int block_idx_y = blockIdx.x / grid_dim_x;
+        int block_idx_y = (blockIdx.x % (grid_dim_x * grid_dim_y) )/ grid_dim_x;
         int block_idx_x = blockIdx.x % grid_dim_x;
 
         int base_iz = block_idx_z * blockDim.z + threadIdx.z;
@@ -429,12 +429,12 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
 
         if (compare_to_single_gpu)
         {
-            ///????
+            
             CUDA_RT_CALL(cudaMemcpy(
                 a_h + iz_start_global * ny * nx, a[dev_id] + ny * nx,
                 std::min((ny - iz_start_global) * ny * nx, chunk_size * nx * ny) * sizeof(real),
                 cudaMemcpyDeviceToHost));
-            ///????
+            
         }
 
 #pragma omp barrier
