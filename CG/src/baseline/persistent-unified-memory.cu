@@ -352,6 +352,7 @@ std::multimap<std::pair<int, int>, int> getIdenticalGPUs() {
 
 int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
+    std::string matrix_path = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
 
     constexpr size_t kNumGpusRequired = 1;
     int N = 0, nz = 0, *I = NULL, *J = NULL;
