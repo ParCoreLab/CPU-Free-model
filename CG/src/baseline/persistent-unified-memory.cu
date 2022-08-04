@@ -239,9 +239,14 @@ extern "C" __global__ void multiGpuConjugateGradient(int *I, int *J, float *val,
 
     int k = 1;
 
-    // while (r1 > tol * tol && k <= iter_max)
+    while (r1 > tol * tol && k <= iter_max)
 
-    while (k <= iter_max) {
+    // while (k <= iter_max)
+    {
+        // if (grid.thread_rank() == 0) {
+        //     printf("%f\n", *dot_result);
+        // }
+
         // Saxpy 1 Start
 
         if (k > 1) {
@@ -352,14 +357,27 @@ std::multimap<std::pair<int, int>, int> getIdenticalGPUs() {
 
 int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
-    std::string matrix_path = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
+    std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
+
+    char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
+    bool generate_random_tridiag_matrix = matrix_path_str.empty();
 
     int num_devices = 0;
 
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
 
-    int N = 0, nz = 0, *I = NULL, *J = NULL;
-    float *val = NULL;
+    int num_rows = 0;
+    int num_cols = 0;
+    int nnz = 0;
+
+    int *host_I = NULL;
+    int *host_J = NULL;
+    float *host_val = NULL;
+
+    int *um_I = NULL;
+    int *um_J = NULL;
+    float *um_val = NULL;
+
     const float tol = 1e-5f;
     float *x;
     float rhs = 1.0;
@@ -456,24 +474,43 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         }
     }
 
-    /* Generate a random tridiagonal symmetric matrix in CSR format */
-    N = 10485760 * 2;
-    nz = (N - 2) * 3 + 4;
+    if (generate_random_tridiag_matrix) {
+        num_rows = 10485760 * 2;
+        num_cols = num_rows;
 
-    CUDA_RT_CALL(cudaMallocManaged((void **)&I, sizeof(int) * (N + 1)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&J, sizeof(int) * nz));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&val, sizeof(float) * nz));
+        nnz = (num_rows - 2) * 3 + 4;
 
-    float *val_cpu = (float *)malloc(sizeof(float) * nz);
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_I, sizeof(int) * (num_rows + 1)));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_J, sizeof(int) * nnz));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(float) * nnz));
 
-    genTridiag(I, J, val_cpu, N, nz);
+        host_val = (float *)malloc(sizeof(float) * nnz);
 
-    memcpy(val, val_cpu, sizeof(float) * nz);
-    CUDA_RT_CALL(cudaMemAdvise(I, sizeof(int) * (N + 1), cudaMemAdviseSetReadMostly, 0));
-    CUDA_RT_CALL(cudaMemAdvise(J, sizeof(int) * nz, cudaMemAdviseSetReadMostly, 0));
-    CUDA_RT_CALL(cudaMemAdvise(val, sizeof(float) * nz, cudaMemAdviseSetReadMostly, 0));
+        /* Generate a random tridiagonal symmetric matrix in CSR format */
+        genTridiag(um_I, um_J, host_val, num_rows, nnz);
 
-    CUDA_RT_CALL(cudaMallocManaged((void **)&x, sizeof(float) * N));
+        memcpy(um_val, host_val, sizeof(float) * nnz);
+
+    } else {
+        if (loadMMSparseMatrix<float>(matrix_path_char, 'd', true, &num_rows, &num_cols, &nnz,
+                                      &host_val, &host_I, &host_J, true)) {
+            exit(EXIT_FAILURE);
+        }
+
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_I, sizeof(int) * (num_rows + 1)));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_J, sizeof(int) * nnz));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(float) * nnz));
+
+        memcpy(um_I, host_I, sizeof(int) * (num_rows + 1));
+        memcpy(um_J, host_J, sizeof(int) * nnz);
+        memcpy(um_val, host_val, sizeof(float) * nnz);
+    }
+
+    CUDA_RT_CALL(cudaMemAdvise(um_I, sizeof(int) * (num_rows + 1), cudaMemAdviseSetReadMostly, 0));
+    CUDA_RT_CALL(cudaMemAdvise(um_J, sizeof(int) * nnz, cudaMemAdviseSetReadMostly, 0));
+    CUDA_RT_CALL(cudaMemAdvise(um_val, sizeof(float) * nnz, cudaMemAdviseSetReadMostly, 0));
+
+    CUDA_RT_CALL(cudaMallocManaged((void **)&x, sizeof(float) * num_rows));
 
     double *dot_result;
     CUDA_RT_CALL(cudaMallocManaged((void **)&dot_result, sizeof(double)));
@@ -481,9 +518,9 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMemset(dot_result, 0, sizeof(double)));
 
     // temp memory for ConjugateGradient
-    CUDA_RT_CALL(cudaMallocManaged((void **)&r, N * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&p, N * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&Ax, N * sizeof(float)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&r, num_rows * sizeof(float)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&p, num_rows * sizeof(float)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&Ax, num_rows * sizeof(float)));
 
     std::cout << "\nRunning on GPUs = " << num_devices << std::endl;
     cudaStream_t nStreams[num_devices];
@@ -529,19 +566,20 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaSetDevice(*deviceId));
         CUDA_RT_CALL(cudaStreamCreate(&nStreams[device_count]));
 
-        int perGPUIter = N / (totalThreadsPerGPU * num_devices);
+        int perGPUIter = num_rows / (totalThreadsPerGPU * num_devices);
         int offset_Ax = device_count * totalThreadsPerGPU;
         int offset_r = device_count * totalThreadsPerGPU;
         int offset_p = device_count * totalThreadsPerGPU;
         int offset_x = device_count * totalThreadsPerGPU;
 
-        CUDA_RT_CALL(cudaMemPrefetchAsync(I, sizeof(int) * N, *deviceId, nStreams[device_count]));
         CUDA_RT_CALL(
-            cudaMemPrefetchAsync(val, sizeof(float) * nz, *deviceId, nStreams[device_count]));
+            cudaMemPrefetchAsync(um_I, sizeof(int) * num_rows, *deviceId, nStreams[device_count]));
         CUDA_RT_CALL(
-            cudaMemPrefetchAsync(J, sizeof(float) * nz, *deviceId, nStreams[device_count]));
+            cudaMemPrefetchAsync(um_val, sizeof(float) * nnz, *deviceId, nStreams[device_count]));
+        CUDA_RT_CALL(
+            cudaMemPrefetchAsync(um_J, sizeof(float) * nnz, *deviceId, nStreams[device_count]));
 
-        if (offset_Ax <= N) {
+        if (offset_Ax <= num_rows) {
             for (int i = 0; i < perGPUIter; i++) {
                 cudaMemAdvise(Ax + offset_Ax, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, *deviceId);
@@ -566,7 +604,7 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
                 offset_p += totalThreadsPerGPU * num_devices;
                 offset_x += totalThreadsPerGPU * num_devices;
 
-                if (offset_Ax >= N) {
+                if (offset_Ax >= num_rows) {
                     break;
                 }
             }
@@ -602,9 +640,10 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     multi_device_data.numDevices = num_devices;
     multi_device_data.deviceRank = 0;
 
-    void *kernelArgs[] = {(void *)&I,       (void *)&J, (void *)&val, (void *)&x,
-                          (void *)&Ax,      (void *)&p, (void *)&r,   (void *)&dot_result,
-                          (void *)&nz,      (void *)&N, (void *)&tol, (void *)&multi_device_data,
+    void *kernelArgs[] = {(void *)&um_I,     (void *)&um_J,       (void *)&um_val,
+                          (void *)&x,        (void *)&Ax,         (void *)&p,
+                          (void *)&r,        (void *)&dot_result, (void *)&nnz,
+                          (void *)&num_rows, (void *)&tol,        (void *)&multi_device_data,
                           (void *)&iter_max};
 
     printf("Launching kernel\n");
@@ -623,8 +662,12 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         deviceId++;
     }
 
-    CUDA_RT_CALL(cudaMemPrefetchAsync(x, sizeof(float) * N, cudaCpuDeviceId));
+    printf("Sup %f\n", *dot_result);
+
+    CUDA_RT_CALL(cudaMemPrefetchAsync(x, sizeof(float) * num_rows, cudaCpuDeviceId));
     CUDA_RT_CALL(cudaMemPrefetchAsync(dot_result, sizeof(double), cudaCpuDeviceId));
+
+    printf("Sup %f\n", *dot_result);
 
     deviceId = bestFitDeviceIds.begin();
     device_count = 0;
@@ -648,11 +691,11 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
 
     float rsum, diff, err = 0.0;
 
-    for (int i = 0; i < N; i++) {
+    for (int i = 0; i < num_rows; i++) {
         rsum = 0.0;
 
-        for (int j = I[i]; j < I[i + 1]; j++) {
-            rsum += val_cpu[j] * x[J[j]];
+        for (int j = um_I[i]; j < um_J[i + 1]; j++) {
+            rsum += host_val[j] * x[um_J[j]];
         }
 
         diff = fabs(rsum - rhs);
@@ -663,15 +706,15 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     }
 
     CUDA_RT_CALL(cudaFreeHost(multi_device_data.hostMemoryArrivedList));
-    CUDA_RT_CALL(cudaFree(I));
-    CUDA_RT_CALL(cudaFree(J));
-    CUDA_RT_CALL(cudaFree(val));
+    CUDA_RT_CALL(cudaFree(um_I));
+    CUDA_RT_CALL(cudaFree(um_J));
+    CUDA_RT_CALL(cudaFree(um_val));
     CUDA_RT_CALL(cudaFree(x));
     CUDA_RT_CALL(cudaFree(r));
     CUDA_RT_CALL(cudaFree(p));
     CUDA_RT_CALL(cudaFree(Ax));
     CUDA_RT_CALL(cudaFree(dot_result));
-    free(val_cpu);
+    free(host_val);
 
 #if ENABLE_CPU_DEBUG_CODE
     free(Ax_cpu);
