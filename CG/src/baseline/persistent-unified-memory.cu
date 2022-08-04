@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <filesystem>
 #include <iostream>
 #include <map>
 #include <set>
@@ -243,10 +244,6 @@ extern "C" __global__ void multiGpuConjugateGradient(int *I, int *J, float *val,
 
     // while (k <= iter_max)
     {
-        // if (grid.thread_rank() == 0) {
-        //     printf("%f\n", *dot_result);
-        // }
-
         // Saxpy 1 Start
 
         if (k > 1) {
@@ -361,6 +358,14 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
     bool generate_random_tridiag_matrix = matrix_path_str.empty();
+
+    std::string matrix_name = std::filesystem::path(matrix_path_str).stem();
+
+    if (generate_random_tridiag_matrix) {
+        matrix_name = "random tridiagonal";
+    }
+
+    std::cout << "Running on matrix: " << matrix_name << "\n" << std::endl;
 
     int num_devices = 0;
 
@@ -662,12 +667,8 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         deviceId++;
     }
 
-    printf("Sup %f\n", *dot_result);
-
     CUDA_RT_CALL(cudaMemPrefetchAsync(x, sizeof(float) * num_rows, cudaCpuDeviceId));
     CUDA_RT_CALL(cudaMemPrefetchAsync(dot_result, sizeof(double), cudaCpuDeviceId));
-
-    printf("Sup %f\n", *dot_result);
 
     deviceId = bestFitDeviceIds.begin();
     device_count = 0;
