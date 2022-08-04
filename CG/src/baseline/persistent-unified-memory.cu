@@ -354,7 +354,10 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
 
-    constexpr size_t kNumGpusRequired = 1;
+    int num_devices = 0;
+
+    CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
+
     int N = 0, nz = 0, *I = NULL, *J = NULL;
     float *val = NULL;
     const float tol = 1e-5f;
@@ -382,7 +385,7 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         if (distance(bestFit) <= distance(testFit)) bestFit = testFit;
     }
 
-    if (distance(bestFit) < kNumGpusRequired) {
+    if (distance(bestFit) < num_devices) {
         printf(
             "No two or more GPUs with same architecture capable of "
             "concurrentManagedAccess found. "
@@ -399,13 +402,13 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
 
         std::for_each(
             itr, bestFit.second,
-            [&deviceId, &bestFitDeviceIds, &kNumGpusRequired](decltype(*itr) mapPair) {
+            [&deviceId, &bestFitDeviceIds, &num_devices](decltype(*itr) mapPair) {
                 if (deviceId != mapPair.second) {
                     int access = 0;
                     CUDA_RT_CALL(cudaDeviceCanAccessPeer(&access, deviceId, mapPair.second));
                     printf("Device=%d %s Access Peer Device=%d\n", deviceId,
                            access ? "CAN" : "CANNOT", mapPair.second);
-                    if (access && bestFitDeviceIds.size() < kNumGpusRequired) {
+                    if (access && bestFitDeviceIds.size() < num_devices) {
                         bestFitDeviceIds.emplace(deviceId);
                         bestFitDeviceIds.emplace(mapPair.second);
                     } else {
@@ -414,7 +417,7 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
                 }
             });
 
-        if (bestFitDeviceIds.size() >= kNumGpusRequired) {
+        if (bestFitDeviceIds.size() >= num_devices) {
             printf("Selected p2p capable devices - ");
             for (auto devicesItr = bestFitDeviceIds.begin(); devicesItr != bestFitDeviceIds.end();
                  devicesItr++) {
@@ -428,10 +431,10 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     // if bestFitDeviceIds.size() == 0 it means the GPUs in system are not p2p
     // capable, hence we add it without p2p capability check.
     if (!bestFitDeviceIds.size()) {
-        printf("Devices involved are not p2p capable.. selecting %zu of them\n", kNumGpusRequired);
+        printf("Devices involved are not p2p capable.. selecting %zu of them\n", num_devices);
         std::for_each(bestFit.first, bestFit.second,
-                      [&bestFitDeviceIds, &kNumGpusRequired](decltype(*bestFit.first) mapPair) {
-                          if (bestFitDeviceIds.size() < kNumGpusRequired) {
+                      [&bestFitDeviceIds, &num_devices](decltype(*bestFit.first) mapPair) {
+                          if (bestFitDeviceIds.size() < num_devices) {
                               bestFitDeviceIds.emplace(mapPair.second);
                           } else {
                               printf("Ignoring device %i (max devices exceeded)\n", mapPair.second);
@@ -482,8 +485,8 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMallocManaged((void **)&p, N * sizeof(float)));
     CUDA_RT_CALL(cudaMallocManaged((void **)&Ax, N * sizeof(float)));
 
-    std::cout << "\nRunning on GPUs = " << kNumGpusRequired << std::endl;
-    cudaStream_t nStreams[kNumGpusRequired];
+    std::cout << "\nRunning on GPUs = " << num_devices << std::endl;
+    cudaStream_t nStreams[num_devices];
 
     int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
     int numBlocksPerSm = INT_MAX;
@@ -526,7 +529,7 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaSetDevice(*deviceId));
         CUDA_RT_CALL(cudaStreamCreate(&nStreams[device_count]));
 
-        int perGPUIter = N / (totalThreadsPerGPU * kNumGpusRequired);
+        int perGPUIter = N / (totalThreadsPerGPU * num_devices);
         int offset_Ax = device_count * totalThreadsPerGPU;
         int offset_r = device_count * totalThreadsPerGPU;
         int offset_p = device_count * totalThreadsPerGPU;
@@ -558,10 +561,10 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
                 cudaMemAdvise(x + offset_x, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, *deviceId);
 
-                offset_Ax += totalThreadsPerGPU * kNumGpusRequired;
-                offset_r += totalThreadsPerGPU * kNumGpusRequired;
-                offset_p += totalThreadsPerGPU * kNumGpusRequired;
-                offset_x += totalThreadsPerGPU * kNumGpusRequired;
+                offset_Ax += totalThreadsPerGPU * num_devices;
+                offset_r += totalThreadsPerGPU * num_devices;
+                offset_p += totalThreadsPerGPU * num_devices;
+                offset_x += totalThreadsPerGPU * num_devices;
 
                 if (offset_Ax >= N) {
                     break;
@@ -591,13 +594,12 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
 
     // Structure used for cross-grid synchronization.
     BaselinePersistentUnifiedMemory::MultiDeviceData multi_device_data;
-    CUDA_RT_CALL(
-        cudaHostAlloc(&multi_device_data.hostMemoryArrivedList,
-                      (kNumGpusRequired - 1) * sizeof(*multi_device_data.hostMemoryArrivedList),
-                      cudaHostAllocPortable));
+    CUDA_RT_CALL(cudaHostAlloc(&multi_device_data.hostMemoryArrivedList,
+                               (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList),
+                               cudaHostAllocPortable));
     memset(multi_device_data.hostMemoryArrivedList, 0,
-           (kNumGpusRequired - 1) * sizeof(*multi_device_data.hostMemoryArrivedList));
-    multi_device_data.numDevices = kNumGpusRequired;
+           (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList));
+    multi_device_data.numDevices = num_devices;
     multi_device_data.deviceRank = 0;
 
     void *kernelArgs[] = {(void *)&I,       (void *)&J, (void *)&val, (void *)&x,
