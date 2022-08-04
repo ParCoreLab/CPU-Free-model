@@ -13,7 +13,7 @@ ifdef USE_NVTX
 endif
 
 #NVCC_FLAGS += -Xcompiler -fopenmp -lineinfo -DUSE_NVTX -lnvToolsExt $(GENCODE_FLAGS) -std=c++17
-NVCC_FLAGS += -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(CXX) -g -G
+NVCC_FLAGS += -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(CXX) -O0 -g -G
 
 MAKEFLAGS += -j$(shell grep -c 'processor' /proc/cpuinfo)
 

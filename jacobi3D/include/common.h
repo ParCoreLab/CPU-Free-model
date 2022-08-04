@@ -30,8 +30,8 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
 bool get_arg(char **begin, char **end, const std::string &arg);
 
 __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
-                                      const real pi, const int offset,const int nxny,
-                                      const int my_ny, const int ny);
+                                      const real pi, const int offset, const int nx, const int ny,
+                                      const int my_nz, const int nz) ;
 
 __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
                                          const real *__restrict__ const a,
