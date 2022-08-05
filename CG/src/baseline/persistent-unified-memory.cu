@@ -349,6 +349,7 @@ std::multimap<std::pair<int, int>, int> getIdenticalGPUs() {
 int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
+    const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare");
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
     bool generate_random_tridiag_matrix = matrix_path_str.empty();
@@ -654,8 +655,6 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
 
     printf("Execution time: %8.4f s\n", (stop - start));
 
-    printf("GPU Final, residual = %e \n  ", sqrt(r1));
-
 #if ENABLE_CPU_DEBUG_CODE
     cpuConjugateGrad(I, J, val, x_cpu, Ax_cpu, p_cpu, r_cpu, nz, N, tol);
 #endif
@@ -694,8 +693,12 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     free(x_cpu);
 #endif
 
-    printf("Test Summary:  Error amount = %f \n", err);
-    fprintf(stdout, "&&&& conjugateGradientMultiDeviceCG %s\n",
-            (sqrt(r1) < tol) ? "PASSED" : "FAILED");
-    exit((sqrt(r1) < tol) ? EXIT_SUCCESS : EXIT_FAILURE);
+    if (compare_to_cpu) {
+        printf("GPU Final, residual = %e \n  ", sqrt(r1));
+        printf("Test Summary:  Error amount = %f \n", err);
+        fprintf(stdout, "&&&& conjugateGradientMultiDeviceCG %s\n",
+                (sqrt(r1) < tol) ? "PASSED" : "FAILED");
+    }
+
+    return 0;
 }
