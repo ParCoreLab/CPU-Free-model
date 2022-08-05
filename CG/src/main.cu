@@ -1,5 +1,6 @@
 #include <iostream>
 
+#include "../include/baseline/persistent-unified-memory-gather-vector.cuh"
 #include "../include/baseline/persistent-unified-memory.cuh"
 #include "../include/common.h"
 
@@ -9,6 +10,9 @@ int main(int argc, char *argv[]) {
     const std::array versions{
         make_pair("Baseline Persistent Kernel with Unified Memory",
                   BaselinePersistentUnifiedMemory::init),
+        make_pair(
+            "Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV)",
+            BaselinePersistentUnifiedMemoryGatherVector::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
