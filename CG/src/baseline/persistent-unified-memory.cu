@@ -52,7 +52,6 @@
 namespace cg = cooperative_groups;
 
 namespace BaselinePersistentUnifiedMemory {
-const char *sSDKname = "conjugateGradientMultiDeviceCG";
 
 #define ENABLE_CPU_DEBUG_CODE 0
 #define THREADS_PER_BLOCK 512
@@ -341,8 +340,6 @@ std::multimap<std::pair<int, int>, int> getIdenticalGPUs() {
         if (deviceProp.cooperativeLaunch && deviceProp.concurrentManagedAccess) {
             identicalGpus.emplace(std::make_pair(deviceProp.major, deviceProp.minor), i);
         }
-        printf("GPU Device %d: \"%s\" with compute capability %d.%d\n", i, deviceProp.name,
-               deviceProp.major, deviceProp.minor);
     }
 
     return identicalGpus;
@@ -386,7 +383,6 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     float r1;
     float *r, *p, *Ax;
 
-    printf("Starting [%s]...\n", BaselinePersistentUnifiedMemory::sSDKname);
     auto gpusByArch = getIdenticalGPUs();
 
     auto it = gpusByArch.begin();
@@ -405,13 +401,6 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         if (distance(bestFit) <= distance(testFit)) bestFit = testFit;
     }
 
-    if (distance(bestFit) < num_devices) {
-        printf(
-            "No two or more GPUs with same architecture capable of "
-            "concurrentManagedAccess found. "
-            "\nWaiving the sample\n");
-    }
-
     std::set<int> bestFitDeviceIds;
 
     // Check & select peer-to-peer access capable GPU devices as enabling p2p
@@ -426,8 +415,7 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
                 if (deviceId != mapPair.second) {
                     int access = 0;
                     CUDA_RT_CALL(cudaDeviceCanAccessPeer(&access, deviceId, mapPair.second));
-                    printf("Device=%d %s Access Peer Device=%d\n", deviceId,
-                           access ? "CAN" : "CANNOT", mapPair.second);
+
                     if (access && bestFitDeviceIds.size() < num_devices) {
                         bestFitDeviceIds.emplace(deviceId);
                         bestFitDeviceIds.emplace(mapPair.second);
@@ -436,16 +424,6 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
                     }
                 }
             });
-
-        if (bestFitDeviceIds.size() >= num_devices) {
-            printf("Selected p2p capable devices - ");
-            for (auto devicesItr = bestFitDeviceIds.begin(); devicesItr != bestFitDeviceIds.end();
-                 devicesItr++) {
-                printf("deviceId = %d  ", *devicesItr);
-            }
-            printf("\n");
-            break;
-        }
     }
 
     // if bestFitDeviceIds.size() == 0 it means the GPUs in system are not p2p
@@ -524,7 +502,6 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMallocManaged((void **)&p, num_rows * sizeof(float)));
     CUDA_RT_CALL(cudaMallocManaged((void **)&Ax, num_rows * sizeof(float)));
 
-    std::cout << "\nRunning on GPUs = " << num_devices << std::endl;
     cudaStream_t nStreams[num_devices];
 
     int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
@@ -628,8 +605,6 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     }
 #endif
 
-    printf("Total threads per GPU = %d numBlocksPerSm  = %d\n",
-           numSms * numBlocksPerSm * THREADS_PER_BLOCK, numBlocksPerSm);
     dim3 dimGrid(numSms * numBlocksPerSm, 1, 1), dimBlock(THREADS_PER_BLOCK, 1, 1);
 
     // Structure used for cross-grid synchronization.
@@ -647,8 +622,6 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
                           (void *)&r,        (void *)&dot_result, (void *)&nnz,
                           (void *)&num_rows, (void *)&tol,        (void *)&multi_device_data,
                           (void *)&iter_max};
-
-    printf("Launching kernel\n");
 
     deviceId = bestFitDeviceIds.begin();
     device_count = 0;
