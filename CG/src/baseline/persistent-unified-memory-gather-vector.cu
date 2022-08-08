@@ -256,7 +256,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         // SpMV Start
 
-        for (int i = peer_group.thread_rank(); i < N; i += peer_group.size()) {
+        for (int i = grid.thread_rank(); i < N; i += grid.size()) {
             device_p[i] = um_p[i];
         }
 
@@ -273,7 +273,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         }
         peer_group.sync();
 
-        gpuDotProduct(device_p, Ax, N, cta, peer_group);
+        gpuDotProduct(um_p, Ax, N, cta, peer_group);
 
         cg::sync(grid);
 
@@ -367,7 +367,7 @@ int BaselinePersistentUnifiedMemoryGatherVector::init(int argc, char *argv[]) {
         matrix_name = "random tridiagonal";
     }
 
-    std::cout << "Running on matrix: " << matrix_name << "\n" << std::endl;
+    // std::cout << "Running on matrix: " << matrix_name << "\n" << std::endl;
 
     int num_devices = 0;
 
