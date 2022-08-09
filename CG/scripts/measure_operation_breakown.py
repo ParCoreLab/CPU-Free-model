@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import subprocess
 import re
 from os.path import dirname, realpath
@@ -12,14 +10,16 @@ import pandas as pd
 MATRICES_BASE_PATH = '/global/D1/homes/iismayilov/matrices'
 
 NUM_RUNS = 5
+NUM_ITERATIONS = 10000
+
 EXECUTION_TIME_REGEX = 'Execution time:\s+(?P<exec_time>[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) s'
 
 EXECUTABLE_NAME_TO_STEM_MAP = OrderedDict(
     [
-        ('Dot product', 'only_dot_cg'),
-        ('SpMV', 'only_spmv_cg'),
-        ('Saxpy', 'only_saxpy_cg'),
-        # ('Total', 'full_cg'),
+        ('Dot product', 'only-dot-cg'),
+        ('SpMV', 'only-spmv-cg'),
+        ('Saxpy', 'only-saxpy-cg'),
+        # ('Total', 'full-cg'),
     ]
 )
 
@@ -72,7 +72,7 @@ def evaluate_operation_breakdown(save_result_to_path, executable_dir):
         for version_name, version_idx in VERSION_NAME_TO_IDX_MAP.items():
             for _operation_name, operation_executable_stem in EXECUTABLE_NAME_TO_STEM_MAP.items():
                 operation_executable = executable_dir + '/' + operation_executable_stem
-                command = f'{operation_executable} -s 1 -v {version_idx}'
+                command = f'{operation_executable} -s 1 -v {version_idx} -niter {NUM_ITERATIONS}'
 
                 if matrix_path:
                     command += f' -matrix_path {matrix_path}'
@@ -84,6 +84,8 @@ def evaluate_operation_breakdown(save_result_to_path, executable_dir):
                 for _ in range(NUM_RUNS):
                     output = subprocess.run(
                         command.split(), capture_output=True)
+
+                    print(output)
 
                     output = output.stdout.decode('utf-8')
 
@@ -146,6 +148,13 @@ if __name__ == "__main__":
             arg_idx += 1
 
             FILENAME = sys.argv[arg_idx]
+
+        if sys.argv[arg_idx] == '--num-iter':
+            arg_idx += 1
+
+            NUM_ITERATIONS = sys.argv[arg_idx]
+
+        arg_idx += 1
 
     if FILENAME == None:
         FILENAME = 'cg_operation_breakdown-' + \
