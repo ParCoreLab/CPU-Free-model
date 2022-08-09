@@ -45,8 +45,8 @@ namespace SSMultiThreadedOneBlockComm
                     for (int ix = threadIdx.x + 1; ix < nx - 1; ix += comm_tile_size_x)
                     {
 
-                        while (local_is_top_neighbor_done_writing_to_me[threadIdx.z * comm_tile_size_x +
-                                                                        threadIdx.y * blockDim.x + threadIdx.x +
+                        while (local_is_top_neighbor_done_writing_to_me[threadIdx.z * blockDim.y + threadIdx.y * comm_tile_size_x +
+                                                                        threadIdx.x +
                                                                         cur_iter_mod * num_flags] != iter)
                         {
                         }
@@ -63,13 +63,13 @@ namespace SSMultiThreadedOneBlockComm
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                         local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy * nx + ix] = first_row_val;
 
-                        remote_am_done_writing_to_top_neighbor[threadIdx.z * comm_tile_size_x +
-                                                               comm_tile_size_x + threadIdx.y * blockDim.x + threadIdx.x +
+                        remote_am_done_writing_to_top_neighbor[threadIdx.z * blockDim.y + threadIdx.y * comm_tile_size_x +
+                                                                        threadIdx.x +
                                                                next_iter_mod * num_flags] = iter + 1;
 
                         while (
-                            local_is_bottom_neighbor_done_writing_to_me[threadIdx.z * comm_tile_size_x +
-                                                                        comm_tile_size_x + threadIdx.y * blockDim.x + threadIdx.x +
+                            local_is_bottom_neighbor_done_writing_to_me[threadIdx.z * blockDim.y + threadIdx.y * comm_tile_size_x +
+                                                                        threadIdx.x +
                                                                         cur_iter_mod * num_flags] != iter)
                         {
                         }
@@ -86,8 +86,8 @@ namespace SSMultiThreadedOneBlockComm
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                         local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy * nx + ix] = last_row_val;
 
-                        remote_am_done_writing_to_bottom_neighbor[threadIdx.z * comm_tile_size_x +
-                                                                  threadIdx.y * blockDim.x + threadIdx.x +
+                        remote_am_done_writing_to_bottom_neighbor[threadIdx.z * blockDim.y + threadIdx.y * comm_tile_size_x +
+                                                                        threadIdx.x +
                                                                   next_iter_mod * num_flags] = iter + 1;
                     }
                 }
