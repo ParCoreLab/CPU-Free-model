@@ -331,26 +331,6 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         k++;
     }
 }
-
-// Map of device version to device number
-std::multimap<std::pair<int, int>, int> getIdenticalGPUs() {
-    int numGpus = 0;
-    CUDA_RT_CALL(cudaGetDeviceCount(&numGpus));
-
-    std::multimap<std::pair<int, int>, int> identicalGpus;
-
-    for (int i = 0; i < numGpus; i++) {
-        cudaDeviceProp deviceProp;
-        CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, i));
-
-        // Filter unsupported devices
-        if (deviceProp.cooperativeLaunch && deviceProp.concurrentManagedAccess) {
-            identicalGpus.emplace(std::make_pair(deviceProp.major, deviceProp.minor), i);
-        }
-    }
-
-    return identicalGpus;
-}
 }  // namespace BaselinePersistentUnifiedMemoryGatherVector
 
 int BaselinePersistentUnifiedMemoryGatherVector::init(int argc, char *argv[]) {
@@ -394,73 +374,13 @@ int BaselinePersistentUnifiedMemoryGatherVector::init(int argc, char *argv[]) {
     float *um_p;
     float *device_p;
 
-    auto gpusByArch = getIdenticalGPUs();
+    for (int gpu_idx_i = 0; gpu_idx_i < num_devices; gpu_idx_i++) {
+        CUDA_RT_CALL(cudaSetDevice(gpu_idx_i));
 
-    auto it = gpusByArch.begin();
-    auto end = gpusByArch.end();
-
-    auto bestFit = std::make_pair(it, it);
-    // use std::distance to find the largest number of GPUs amongst architectures
-    auto distance = [](decltype(bestFit) p) { return std::distance(p.first, p.second); };
-
-    // Read each unique key/pair element in order
-    for (; it != end; it = gpusByArch.upper_bound(it->first)) {
-        // first and second are iterators bounded within the architecture group
-        auto testFit = gpusByArch.equal_range(it->first);
-        // Always use devices with highest architecture version or whichever has the
-        // most devices available
-        if (distance(bestFit) <= distance(testFit)) bestFit = testFit;
-    }
-
-    std::set<int> bestFitDeviceIds;
-
-    // Check & select peer-to-peer access capable GPU devices as enabling p2p
-    // access between participating GPUs gives better performance.
-    for (auto itr = bestFit.first; itr != bestFit.second; itr++) {
-        int deviceId = itr->second;
-        CUDA_RT_CALL(cudaSetDevice(deviceId));
-
-        std::for_each(
-            itr, bestFit.second,
-            [&deviceId, &bestFitDeviceIds, &num_devices](decltype(*itr) mapPair) {
-                if (deviceId != mapPair.second) {
-                    int access = 0;
-                    CUDA_RT_CALL(cudaDeviceCanAccessPeer(&access, deviceId, mapPair.second));
-
-                    if (access && bestFitDeviceIds.size() < num_devices) {
-                        bestFitDeviceIds.emplace(deviceId);
-                        bestFitDeviceIds.emplace(mapPair.second);
-                    } else {
-                        printf("Ignoring device %i (max devices exceeded)\n", mapPair.second);
-                    }
-                }
-            });
-    }
-
-    // if bestFitDeviceIds.size() == 0 it means the GPUs in system are not p2p
-    // capable, hence we add it without p2p capability check.
-    if (!bestFitDeviceIds.size()) {
-        printf("Devices involved are not p2p capable.. selecting %zu of them\n", num_devices);
-        std::for_each(bestFit.first, bestFit.second,
-                      [&bestFitDeviceIds, &num_devices](decltype(*bestFit.first) mapPair) {
-                          if (bestFitDeviceIds.size() < num_devices) {
-                              bestFitDeviceIds.emplace(mapPair.second);
-                          } else {
-                              printf("Ignoring device %i (max devices exceeded)\n", mapPair.second);
-                          }
-                          // Insert the sequence into the deviceIds set
-                      });
-    } else {
-        // perform cudaDeviceEnablePeerAccess in both directions for all
-        // participating devices.
-        for (auto p1_itr = bestFitDeviceIds.begin(); p1_itr != bestFitDeviceIds.end(); p1_itr++) {
-            CUDA_RT_CALL(cudaSetDevice(*p1_itr));
-            for (auto p2_itr = bestFitDeviceIds.begin(); p2_itr != bestFitDeviceIds.end();
-                 p2_itr++) {
-                if (*p1_itr != *p2_itr) {
-                    CUDA_RT_CALL(cudaDeviceEnablePeerAccess(*p2_itr, 0));
-                    CUDA_RT_CALL(cudaSetDevice(*p1_itr));
-                }
+        for (int gpu_idx_j = 0; gpu_idx_j < num_devices; gpu_idx_j++) {
+            if (gpu_idx_i != gpu_idx_j) {
+                CUDA_RT_CALL(cudaDeviceEnablePeerAccess(gpu_idx_j, 0));
+                CUDA_RT_CALL(cudaSetDevice(gpu_idx_i));
             }
         }
     }
@@ -514,32 +434,19 @@ int BaselinePersistentUnifiedMemoryGatherVector::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMallocManaged((void **)&Ax, num_rows * sizeof(float)));
     CUDA_RT_CALL(cudaMalloc((void **)&device_p, num_rows * sizeof(float)));
 
+    // ASSUMPTION: All GPUs are the same and P2P callable
+
     cudaStream_t nStreams[num_devices];
 
     int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
     int numBlocksPerSm = INT_MAX;
     int numThreads = THREADS_PER_BLOCK;
-    int numSms = INT_MAX;
-    auto deviceId = bestFitDeviceIds.begin();
 
-    // set numSms & numBlocksPerSm to be lowest of 2 devices
-    while (deviceId != bestFitDeviceIds.end()) {
-        cudaDeviceProp deviceProp;
-        CUDA_RT_CALL(cudaSetDevice(*deviceId));
-        CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, *deviceId));
+    CUDA_RT_CALL(cudaSetDevice(0));
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, 0);
 
-        int numBlocksPerSm_current = 0;
-        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &numBlocksPerSm_current, multiGpuConjugateGradient, numThreads, sMemSize));
-
-        if (numBlocksPerSm > numBlocksPerSm_current) {
-            numBlocksPerSm = numBlocksPerSm_current;
-        }
-        if (numSms > deviceProp.multiProcessorCount) {
-            numSms = deviceProp.multiProcessorCount;
-        }
-        deviceId++;
-    }
+    int numSms = deviceProp.multiProcessorCount;
 
     // Added this line to time the different kernel operations
     numBlocksPerSm = 2;
@@ -550,45 +457,42 @@ int BaselinePersistentUnifiedMemoryGatherVector::init(int argc, char *argv[]) {
             "sample\n");
     }
 
-    int device_count = 0;
-    int totalThreadsPerGPU = numSms * numBlocksPerSm * THREADS_PER_BLOCK;
-    deviceId = bestFitDeviceIds.begin();
-    while (deviceId != bestFitDeviceIds.end()) {
-        CUDA_RT_CALL(cudaSetDevice(*deviceId));
-        CUDA_RT_CALL(cudaStreamCreate(&nStreams[device_count]));
+    int totalThreadsPerGPU = numSms * numBlocksPerSm * numThreads;
+
+    for (int gpu_idx = 0; gpu_idx < num_devices; gpu_idx++) {
+        CUDA_RT_CALL(cudaSetDevice(gpu_idx));
+        CUDA_RT_CALL(cudaStreamCreate(&nStreams[gpu_idx]));
 
         int perGPUIter = num_rows / (totalThreadsPerGPU * num_devices);
-        int offset_Ax = device_count * totalThreadsPerGPU;
-        int offset_r = device_count * totalThreadsPerGPU;
-        int offset_p = device_count * totalThreadsPerGPU;
-        int offset_x = device_count * totalThreadsPerGPU;
+        int offset_Ax = gpu_idx * totalThreadsPerGPU;
+        int offset_r = gpu_idx * totalThreadsPerGPU;
+        int offset_p = gpu_idx * totalThreadsPerGPU;
+        int offset_x = gpu_idx * totalThreadsPerGPU;
 
         CUDA_RT_CALL(
-            cudaMemPrefetchAsync(um_I, sizeof(int) * num_rows, *deviceId, nStreams[device_count]));
-        CUDA_RT_CALL(
-            cudaMemPrefetchAsync(um_val, sizeof(float) * nnz, *deviceId, nStreams[device_count]));
-        CUDA_RT_CALL(
-            cudaMemPrefetchAsync(um_J, sizeof(float) * nnz, *deviceId, nStreams[device_count]));
+            cudaMemPrefetchAsync(um_I, sizeof(int) * num_rows, gpu_idx, nStreams[gpu_idx]));
+        CUDA_RT_CALL(cudaMemPrefetchAsync(um_val, sizeof(float) * nnz, gpu_idx, nStreams[gpu_idx]));
+        CUDA_RT_CALL(cudaMemPrefetchAsync(um_J, sizeof(float) * nnz, gpu_idx, nStreams[gpu_idx]));
 
         if (offset_Ax <= num_rows) {
             for (int i = 0; i < perGPUIter; i++) {
                 cudaMemAdvise(Ax + offset_Ax, sizeof(float) * totalThreadsPerGPU,
-                              cudaMemAdviseSetPreferredLocation, *deviceId);
+                              cudaMemAdviseSetPreferredLocation, gpu_idx);
                 cudaMemAdvise(r + offset_r, sizeof(float) * totalThreadsPerGPU,
-                              cudaMemAdviseSetPreferredLocation, *deviceId);
+                              cudaMemAdviseSetPreferredLocation, gpu_idx);
                 cudaMemAdvise(x + offset_x, sizeof(float) * totalThreadsPerGPU,
-                              cudaMemAdviseSetPreferredLocation, *deviceId);
+                              cudaMemAdviseSetPreferredLocation, gpu_idx);
                 cudaMemAdvise(um_p + offset_p, sizeof(float) * totalThreadsPerGPU,
-                              cudaMemAdviseSetPreferredLocation, *deviceId);
+                              cudaMemAdviseSetPreferredLocation, gpu_idx);
 
                 cudaMemAdvise(Ax + offset_Ax, sizeof(float) * totalThreadsPerGPU,
-                              cudaMemAdviseSetAccessedBy, *deviceId);
+                              cudaMemAdviseSetAccessedBy, gpu_idx);
                 cudaMemAdvise(r + offset_r, sizeof(float) * totalThreadsPerGPU,
-                              cudaMemAdviseSetAccessedBy, *deviceId);
+                              cudaMemAdviseSetAccessedBy, gpu_idx);
                 cudaMemAdvise(um_p + offset_p, sizeof(float) * totalThreadsPerGPU,
-                              cudaMemAdviseSetAccessedBy, *deviceId);
+                              cudaMemAdviseSetAccessedBy, gpu_idx);
                 cudaMemAdvise(x + offset_x, sizeof(float) * totalThreadsPerGPU,
-                              cudaMemAdviseSetAccessedBy, *deviceId);
+                              cudaMemAdviseSetAccessedBy, gpu_idx);
 
                 offset_Ax += totalThreadsPerGPU * num_devices;
                 offset_r += totalThreadsPerGPU * num_devices;
@@ -600,9 +504,6 @@ int BaselinePersistentUnifiedMemoryGatherVector::init(int argc, char *argv[]) {
                 }
             }
         }
-
-        device_count++;
-        deviceId++;
     }
 
 #if ENABLE_CPU_DEBUG_CODE
@@ -617,7 +518,7 @@ int BaselinePersistentUnifiedMemoryGatherVector::init(int argc, char *argv[]) {
     }
 #endif
 
-    dim3 dimGrid(numSms * numBlocksPerSm, 1, 1), dimBlock(THREADS_PER_BLOCK, 1, 1);
+    dim3 dimGrid(numSms * numBlocksPerSm, 1, 1), dimBlock(numThreads, 1, 1);
 
     // Structure used for cross-grid synchronization.
     BaselinePersistentUnifiedMemoryGatherVector::MultiDeviceData multi_device_data;
@@ -646,29 +547,22 @@ int BaselinePersistentUnifiedMemoryGatherVector::init(int argc, char *argv[]) {
         (void *)&iter_max,
     };
 
-    deviceId = bestFitDeviceIds.begin();
-    device_count = 0;
-
     double start = omp_get_wtime();
 
-    while (deviceId != bestFitDeviceIds.end()) {
-        CUDA_RT_CALL(cudaSetDevice(*deviceId));
+    for (int gpu_idx = 0; gpu_idx < num_devices; gpu_idx++) {
+        CUDA_RT_CALL(cudaSetDevice(gpu_idx));
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)multiGpuConjugateGradient, dimGrid,
                                                  dimBlock, kernelArgs, sMemSize,
-                                                 nStreams[device_count++]));
+                                                 nStreams[gpu_idx]));
         multi_device_data.deviceRank++;
-        deviceId++;
     }
 
     CUDA_RT_CALL(cudaMemPrefetchAsync(x, sizeof(float) * num_rows, cudaCpuDeviceId));
     CUDA_RT_CALL(cudaMemPrefetchAsync(dot_result, sizeof(double), cudaCpuDeviceId));
 
-    deviceId = bestFitDeviceIds.begin();
-    device_count = 0;
-    while (deviceId != bestFitDeviceIds.end()) {
-        CUDA_RT_CALL(cudaSetDevice(*deviceId));
-        CUDA_RT_CALL(cudaStreamSynchronize(nStreams[device_count++]));
-        deviceId++;
+    for (int gpu_idx = 0; gpu_idx < num_devices; gpu_idx++) {
+        CUDA_RT_CALL(cudaSetDevice(gpu_idx));
+        CUDA_RT_CALL(cudaStreamSynchronize(nStreams[gpu_idx]));
     }
 
     r1 = (float)*dot_result;
