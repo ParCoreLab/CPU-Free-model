@@ -14,7 +14,7 @@ cd ~/multi-perks/CG
 echo "--- RUNNING ---"
 date
 
-python3 ./scripts/measure_operation_breakdown.py
+./scripts/venv/bin/python3 ./scripts/measure_operation_breakdown.py
 
 echo ""
 
