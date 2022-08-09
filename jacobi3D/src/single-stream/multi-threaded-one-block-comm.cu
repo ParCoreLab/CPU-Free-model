@@ -21,8 +21,8 @@ namespace SSMultiThreadedOneBlockComm
                       const int ny, const int nx,
                       const int comp_tile_size_x, const int comp_tile_size_y, const int comp_tile_size_z,
                       const int comm_tile_size_x, const int comm_tile_size_y,
-                      // const int num_comp_tiles_x, const int num_comp_tiles_y, const int num_comp_tiles_z,
-                      // const int num_comm_tiles_x, const int num_comm_tiles_y,
+                      const int num_comp_tiles_x, const int num_comp_tiles_y, const int num_comp_tiles_z,
+                      const int num_comm_tiles_x, const int num_comm_tiles_y,
                       const int iter_max,
                       volatile real *local_halo_buffer_for_top_neighbor, volatile real *local_halo_buffer_for_bottom_neighbor,
                       volatile real *remote_my_halo_buffer_on_top_neighbor, volatile real *remote_my_halo_buffer_on_bottom_neighbor,
@@ -40,69 +40,18 @@ namespace SSMultiThreadedOneBlockComm
             if (blockIdx.x == gridDim.x - 1)
             {
                 const int num_flags = 2 * comm_tile_size_x * comm_tile_size_y;
-                for (int iy = threadIdx.z * blockDim.y + threadIdx.y + 1; iy < ny - 1; iy += comm_tile_size_y)
-                {
-                    for (int ix = threadIdx.x + 1; ix < nx - 1; ix += comm_tile_size_x)
-                    {
 
-                        while (local_is_top_neighbor_done_writing_to_me[threadIdx.z * blockDim.y + threadIdx.y * comm_tile_size_x +
-                                                                        threadIdx.x +
-                                                                        cur_iter_mod * num_flags] != iter)
-                        {
-                        }
-
-                        const real first_row_val =
-                            (a[iz_start * ny * nx + iy * nx + ix + 1] +
-                             a[iz_start * ny * nx + iy * nx + ix - 1] +
-                             a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                             a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                             a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                             remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx + iy * nx + ix]) /
-                            real(6.0);
-
-                        a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
-                        local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy * nx + ix] = first_row_val;
-
-                        remote_am_done_writing_to_top_neighbor[threadIdx.z * blockDim.y + threadIdx.y * comm_tile_size_x +
-                                                                        threadIdx.x +
-                                                               next_iter_mod * num_flags] = iter + 1;
-
-                        while (
-                            local_is_bottom_neighbor_done_writing_to_me[threadIdx.z * blockDim.y + threadIdx.y * comm_tile_size_x +
-                                                                        threadIdx.x +
-                                                                        cur_iter_mod * num_flags] != iter)
-                        {
-                        }
-
-                        const real last_row_val =
-                            (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                             a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                             a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                             a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                             remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx + iy * nx + ix] +
-                             a[(iz_end - 2) * ny * nx + iy * nx + ix]) /
-                            real(6.0);
-
-                        a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
-                        local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy * nx + ix] = last_row_val;
-
-                        remote_am_done_writing_to_bottom_neighbor[threadIdx.z * blockDim.y + threadIdx.y * comm_tile_size_x +
-                                                                        threadIdx.x +
-                                                                  next_iter_mod * num_flags] = iter + 1;
-                    }
-                }
-                /*
                 for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++)
                 {
                     const int comm_tile_start_y = (comm_tile_idx_y == 0) ? 1 : comm_tile_idx_y * comm_tile_size_y;
 
-                    const int iy = threadIdx.z + comm_tile_start_y;
+                    const int iy = threadIdx.z * blockDim.y + threadIdx.y + comm_tile_start_y;
 
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++)
                     {
                         const int comm_tile_start_x = (comm_tile_idx_x == 0) ? 1 : comm_tile_idx_x * comm_tile_size_x;
 
-                        const int ix = threadIdx.y * blockDim.x + threadIdx.x + comm_tile_start_x;
+                        const int ix = threadIdx.x + comm_tile_start_x;
 
                         if (cta.thread_rank() == 0)
                         {
@@ -189,7 +138,7 @@ namespace SSMultiThreadedOneBlockComm
                                                                       next_iter_mod * num_flags] = iter + 1;
                         }
                     }
-                }*/
+                }
             }
             else
             {
@@ -199,7 +148,7 @@ namespace SSMultiThreadedOneBlockComm
                 const int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
                 const int block_idx_y = (blockIdx.x % (grid_dim_x * grid_dim_y)) / grid_dim_x;
                 const int block_idx_x = blockIdx.x % grid_dim_x;
-                
+
                 const int base_iz = block_idx_z * blockDim.z + threadIdx.z;
                 const int base_iy = block_idx_y * blockDim.y + threadIdx.y;
                 const int base_ix = block_idx_x * blockDim.x + threadIdx.x;
@@ -421,11 +370,11 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
                               (void *)&comp_tile_size_z,
                               (void *)&comm_tile_size_x,
                               (void *)&comm_tile_size_y,
-                              //(void *)&num_comp_tiles_x,
-                              //(void *)&num_comp_tiles_y,
-                              //(void *)&num_comp_tiles_z,
-                              //(void *)&num_comm_tiles_x,
-                              //(void *)&num_comm_tiles_y,
+                              (void *)&num_comp_tiles_x,
+                              (void *)&num_comp_tiles_y,
+                              (void *)&num_comp_tiles_z,
+                              (void *)&num_comm_tiles_x,
+                              (void *)&num_comm_tiles_y,
                               (void *)&iter_max,
                               (void *)&halo_buffer_for_top_neighbor[dev_id],
                               (void *)&halo_buffer_for_bottom_neighbor[dev_id],
