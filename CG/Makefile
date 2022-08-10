@@ -6,6 +6,8 @@ GENCODE_FLAGS	:= $(GENCODE_SM70) $(GENCODE_SM80)
 
 .DEFAULT_GOAL := cg
 
+LIBRARIES := -lcurand
+
 ifdef PROFILE
 	NVCC_FLAGS = -lineinfo --generate-line-info
 endif
@@ -35,7 +37,7 @@ $(OBJECTS): obj/%.o: %.cu
 	$(NVCC) -dc $(NVCC_FLAGS) -I./include -o $@ $<
 
 cg: $(OBJECTS) obj/mmio.c.o obj/mmio_wrapper.o
-	$(NVCC) $(NVCC_FLAGS) -I./include -o $@ $^
+	$(NVCC) $(NVCC_FLAGS) -I./include -o $@ $^ -lcurand -L$(MATH_LIBS_PATH)
 
 run: cg
 	./cg
