@@ -1,10 +1,5 @@
 #!/bin/sh
 
-module load nvidia/nvhpc/22.3
-module load gcc/11.2.0
-
-COMM_LIBS_PATH="$NVHPC_ROOT"/comm_libs
-
-export NVCC="$NVHPC_ROOT"/cuda/bin/nvcc
-export MPI_HOME="$COMM_LIBS_PATH"/mpi
-export NVSHMEM_HOME="$COMM_LIBS_PATH"/nvshmem
+module load centos7.3/comp/gcc/9.2
+module load centos7.9/lib/cuda/11.4
+module load centos7.3/comp/python/3.7.7-openmpi-4.0.1-gcc-7-GOLD 

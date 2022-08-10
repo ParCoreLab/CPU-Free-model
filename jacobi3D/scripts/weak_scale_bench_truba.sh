@@ -33,9 +33,9 @@ version_name_to_idx_map["Baseline P2P (No Compute)"]=14
 
 BIN="./jacobi -s 1"
 
-STARTING_NX=${STARTING_NX:-256}
-STARTING_NY=${STARTING_NY:-256}
-STARTING_NZ=${STARTING_NZ:-256}
+STARTING_NX=${STARTING_NX:-32}
+STARTING_NY=${STARTING_NY:-32}
+STARTING_NZ=${STARTING_NZ:-32}
 
 NUM_ITER=${NUM_ITER:-1000000}
 NUM_RUNS=${NUM_RUNS:-5}
@@ -72,11 +72,14 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
 
         printf "\n"
 
-        if [[ $NX -le $NZ ]]; then
-            NX=$((2*NX))
-            NY=$((2*NY))
-        else
+        if [[ $NZ -le $NY ]]; then
             NZ=$((2*NZ))
+        else
+		if [[ $NY -le $NX ]]; then
+			NY=$((2*NY))
+		else
+			NX=$((2*NX))
+    		fi
         fi
     done
 
