@@ -19,7 +19,7 @@ EXECUTABLE_NAME_TO_STEM_MAP = OrderedDict(
         ('Dot product', 'only-dot-cg'),
         ('SpMV', 'only-spmv-cg'),
         ('Saxpy', 'only-saxpy-cg'),
-        ('Total', 'cg'),
+        ('Full', 'full-cg'),
     ]
 )
 
@@ -32,11 +32,15 @@ VERSION_NAME_TO_IDX_MAP = {
 MATRIX_NAMES = [
     '(generated) tridiagonal',
     'ecology2',
-    'shallow_water2',
-    'Trefethen_2000',
+    #   'shallow_water2', Too little non-zeros
+    #   'Trefethen_2000', Too little non-zeros
     'hood',
     'bmwcra_1',
     'consph',
+    'thermomech_dM',
+    'tmt_sym',
+    'crankseg_1',
+    'crankseg_2',
 ]
 
 VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
