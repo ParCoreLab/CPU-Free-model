@@ -26,6 +26,7 @@ EXECUTABLE_NAME_TO_STEM_MAP = OrderedDict(
 VERSION_NAME_TO_IDX_MAP = {
     'Baseline Persistent Kernel with Unified Memory': 0,
     'Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV)': 1,
+    'Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale)': 2
 }
 
 MATRIX_NAMES = [

@@ -100,6 +100,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     // while (r1 > tol * tol && k <= iter_max)
 
+    // Full CG
     while (k <= iter_max) {
         // Saxpy 1 Start
 
@@ -116,27 +117,27 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         // SpMV Start
 
-        // gpuSpMV(I, J, val, nnz, N, alpha, p, Ax, peer_group);
+        gpuSpMV(I, J, val, nnz, N, alpha, p, Ax, peer_group);
 
         // SpMV End
 
         // Dot Product 1 Start
 
-        // if (peer_group.thread_rank() == 0) {
-        //     *dot_result = 0.0;
-        // }
-        // peer_group.sync();
+        if (peer_group.thread_rank() == 0) {
+            *dot_result = 0.0;
+        }
+        peer_group.sync();
 
-        // gpuDotProduct(p, Ax, N, cta, peer_group);
+        gpuDotProduct(p, Ax, N, cta, peer_group);
 
-        // cg::sync(grid);
+        cg::sync(grid);
 
-        // if (grid.thread_rank() == 0) {
-        //     atomicAdd_system(dot_result, grid_dot_result);
-        //     grid_dot_result = 0.0;
-        // }
+        if (grid.thread_rank() == 0) {
+            atomicAdd_system(dot_result, grid_dot_result);
+            grid_dot_result = 0.0;
+        }
 
-        // peer_group.sync();
+        peer_group.sync();
 
         // Dot Product 1 End
 
@@ -158,21 +159,21 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         // Dot Product 2 Start
 
-        // if (peer_group.thread_rank() == 0) {
-        //     *dot_result = 0.0;
-        // }
+        if (peer_group.thread_rank() == 0) {
+            *dot_result = 0.0;
+        }
 
-        // peer_group.sync();
+        peer_group.sync();
 
-        // gpuDotProduct(r, r, N, cta, peer_group);
+        gpuDotProduct(r, r, N, cta, peer_group);
 
-        // cg::sync(grid);
+        cg::sync(grid);
 
-        // if (grid.thread_rank() == 0) {
-        //     atomicAdd_system(dot_result, grid_dot_result);
-        //     grid_dot_result = 0.0;
-        // }
-        // peer_group.sync();
+        if (grid.thread_rank() == 0) {
+            atomicAdd_system(dot_result, grid_dot_result);
+            grid_dot_result = 0.0;
+        }
+        peer_group.sync();
 
         // Dot Product 2 End
 
@@ -181,6 +182,83 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         r1 = *dot_result;
 
         // Saxpy 3 End
+
+        k++;
+    }
+
+    // Saxpy
+    while (k <= iter_max) {
+        // Saxpy 1 Start
+
+        if (k > 1) {
+            b = r1 / r0;
+            gpuScaleVectorAndSaxpy(r, p, alpha, b, N, peer_group);
+        } else {
+            gpuCopyVector(r, p, N, peer_group);
+        }
+
+        peer_group.sync();
+
+        // Saxpy 2 Start
+
+        a = r1 / *dot_result;
+
+        gpuSaxpy(p, x, a, N, peer_group);
+
+        na = -a;
+
+        gpuSaxpy(Ax, r, na, N, peer_group);
+
+        r0 = r1;
+
+        peer_group.sync();
+
+        // Saxpy 3 Start
+
+        r1 = *dot_result;
+
+        // Saxpy 3 End
+
+        k++;
+    }
+
+    // Dot
+    while (k <= iter_max) {
+        // Dot Product 1 Start
+
+        if (peer_group.thread_rank() == 0) {
+            *dot_result = 0.0;
+        }
+        peer_group.sync();
+
+        gpuDotProduct(p, Ax, N, cta, peer_group);
+
+        cg::sync(grid);
+
+        if (grid.thread_rank() == 0) {
+            atomicAdd_system(dot_result, grid_dot_result);
+            grid_dot_result = 0.0;
+        }
+
+        peer_group.sync();
+
+        // Dot Product 2 Start
+
+        if (peer_group.thread_rank() == 0) {
+            *dot_result = 0.0;
+        }
+
+        peer_group.sync();
+
+        gpuDotProduct(r, r, N, cta, peer_group);
+
+        cg::sync(grid);
+
+        if (grid.thread_rank() == 0) {
+            atomicAdd_system(dot_result, grid_dot_result);
+            grid_dot_result = 0.0;
+        }
+        peer_group.sync();
 
         k++;
     }

@@ -102,6 +102,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     int k = 1;
 
+    // Full CG
     while (k <= iter_max) {
         // Saxpy 1 Start
 
@@ -186,6 +187,93 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         k++;
     }
+
+    // // Saxpy
+    // while (k <= iter_max) {
+    //     // Saxpy 1 Start
+
+    //     if (k > 1) {
+    //         b = r1 / r0;
+    //         gpuScaleVectorAndSaxpy(r, um_p, alpha, b, N, peer_group);
+    //     } else {
+    //         gpuCopyVector(r, um_p, N, peer_group);
+    //     }
+
+    //     peer_group.sync();
+
+    //     // Saxpy 2 Start
+
+    //     a = r1 / *dot_result;
+
+    //     gpuSaxpy(um_p, x, a, N, peer_group);
+
+    //     na = -a;
+
+    //     gpuSaxpy(Ax, r, na, N, peer_group);
+
+    //     r0 = r1;
+
+    //     peer_group.sync();
+
+    //     // Saxpy 3 Start
+
+    //     r1 = *dot_result;
+
+    //     // Saxpy 3 End
+
+    //     k++;
+    // }
+
+    // // SpMV
+    // while (k <= iter_max) {
+    //     // SpMV Start
+
+    //     gpuSpMV(I, J, val, nnz, N, alpha, device_p, Ax, peer_group);
+
+    //     k++;
+    // }
+
+    // // Dot
+    // while (k <= iter_max) {
+    //     // Dot Product 1 Start
+
+    //     if (peer_group.thread_rank() == 0) {
+    //         *dot_result = 0.0;
+    //     }
+    //     peer_group.sync();
+
+    //     gpuDotProduct(um_p, Ax, N, cta, peer_group, &grid_dot_result);
+
+    //     cg::sync(grid);
+
+    //     if (grid.thread_rank() == 0) {
+    //         atomicAdd_system(dot_result, grid_dot_result);
+    //         grid_dot_result = 0.0;
+    //     }
+
+    //     peer_group.sync();
+
+    //     // Dot Product 2 Start
+
+    //     if (peer_group.thread_rank() == 0) {
+    //         *dot_result = 0.0;
+    //     }
+
+    //     peer_group.sync();
+
+    //     gpuDotProduct(r, r, N, cta, peer_group, &grid_dot_result);
+
+    //     cg::sync(grid);
+
+    //     if (grid.thread_rank() == 0) {
+    //         atomicAdd_system(dot_result, grid_dot_result);
+    //         grid_dot_result = 0.0;
+    //     }
+
+    //     peer_group.sync();
+
+    //     k++;
+    // }
 }
 }  // namespace BaselinePersistentUnifiedMemoryStaleDeviceVector
 
