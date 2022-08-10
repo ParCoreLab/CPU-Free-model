@@ -144,7 +144,7 @@ if __name__ == "__main__":
     arg_idx = 1
 
     while arg_idx < len(sys.argv):
-        if sys.argv[arg_idx] == '-f':
+        if sys.argv[arg_idx] == '--filename':
             arg_idx += 1
 
             FILENAME = sys.argv[arg_idx]
@@ -153,6 +153,11 @@ if __name__ == "__main__":
             arg_idx += 1
 
             NUM_ITERATIONS = sys.argv[arg_idx]
+
+        if sys.argv[arg_idx] == '--matrices-folder':
+            arg_idx += 1
+
+            MATRICES_BASE_PATH = sys.argv[arg_idx]
 
         arg_idx += 1
 
