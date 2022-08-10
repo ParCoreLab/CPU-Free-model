@@ -17,8 +17,8 @@ NVCC_FLAGS += -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(CXX)
 
 MAKEFLAGS += -j$(shell grep -c 'processor' /proc/cpuinfo)
 
-SRC=##$(shell sh -c "find ./src/ -name '*.cu'")
- SRC= src/main.cu src/common.cu src/single-stream/multi-threaded-one-block-comm.cu
+SRC=$(shell sh -c "find ./src/ -name '*.cu'")
+#SRC= src/main.cu src/common.cu src/single-stream/multi-threaded-one-block-comm.cu
 OUT=$(SRC:=.o)
 #OBJECTS := $(patsubst ./src/%.cu, obj/%.o, $(SRC))
 OBJECTS := $(addprefix obj/,$(SRC:.cu=.o))

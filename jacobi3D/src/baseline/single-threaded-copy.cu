@@ -38,40 +38,52 @@
 #include "../../include/baseline/single-threaded-copy.cuh"
 #include "../../include/common.h"
 
-namespace BaselineSingleThreadedCopy {
-    __global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
-    const int iy_start, const int iy_end, const int nx) {
-    int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
-    int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    // real local_l2_norm = 0.0;
+namespace BaselineSingleThreadedCopy
+{
+    __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
+                                  const int iz_start, const int iz_end, const int ny, const int nx)
+    {
+        int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
+        int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
+        int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+        // real local_l2_norm = 0.0;
 
-    if (iy < iy_end && ix < (nx - 1)) {
-    const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-    a_new[iy * nx + ix] = new_val;
+        if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
+        {
+            const real new_val = (a[iz * ny * nx + iy + ix + 1] +
+                                  a[iz * ny * nx + iy + ix - 1] +
+                                  a[iz * ny * nx + (iy + 1) * nx + ix] +
+                                  a[iz * ny * nx + (iy - 1) * nx + ix] +
+                                  a[(iz + 1) * ny * nx + iy + ix] +
+                                  a[(iz - 1) * ny * nx + iy + ix]) /
+                                 real(6.0);
 
-    // if (calculate_norm) {
-    //     real residue = new_val - a[iy * nx + ix];
-    //     local_l2_norm += residue * residue;
-    // }
-}
+            a_new[iz * ny * nx + iy + ix] = new_val;
 
-// if (calculate_norm) {
-//     atomicAdd(l2_norm, local_l2_norm);
-// }
-}
-}  // namespace BaselineSingleThreadedCopy
+            // if (calculate_norm) {
+            //     real residue = new_val - a[iy * nx + ix];
+            //     local_l2_norm += residue * residue;
+            // }
+        }
 
-int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
+        // if (calculate_norm) {
+        //     atomicAdd(l2_norm, local_l2_norm);
+        // }
+    }
+} // namespace BaselineSingleThreadedCopy
+
+int BaselineSingleThreadedCopy::init(int argc, char *argv[])
+{
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
-    const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
-    const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
+    const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
+    const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
+    const int nz = get_argval<int>(argv, argv + argc, "-nz", 512);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
-    real* a[MAX_NUM_DEVICES];
-    real* a_new[MAX_NUM_DEVICES];
-    real* a_ref_h;
-    real* a_h;
+    real *a[MAX_NUM_DEVICES];
+    real *a_new[MAX_NUM_DEVICES];
+    real *a_ref_h;
+    real *a_h;
 
     double runtime_serial_non_persistent = 0.0;
 
@@ -82,61 +94,67 @@ int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
     cudaEvent_t push_top_done[2][MAX_NUM_DEVICES];
     cudaEvent_t push_bottom_done[2][MAX_NUM_DEVICES];
 
-    int iy_start[MAX_NUM_DEVICES];
-    int iy_end[MAX_NUM_DEVICES];
+    int iz_start[MAX_NUM_DEVICES];
+    int iz_end[MAX_NUM_DEVICES];
 
     int chunk_size[MAX_NUM_DEVICES];
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
 
-    for (int dev_id = 0; dev_id < num_devices; ++dev_id) {
+    for (int dev_id = 0; dev_id < num_devices; ++dev_id)
+    {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(0));
 
-        if (compare_to_single_gpu && 0 == dev_id) {
-            CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
-            CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
+        if (compare_to_single_gpu && 0 == dev_id)
+        {
+            CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
+            CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));
 
-            runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
+            runtime_serial_non_persistent = single_gpu(nz, ny, nx, iter_max, a_ref_h, 0, true);
         }
 
-        // ny - 2 rows are distributed amongst `size` ranks in such a way
-        // that each rank gets either (ny - 2) / size or (ny - 2) / size + 1 rows.
-        // This optimizes load balancing when (ny - 2) % size != 0
-        int chunk_size_low = (ny - 2) / num_devices;
+        // nz - 2 planes are distributed amongst `size` ranks in such a way
+        // that each rank gets either (nz - 2) / size or (nz - 2) / size + 1 planes.
+        // This optimizes load balancing when (nz - 2) % size != 0
+        int chunk_size_low = (nz - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
-        // To calculate the number of ranks that need to compute an extra row,
+        // To calculate the number of ranks that need to compute an extra plane,
         // the following formula is derived from this equation:
-        // num_ranks_low * chunk_size_low + (size - num_ranks_low) * (chunk_size_low + 1) = ny - 2
+        // num_ranks_low * chunk_size_low + (size - num_ranks_low) * (chunk_size_low + 1) = nz - 2
         int num_ranks_low = num_devices * chunk_size_low + num_devices -
-                            (ny - 2);  // Number of ranks with chunk_size = chunk_size_low
+                            (nz - 2); // Number of ranks with chunk_size = chunk_size_low
+
         if (dev_id < num_ranks_low)
             chunk_size[dev_id] = chunk_size_low;
         else
             chunk_size[dev_id] = chunk_size_high;
 
-        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
-        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * ny * (chunk_size[dev_id] + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * ny * (chunk_size[dev_id] + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
-        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size[dev_id] + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * ny * (chunk_size[dev_id] + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * ny * (chunk_size[dev_id] + 2) * sizeof(real)));
 
         // Calculate local domain boundaries
-        int iy_start_global;  // My start index in the global array
-        if (dev_id < num_ranks_low) {
-            iy_start_global = dev_id * chunk_size_low + 1;
-        } else {
-            iy_start_global =
-                    num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
+        int iz_start_global; // My start index in the global array
+        if (dev_id < num_ranks_low)
+        {
+            iz_start_global = dev_id * chunk_size_low + 1;
+        }
+        else
+        {
+            iz_start_global =
+                num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
         }
 
-        iy_start[dev_id] = 1;
-        iy_end[dev_id] = iy_start[dev_id] + chunk_size[dev_id];
+        iz_start[dev_id] = 1;
+        iz_end[dev_id] = iz_start[dev_id] + chunk_size[dev_id];
 
         // Set diriclet boundary conditions on left and right boarder
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-                a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size[dev_id] + 2), ny);
+            a[dev_id], a_new[dev_id], PI, iz_start_global - 1, nx, ny, (chunk_size[dev_id] + 2), ny);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -146,22 +164,25 @@ int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaEventCreateWithFlags(compute_done + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(cudaEventCreateWithFlags(push_top_done[0] + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(
-                cudaEventCreateWithFlags(push_bottom_done[0] + dev_id, cudaEventDisableTiming));
+            cudaEventCreateWithFlags(push_bottom_done[0] + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(cudaEventCreateWithFlags(push_top_done[1] + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(
-                cudaEventCreateWithFlags(push_bottom_done[1] + dev_id, cudaEventDisableTiming));
+            cudaEventCreateWithFlags(push_bottom_done[1] + dev_id, cudaEventDisableTiming));
 
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         int canAccessPeer = 0;
         CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
-        if (canAccessPeer) {
+        if (canAccessPeer)
+        {
             CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
         }
         const int bottom = (dev_id + 1) % num_devices;
-        if (top != bottom) {
+        if (top != bottom)
+        {
             canAccessPeer = 0;
             CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, bottom));
-            if (canAccessPeer) {
+            if (canAccessPeer)
+            {
                 CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom, 0));
             }
         }
@@ -171,80 +192,89 @@ int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
 
     constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 32;
+    constexpr int dim_block_z = 1;
 
     int iter = 0;
 
-    for (int dev_id = 0; dev_id < num_devices; ++dev_id) {
+    for (int dev_id = 0; dev_id < num_devices; ++dev_id)
+    {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaDeviceSynchronize());
     }
 
     double start = omp_get_wtime();
 
-    while (iter < iter_max) {
-        for (int dev_id = 0; dev_id < num_devices; ++dev_id) {
+    while (iter < iter_max)
+    {
+        for (int dev_id = 0; dev_id < num_devices; ++dev_id)
+        {
             const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
             const int bottom = (dev_id + 1) % num_devices;
             CUDA_RT_CALL(cudaSetDevice(dev_id));
 
             CUDA_RT_CALL(
-                    cudaStreamWaitEvent(compute_stream[dev_id], push_top_done[(iter % 2)][bottom], 0));
+                cudaStreamWaitEvent(compute_stream[dev_id], push_top_done[(iter % 2)][bottom], 0));
             CUDA_RT_CALL(
-                    cudaStreamWaitEvent(compute_stream[dev_id], push_bottom_done[(iter % 2)][top], 0));
+                cudaStreamWaitEvent(compute_stream[dev_id], push_bottom_done[(iter % 2)][top], 0));
 
-            dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
-                          (chunk_size[dev_id] + dim_block_y - 1) / dim_block_y, 1);
+            dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y,
+                          (chunk_size[dev_id] + dim_block_z - 1) / dim_block_z);
 
-            jacobi_kernel<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream[dev_id]>>>(
-                    a_new[dev_id], a[dev_id], iy_start[dev_id], iy_end[dev_id], nx);
+            jacobi_kernel<<<dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0, compute_stream[dev_id]>>>(
+                a_new[dev_id], a[dev_id], iz_start[dev_id], iz_end[dev_id], ny, nx);
             CUDA_RT_CALL(cudaGetLastError());
             CUDA_RT_CALL(cudaEventRecord(compute_done[dev_id], compute_stream[dev_id]));
 
             // Apply periodic boundary conditions
             CUDA_RT_CALL(cudaStreamWaitEvent(push_top_stream[dev_id], compute_done[dev_id], 0));
-            CUDA_RT_CALL(cudaMemcpyAsync(a_new[top] + (iy_end[top] * nx),
-                                         a_new[dev_id] + iy_start[dev_id] * nx, nx * sizeof(real),
+            CUDA_RT_CALL(cudaMemcpyAsync(a_new[top] + (iz_end[top] * ny * nx),
+                                         a_new[dev_id] + iz_start[dev_id] * ny * nx, nx * ny * sizeof(real),
                                          cudaMemcpyDeviceToDevice, push_top_stream[dev_id]));
             CUDA_RT_CALL(
-                    cudaEventRecord(push_top_done[((iter + 1) % 2)][dev_id], push_top_stream[dev_id]));
+                cudaEventRecord(push_top_done[((iter + 1) % 2)][dev_id], push_top_stream[dev_id]));
 
             CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream[dev_id], compute_done[dev_id], 0));
-            CUDA_RT_CALL(cudaMemcpyAsync(a_new[bottom], a_new[dev_id] + (iy_end[dev_id] - 1) * nx,
-                                         nx * sizeof(real), cudaMemcpyDeviceToDevice,
+            CUDA_RT_CALL(cudaMemcpyAsync(a_new[bottom], a_new[dev_id] + (iz_end[dev_id] - 1) * ny * nx,
+                                         nx * ny * sizeof(real), cudaMemcpyDeviceToDevice,
                                          push_bottom_stream[dev_id]));
             CUDA_RT_CALL(cudaEventRecord(push_bottom_done[((iter + 1) % 2)][dev_id],
                                          push_bottom_stream[dev_id]));
         }
 
-        for (int dev_id = 0; dev_id < num_devices; ++dev_id) {
+        for (int dev_id = 0; dev_id < num_devices; ++dev_id)
+        {
             std::swap(a_new[dev_id], a[dev_id]);
         }
 
         iter++;
     }
 
-    for (int dev_id = 0; dev_id < num_devices; ++dev_id) {
+    for (int dev_id = 0; dev_id < num_devices; ++dev_id)
+    {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaDeviceSynchronize());
     }
 
     double stop = omp_get_wtime();
 
-    if (compare_to_single_gpu) {
-        int offset = nx;
-        for (int dev_id = 0; dev_id < num_devices; ++dev_id) {
+    if (compare_to_single_gpu)
+    {
+        int offset = ny * nx;
+        for (int dev_id = 0; dev_id < num_devices; ++dev_id)
+        {
             CUDA_RT_CALL(
-                    cudaMemcpy(a_h + offset, a[dev_id] + nx,
-                               std::min((nx * ny) - offset, nx * chunk_size[dev_id]) * sizeof(real),
-                               cudaMemcpyDeviceToHost));
-            offset += std::min(chunk_size[dev_id] * nx, (nx * ny) - offset);
+                cudaMemcpy(a_h + offset, a[dev_id] + ny * nx,
+                           std::min((nx * ny * nz) - offset, nx * ny * chunk_size[dev_id]) * sizeof(real),
+                           cudaMemcpyDeviceToHost));
+            offset += std::min(chunk_size[dev_id] * ny * nx, (nx * ny * nz) - offset);
         }
     }
 
-    report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start, stop,
+    report_results(nz, ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start, stop,
                    compare_to_single_gpu);
 
-    for (int dev_id = (num_devices - 1); dev_id >= 0; --dev_id) {
+    for (int dev_id = (num_devices - 1); dev_id >= 0; --dev_id)
+    {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaEventDestroy(push_bottom_done[1][dev_id]));
         CUDA_RT_CALL(cudaEventDestroy(push_top_done[1][dev_id]));
@@ -258,7 +288,8 @@ int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaFree(a_new[dev_id]));
         CUDA_RT_CALL(cudaFree(a[dev_id]));
 
-        if (compare_to_single_gpu && 0 == dev_id) {
+        if (compare_to_single_gpu && 0 == dev_id)
+        {
             CUDA_RT_CALL(cudaFreeHost(a_h));
             CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }

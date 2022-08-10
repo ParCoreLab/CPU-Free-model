@@ -1,13 +1,16 @@
 #!/bin/bash
 
-#SBATCH --job-name=stencil-bench
-#SBATCH --ntasks=8
+#SBATCH -J stencil-bench-strong
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 128
+#SBATCH -A proj16
+#SBATCH -p palamut-cuda
 #SBATCH --gres=gpu:8
-#SBATCH --partition hgx2q
-#SBATCH --time=03:00:00
-#SBATCH --output=sbatch_output_%j.log
+#SBATCH --time=3:00:00
+#SBATCH -o stencil_bench_strong_output_%j.log
 
-. ./scripts/modules.sh > /dev/null
+. ./scripts/modules_truba.sh > /dev/null
 
 MAX_NUM_GPUS=1
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
