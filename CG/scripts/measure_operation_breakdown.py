@@ -19,7 +19,7 @@ EXECUTABLE_NAME_TO_STEM_MAP = OrderedDict(
         ('Dot product', 'only-dot-cg'),
         ('SpMV', 'only-spmv-cg'),
         ('Saxpy', 'only-saxpy-cg'),
-        # ('Total', 'full-cg'),
+        ('Total', 'cg'),
     ]
 )
 
@@ -38,8 +38,8 @@ MATRIX_NAMES = [
     'consph',
 ]
 
-OPERATION_LABELS = EXECUTABLE_NAME_TO_STEM_MAP.keys()
 VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
+OPERATION_LABELS = None
 
 
 def get_perf_data_string(version_to_result_map, column_labels):
@@ -76,8 +76,6 @@ def evaluate_operation_breakdown(save_result_to_path, executable_dir):
 
                 if matrix_path:
                     command += f' -matrix_path {matrix_path}'
-
-                print(command)
 
                 execution_times = []
 
@@ -140,6 +138,7 @@ if __name__ == "__main__":
     SAVE_RESULT_TO_DIR_PATH = dir_path + '/../results'
     EXECUTABLE_DIR = dir_path + '/../bin'
     FILENAME = None
+    ONLY_MEASURE_TOTAL = False
 
     arg_idx = 1
 
@@ -149,21 +148,31 @@ if __name__ == "__main__":
 
             FILENAME = sys.argv[arg_idx]
 
-        if sys.argv[arg_idx] == '--num-iter':
+        if sys.argv[arg_idx] == '--num_iter':
             arg_idx += 1
 
             NUM_ITERATIONS = sys.argv[arg_idx]
 
-        if sys.argv[arg_idx] == '--matrices-folder':
+        if sys.argv[arg_idx] == '--matrices_folder':
             arg_idx += 1
 
             MATRICES_BASE_PATH = sys.argv[arg_idx]
 
+        if sys.argv[arg_idx] == '-only_measure_total':
+            EXECUTABLE_NAME_TO_STEM_MAP = {'Total': 'cg'}
+            MATRICES_BASE_PATH = sys.argv[arg_idx]
+            ONLY_MEASURE_TOTAL = True
+
         arg_idx += 1
 
     if FILENAME == None:
-        FILENAME = 'cg_operation_breakdown-' + \
-            datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + '.txt'
+        BASE = 'cg_' + \
+            ('total_runtime' if ONLY_MEASURE_TOTAL else 'operation_breakdown')
+        FILENAME = BASE + '-' + datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + '.txt'
+
+    print(FILENAME)
+
+    OPERATION_LABELS = EXECUTABLE_NAME_TO_STEM_MAP.keys()
 
     SAVE_RESULT_TO_FILE_PATH = SAVE_RESULT_TO_DIR_PATH + '/' + FILENAME
 

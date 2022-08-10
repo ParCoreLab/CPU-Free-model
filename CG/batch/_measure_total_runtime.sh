@@ -26,7 +26,7 @@ cd ~/multi-perks/CG
 echo "--- RUNNING ---"
 date
 
-./scripts/venv/bin/python3 ./scripts/measure_operation_breakdown.py "--num_iter $NUM_ITER"
+./scripts/venv/bin/python3 ./scripts/measure_operation_breakdown.py "--num_iter $NUM_ITER" -only_measure_total
 
 echo ""
 
