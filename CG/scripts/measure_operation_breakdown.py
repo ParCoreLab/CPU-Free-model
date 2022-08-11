@@ -7,7 +7,7 @@ from datetime import datetime
 
 import pandas as pd
 
-MATRICES_BASE_PATH = '/global/D1/homes/iismayilov/matrices'
+MATRICES_FOLDER_PATH = '/global/D1/homes/iismayilov/matrices'
 
 NUM_RUNS = 5
 NUM_ITERATIONS = 10000
@@ -67,7 +67,7 @@ def evaluate_operation_breakdown(save_result_to_path, executable_dir):
         VERSION_LABELS)
 
     for matrix_name in MATRIX_NAMES:
-        matrix_path = MATRICES_BASE_PATH + '/' + matrix_name + '.mtx'
+        matrix_path = MATRICES_FOLDER_PATH + '/' + matrix_name + '.mtx'
 
         if 'generated' in matrix_name:
             matrix_path = None
@@ -87,8 +87,6 @@ def evaluate_operation_breakdown(save_result_to_path, executable_dir):
                 for _ in range(NUM_RUNS):
                     output = subprocess.run(
                         command.split(), capture_output=True)
-
-                    print(output)
 
                     output = output.stdout.decode('utf-8')
 
@@ -151,7 +149,8 @@ if __name__ == "__main__":
         if sys.argv[arg_idx] == '--filename':
             arg_idx += 1
 
-            FILENAME = sys.argv[arg_idx]
+            if (arg_val := sys.argv[arg_idx]) != 'USE_DEFAULT_FILENAME':
+                FILENAME = arg_val
 
         if sys.argv[arg_idx] == '--num_iter':
             arg_idx += 1
@@ -161,11 +160,11 @@ if __name__ == "__main__":
         if sys.argv[arg_idx] == '--matrices_folder':
             arg_idx += 1
 
-            MATRICES_BASE_PATH = sys.argv[arg_idx]
+            if (arg_val := sys.argv[arg_idx]) != 'USE_DEFAULT_MATRICES_FOLDER':
+                MATRICES_FOLDER_PATH = arg_val
 
         if sys.argv[arg_idx] == '-only_measure_total':
             EXECUTABLE_NAME_TO_STEM_MAP = {'Total': 'cg'}
-            MATRICES_BASE_PATH = sys.argv[arg_idx]
             ONLY_MEASURE_TOTAL = True
 
         arg_idx += 1
@@ -174,8 +173,6 @@ if __name__ == "__main__":
         BASE = 'cg_' + \
             ('total_runtime' if ONLY_MEASURE_TOTAL else 'operation_breakdown')
         FILENAME = BASE + '-' + datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + '.txt'
-
-    print(FILENAME)
 
     OPERATION_LABELS = EXECUTABLE_NAME_TO_STEM_MAP.keys()
 
