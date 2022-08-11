@@ -98,19 +98,6 @@ class PeerGroup {
     }
 };
 
-__device__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
-                        float *inputVecX, float *outputVecY, const PeerGroup &peer_group);
-
-__device__ void gpuSaxpy(float *x, float *y, float a, int size, const PeerGroup &peer_group);
-
-__device__ void gpuDotProduct(float *vecA, float *vecB, int size, const cg::thread_block &cta,
-                              const PeerGroup &peer_group, double *grid_dot_result);
-
-__device__ void gpuCopyVector(float *srcA, float *destB, int size, const PeerGroup &peer_group);
-
-__device__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int size,
-                                       const PeerGroup &peer_group);
-
 bool get_arg(char **begin, char **end, const std::string &arg);
 
 void genTridiag(int *I, int *J, float *val, int N, int nz);

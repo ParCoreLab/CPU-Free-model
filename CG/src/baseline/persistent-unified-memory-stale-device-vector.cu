@@ -60,6 +60,72 @@ namespace BaselinePersistentUnifiedMemoryStaleDeviceVector {
 
 __device__ double grid_dot_result = 0.0;
 
+__device__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
+                        float *inputVecX, float *outputVecY, const PeerGroup &peer_group) {
+    for (int i = peer_group.thread_rank(); i < num_rows; i += peer_group.size()) {
+        int row_elem = I[i];
+        int next_row_elem = I[i + 1];
+        int num_elems_this_row = next_row_elem - row_elem;
+
+        float output = 0.0;
+        for (int j = 0; j < num_elems_this_row; j++) {
+            output += alpha * val[row_elem + j] * inputVecX[J[row_elem + j]];
+        }
+
+        outputVecY[i] = output;
+    }
+}
+
+__device__ void gpuSaxpy(float *x, float *y, float a, int size, const PeerGroup &peer_group) {
+    for (int i = peer_group.thread_rank(); i < size; i += peer_group.size()) {
+        y[i] = a * x[i] + y[i];
+    }
+}
+
+__device__ void gpuDotProduct(float *vecA, float *vecB, int size, const cg::thread_block &cta,
+                              const PeerGroup &peer_group) {
+    extern __shared__ double tmp[];
+
+    double temp_sum = 0.0;
+
+    for (int i = peer_group.thread_rank(); i < size; i += peer_group.size()) {
+        temp_sum += (double)(vecA[i] * vecB[i]);
+    }
+
+    cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
+
+    temp_sum = cg::reduce(tile32, temp_sum, cg::plus<double>());
+
+    if (tile32.thread_rank() == 0) {
+        tmp[tile32.meta_group_rank()] = temp_sum;
+    }
+
+    cg::sync(cta);
+
+    if (tile32.meta_group_rank() == 0) {
+        temp_sum =
+            tile32.thread_rank() < tile32.meta_group_size() ? tmp[tile32.thread_rank()] : 0.0;
+        temp_sum = cg::reduce(tile32, temp_sum, cg::plus<double>());
+
+        if (tile32.thread_rank() == 0) {
+            atomicAdd(&grid_dot_result, temp_sum);
+        }
+    }
+}
+
+__device__ void gpuCopyVector(float *srcA, float *destB, int size, const PeerGroup &peer_group) {
+    for (int i = peer_group.thread_rank(); i < size; i += peer_group.size()) {
+        destB[i] = srcA[i];
+    }
+}
+
+__device__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int size,
+                                       const PeerGroup &peer_group) {
+    for (int i = peer_group.thread_rank(); i < size; i += peer_group.size()) {
+        y[i] = a * x[i] + scale * y[i];
+    }
+}
+
 __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, float *Ax,
                                           float *um_p, float *device_p, float *r,
                                           double *dot_result, int nnz, int N, float tol,
@@ -87,7 +153,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     cg::sync(grid);
 
-    gpuDotProduct(r, r, N, cta, peer_group, &grid_dot_result);
+    gpuDotProduct(r, r, N, cta, peer_group);
 
     cg::sync(grid);
 
@@ -130,7 +196,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         }
         peer_group.sync();
 
-        gpuDotProduct(um_p, Ax, N, cta, peer_group, &grid_dot_result);
+        gpuDotProduct(um_p, Ax, N, cta, peer_group);
 
         cg::sync(grid);
 
@@ -167,7 +233,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         peer_group.sync();
 
-        gpuDotProduct(r, r, N, cta, peer_group, &grid_dot_result);
+        gpuDotProduct(r, r, N, cta, peer_group);
 
         cg::sync(grid);
 
@@ -242,7 +308,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
     //     }
     //     peer_group.sync();
 
-    //     gpuDotProduct(um_p, Ax, N, cta, peer_group, &grid_dot_result);
+    //     gpuDotProduct(um_p, Ax, N, cta, peer_group);
 
     //     cg::sync(grid);
 
@@ -261,7 +327,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     //     peer_group.sync();
 
-    //     gpuDotProduct(r, r, N, cta, peer_group, &grid_dot_result);
+    //     gpuDotProduct(r, r, N, cta, peer_group);
 
     //     cg::sync(grid);
 
