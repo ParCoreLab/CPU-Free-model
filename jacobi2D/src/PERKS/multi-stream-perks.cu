@@ -8,20 +8,20 @@
 
 #include <cooperative_groups.h>
 
-#include "../../include/common.h"
 #include "../../include/PERKS/multi-stream-perks.cuh"
+#include "../../include/common.h"
 
 // goddamn perks stuff
 // #include "./common/common.hpp"
 // #include "./common/cuda_common.cuh"
 // #include <cuda_runtime.h>
 
-#include "config.cuh"
-#include "./common/jacobi_cuda.cuh"
-#include "./common/types.hpp"
 #include "./common/cuda_common.cuh"
 #include "./common/cuda_computation.cuh"
+#include "./common/jacobi_cuda.cuh"
 #include "./common/jacobi_reference.hpp"
+#include "./common/types.hpp"
+#include "config.cuh"
 
 #include "./perksconfig.cuh"
 
@@ -32,52 +32,51 @@ namespace cg = cooperative_groups;
 #include <cmath>
 
 real get_random() {
-    return ((real)(rand())/(real)(RAND_MAX-1));
+    return ((real)(rand()) / (real)(RAND_MAX - 1));
     // return 1;
 }
 
 real *getRandom2DArray(int width_y, int width_x) {
-  real (*a)[width_x] = (real (*)[width_x])new real[width_y*width_x];
-  for (int j = 0; j < width_y; j++)
-    for (int k = 0; k < width_x; k++) {
-      a[j][k] = get_random();
-    }
-  return (real*)a;
+    real(*a)[width_x] = (real(*)[width_x]) new real[width_y * width_x];
+    for (int j = 0; j < width_y; j++)
+        for (int k = 0; k < width_x; k++) {
+            a[j][k] = get_random();
+        }
+    return (real *)a;
 }
 
 real *getZero2DArray(int width_y, int width_x) {
-  real (*a)[width_x] = (real (*)[width_x])new real[width_y*width_x];
-  memset((void*)a, 0, sizeof(real) * width_y * width_x);
-  return (real*)a;
+    real(*a)[width_x] = (real(*)[width_x]) new real[width_y * width_x];
+    memset((void *)a, 0, sizeof(real) * width_y * width_x);
+    return (real *)a;
 }
 
-static double checkError2D
-(int width_x, const real *l_output, const real *l_reference, int y_lb, int y_ub,
- int x_lb, int x_ub) {
-  const real (*output)[width_x] = (const real (*)[width_x])(l_output);
-  const real (*reference)[width_x] = (const real (*)[width_x])(l_reference);
-  double error = 0.0;
-  double max_error = 0.0;
-  int max_k = 0, max_j = 0;
-  for (int j = y_lb; j < y_ub; j++) 
-    for (int k = x_lb; k < x_ub; k++) {
-      //printf ("Values at index (%d,%d) are %.6f and %.6f\n", j, k, reference[j][k], output[j][k]);
-      double curr_error = output[j][k] - reference[j][k];
-      curr_error = (curr_error < 0.0 ? -curr_error : curr_error);
-      error += curr_error * curr_error;
-      if (curr_error > max_error) {
-	printf ("Values at index (%d,%d) differ : %.6f and %.6f\n", j, k, reference[j][k], output[j][k]);
-        max_error = curr_error;
-        max_k = k;
-        max_j = j;
-      }
-    }
-  printf
-    ("[Test] Max Error : %e @ (,%d,%d)\n", max_error, max_j, max_k);
-  error = sqrt(error / ( (y_ub - y_lb) * (x_ub - x_lb)));
-  return error;
+static double checkError2D(int width_x, const real *l_output, const real *l_reference, int y_lb,
+                           int y_ub, int x_lb, int x_ub) {
+    const real(*output)[width_x] = (const real(*)[width_x])(l_output);
+    const real(*reference)[width_x] = (const real(*)[width_x])(l_reference);
+    double error = 0.0;
+    double max_error = 0.0;
+    int max_k = 0, max_j = 0;
+    for (int j = y_lb; j < y_ub; j++)
+        for (int k = x_lb; k < x_ub; k++) {
+            // printf ("Values at index (%d,%d) are %.6f and %.6f\n", j, k, reference[j][k],
+            // output[j][k]);
+            double curr_error = output[j][k] - reference[j][k];
+            curr_error = (curr_error < 0.0 ? -curr_error : curr_error);
+            error += curr_error * curr_error;
+            if (curr_error > max_error) {
+                printf("Values at index (%d,%d) differ : %.6f and %.6f\n", j, k, reference[j][k],
+                       output[j][k]);
+                max_error = curr_error;
+                max_k = k;
+                max_j = j;
+            }
+        }
+    printf("[Test] Max Error : %e @ (,%d,%d)\n", max_error, max_j, max_k);
+    error = sqrt(error / ((y_ub - y_lb) * (x_ub - x_lb)));
+    return error;
 }
-
 
 namespace MultiStreamPERKS {
 __global__ void __launch_bounds__(1024, 1)
@@ -170,8 +169,7 @@ __global__ void __launch_bounds__(1024, 1)
 
 __global__ void __launch_bounds__(1024, 1)
     boundary_sync_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
-                         const int comm_tile_size, const int num_comm_tiles,
-                         const int iter_max,
+                         const int comm_tile_size, const int num_comm_tiles, const int iter_max,
                          volatile real *local_halo_buffer_for_top_neighbor,
                          volatile real *local_halo_buffer_for_bottom_neighbor,
                          volatile real *remote_my_halo_buffer_on_top_neighbor,
@@ -327,6 +325,8 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
 
+    num_devices = 1;
+
 #pragma omp parallel num_threads(num_devices)
     {
         int dev_id = omp_get_thread_num();
@@ -336,12 +336,11 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         // Taken from PERKS
         // single gpu for now
-        real (*input_h)[nx] = (real (*)[nx])
-        getRandom2DArray(ny, nx);
+        real(*input_h)[nx] = (real(*)[nx])getRandom2DArray(ny, nx);
 
         real *input_ref = new real[nx * ny];
 
-        for (int i = 0; i < nx; i++){
+        for (int i = 0; i < nx; i++) {
             for (int ii = 0; ii < ny; ii++) {
                 input_ref[ii * ny + i] = input_h[i][ii];
             }
@@ -350,7 +349,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         // real *output = new real[ny * nx]; //getZero2DArray(ny, nx);
 
         // for (int i = 0; i < nx * ny; i++) {
-            // output[i] = 1;
+        // output[i] = 1;
         // }
 
         if (compare_to_single_gpu && 0 == dev_id) {
@@ -359,7 +358,8 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
             std::cout << "Running single gpu" << std::endl;
 
-            runtime_serial_non_persistent = single_gpu(input_ref, nx, ny, iter_max, a_ref_h, 0, true);
+            runtime_serial_non_persistent =
+                single_gpu(input_ref, nx, ny, iter_max, a_ref_h, 0, true);
         }
 
 #pragma omp barrier
@@ -547,18 +547,16 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         //     true
         // );
 
-        real (*output)[nx] = (real (*)[nx])
-        getZero2DArray(ny, nx);
+        real(*output)[nx] = (real(*)[nx])getZero2DArray(ny, nx);
 
-        real (*output_gold)[nx] = (real (*)[nx])
-        getZero2DArray(ny, nx);
+        real(*output_gold)[nx] = (real(*)[nx])getZero2DArray(ny, nx);
 
         // 128 or 256
         int bdimx = 256;
         int blkpsm = 0;
 
         // damnit
-        if(blkpsm<=0)blkpsm=100;
+        if (blkpsm <= 0) blkpsm = 100;
 
         bool async = false;
         bool useSM = true;
@@ -571,195 +569,205 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         int REG_FOLDER_Y = 0;
 
-        if(blkpsm*bdimx>=2*256) {
-            if(useSM) {
-                if(ptx==800)REG_FOLDER_Y=isDoubleTile?(regfolder<HALO,true,128,800,true,real,2*RTILE_Y>::val):(regfolder<HALO,true,128,800,true,real>::val);
-                if(ptx==700)REG_FOLDER_Y=isDoubleTile?(regfolder<HALO,true,128,700,true,real,2*RTILE_Y>::val):(regfolder<HALO,true,128,700,true,real>::val);
+        if (blkpsm * bdimx >= 2 * 256) {
+            if (useSM) {
+                if (ptx == 800)
+                    REG_FOLDER_Y =
+                        isDoubleTile
+                            ? (regfolder<HALO, true, 128, 800, true, real, 2 * RTILE_Y>::val)
+                            : (regfolder<HALO, true, 128, 800, true, real>::val);
+                if (ptx == 700)
+                    REG_FOLDER_Y =
+                        isDoubleTile
+                            ? (regfolder<HALO, true, 128, 700, true, real, 2 * RTILE_Y>::val)
+                            : (regfolder<HALO, true, 128, 700, true, real>::val);
             } else {
-                if(ptx==800)REG_FOLDER_Y=isDoubleTile?(regfolder<HALO,true,128,800,false,real,2*RTILE_Y>::val):(regfolder<HALO,true,128,800,false,real>::val);
-                if(ptx==700)REG_FOLDER_Y=isDoubleTile?(regfolder<HALO,true,128,700,false,real,2*RTILE_Y>::val):(regfolder<HALO,true,128,700,false,real>::val);
+                if (ptx == 800)
+                    REG_FOLDER_Y =
+                        isDoubleTile
+                            ? (regfolder<HALO, true, 128, 800, false, real, 2 * RTILE_Y>::val)
+                            : (regfolder<HALO, true, 128, 800, false, real>::val);
+                if (ptx == 700)
+                    REG_FOLDER_Y =
+                        isDoubleTile
+                            ? (regfolder<HALO, true, 128, 700, false, real, 2 * RTILE_Y>::val)
+                            : (regfolder<HALO, true, 128, 700, false, real>::val);
             }
         } else {
-            if(useSM) {
-                if(ptx==800)REG_FOLDER_Y=isDoubleTile?(regfolder<HALO,true,256,800,true,real,2*RTILE_Y>::val):(regfolder<HALO,true,256,800,true,real>::val);
-                if(ptx==700)REG_FOLDER_Y=isDoubleTile?(regfolder<HALO,true,256,700,true,real,2*RTILE_Y>::val):(regfolder<HALO,true,256,700,true,real>::val);
+            if (useSM) {
+                if (ptx == 800)
+                    REG_FOLDER_Y =
+                        isDoubleTile
+                            ? (regfolder<HALO, true, 256, 800, true, real, 2 * RTILE_Y>::val)
+                            : (regfolder<HALO, true, 256, 800, true, real>::val);
+                if (ptx == 700)
+                    REG_FOLDER_Y =
+                        isDoubleTile
+                            ? (regfolder<HALO, true, 256, 700, true, real, 2 * RTILE_Y>::val)
+                            : (regfolder<HALO, true, 256, 700, true, real>::val);
             } else {
-                if(ptx==800)REG_FOLDER_Y=isDoubleTile?(regfolder<HALO,true,256,800,false,real,2*RTILE_Y>::val):(regfolder<HALO,true,256,800,false,real>::val);
-                if(ptx==700)REG_FOLDER_Y=isDoubleTile?(regfolder<HALO,true,256,700,false,real,2*RTILE_Y>::val):(regfolder<HALO,true,256,700,false,real>::val);
+                if (ptx == 800)
+                    REG_FOLDER_Y =
+                        isDoubleTile
+                            ? (regfolder<HALO, true, 256, 800, false, real, 2 * RTILE_Y>::val)
+                            : (regfolder<HALO, true, 256, 800, false, real>::val);
+                if (ptx == 700)
+                    REG_FOLDER_Y =
+                        isDoubleTile
+                            ? (regfolder<HALO, true, 256, 700, false, real, 2 * RTILE_Y>::val)
+                            : (regfolder<HALO, true, 256, 700, false, real>::val);
             }
         }
 
-        auto execute_kernel = isDoubleTile?
-            (blkpsm*bdimx>=2*256?
-            (useSM?kernel_general_wrapper<real,2*RTILE_Y,HALO,128,true>:
-                kernel_general_wrapper<real,2*RTILE_Y,HALO,128,false>)
-            :
-            (useSM?kernel_general_wrapper<real,2*RTILE_Y,HALO,256,true>:
-                kernel_general_wrapper<real,2*RTILE_Y,HALO,256,false>))
-            :(blkpsm*bdimx>=2*256?
-            (useSM?kernel_general_wrapper<real,RTILE_Y,HALO,128,true>:
-                kernel_general_wrapper<real,RTILE_Y,HALO,128,false>)
-            :
-            (useSM?kernel_general_wrapper<real,RTILE_Y,HALO,256,true>:
-                kernel_general_wrapper<real,RTILE_Y,HALO,256,false>))
-            ; 
+        auto execute_kernel =
+            isDoubleTile
+                ? (blkpsm * bdimx >= 2 * 256
+                       ? (useSM ? kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 128, true>
+                                : kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 128, false>)
+                       : (useSM ? kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 256, true>
+                                : kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 256, false>))
+                : (blkpsm * bdimx >= 2 * 256
+                       ? (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 128, true>
+                                : kernel_general_wrapper<real, RTILE_Y, HALO, 128, false>)
+                       : (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 256, true>
+                                : kernel_general_wrapper<real, RTILE_Y, HALO, 256, false>));
 
-        // jacobi_gold_iterative((real*)input, ny, nx, (real*)output_gold,iter_max);
+        // jacobi_gold_iterative((real *)input_h, ny, nx, (real *)output_gold, iter_max);
 
-        const int LOCAL_RTILE_Y = isDoubleTile?RTILE_Y*2:RTILE_Y;
+        const int LOCAL_RTILE_Y = isDoubleTile ? RTILE_Y * 2 : RTILE_Y;
 
         int sm_count;
-        cudaDeviceGetAttribute ( &sm_count, cudaDevAttrMultiProcessorCount,0 );
+        cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, 0);
 
-          //initialization input and output space
-        real * input;
-        CUDA_RT_CALL(cudaMalloc(&input,sizeof(real)*((ny-0)*(nx-0))));
-        CUDA_RT_CALL(cudaMemcpy(input,input_h,sizeof(real)*((ny-0)*(nx-0)), cudaMemcpyHostToDevice));
-        real * __var_1__;
-        CUDA_RT_CALL(cudaMalloc(&__var_1__,sizeof(real)*((ny-0)*(nx-0))));
-        real * __var_2__;
-        CUDA_RT_CALL(cudaMalloc(&__var_2__,sizeof(real)*((ny-0)*(nx-0))));
+        // initialization input and output space
+        real *input;
+        CUDA_RT_CALL(cudaMalloc(&input, sizeof(real) * ((ny - 0) * (nx - 0))));
+        CUDA_RT_CALL(cudaMemcpy(input, input_h, sizeof(real) * ((ny - 0) * (nx - 0)),
+                                cudaMemcpyHostToDevice));
+        real *__var_1__;
+        CUDA_RT_CALL(cudaMalloc(&__var_1__, sizeof(real) * ((ny - 0) * (nx - 0))));
+        real *__var_2__;
+        CUDA_RT_CALL(cudaMalloc(&__var_2__, sizeof(real) * ((ny - 0) * (nx - 0))));
 
-        real * L2_cache3;
-        real * L2_cache4;
-        size_t L2_utage_2 = sizeof(real)*(ny)*2*(nx/bdimx)*HALO;
+        real *L2_cache3;
+        real *L2_cache4;
+        size_t L2_utage_2 = sizeof(real) * (ny)*2 * (nx / bdimx) * HALO;
 
-        CUDA_RT_CALL(cudaMalloc(&L2_cache3,L2_utage_2*2));
-        L2_cache4=L2_cache3+(ny)*2*(nx/bdimx)*HALO;
+        CUDA_RT_CALL(cudaMalloc(&L2_cache3, L2_utage_2 * 2));
+        L2_cache4 = L2_cache3 + (ny)*2 * (nx / bdimx) * HALO;
 
-        //initialize shared memory
+        // initialize shared memory
         int maxSharedMemory;
-        CUDA_RT_CALL(cudaDeviceGetAttribute(&maxSharedMemory, cudaDevAttrMaxSharedMemoryPerMultiprocessor,0 ));
+        CUDA_RT_CALL(cudaDeviceGetAttribute(&maxSharedMemory,
+                                            cudaDevAttrMaxSharedMemoryPerMultiprocessor, 0));
 
-        int SharedMemoryUsed = maxSharedMemory-1024;
-        CUDA_RT_CALL(cudaFuncSetAttribute(execute_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, SharedMemoryUsed));
+        int SharedMemoryUsed = maxSharedMemory - 1024;
+        CUDA_RT_CALL(cudaFuncSetAttribute(
+            execute_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, SharedMemoryUsed));
 
         size_t executeSM = 0;
 
-        int basic_sm_space=(LOCAL_RTILE_Y+2*HALO)*(bdimx+2*HALO)+1;
+        int basic_sm_space = (LOCAL_RTILE_Y + 2 * HALO) * (bdimx + 2 * HALO) + 1;
 
-        printf("AAA %d\n", LOCAL_RTILE_Y);
-
-        size_t sharememory_basic=(basic_sm_space)*sizeof(real);
+        size_t sharememory_basic = (basic_sm_space) * sizeof(real);
         executeSM = sharememory_basic;
         {
-            #define halo HALO
-            executeSM +=  (HALO*2*(( REG_FOLDER_Y)*LOCAL_RTILE_Y+isBOX))*sizeof(real);
-            #undef halo
+#define halo HALO
+            executeSM += (HALO * 2 * ((REG_FOLDER_Y)*LOCAL_RTILE_Y + isBOX)) * sizeof(real);
+#undef halo
         }
 
-        int numBlocksPerSm_current=1000;
+        int numBlocksPerSm_current = 1000;
 
-        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm_current, execute_kernel, bdimx, executeSM));
+        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &numBlocksPerSm_current, execute_kernel, bdimx, executeSM));
         CUDA_RT_CALL(cudaDeviceSynchronize());
         // printf("");
-        printf("blk per sm is %d/%d %d in sm %f\n", numBlocksPerSm_current,blkpsm,bdimx,(double)executeSM/1024);
         // int smbound=SharedMemoryUsed/executeSM;
         // printf("%d,%d,%d\n",numBlocksPerSm_current,blkpsm,smbound);
-        if(blkpsm!=0)
-        {
-            numBlocksPerSm_current=min(numBlocksPerSm_current,blkpsm);
+        if (blkpsm != 0) {
+            numBlocksPerSm_current = min(numBlocksPerSm_current, blkpsm);
         }
 
         dim3 block_dim(bdimx);
-        dim3 grid_dim(nx/bdimx,sm_count*numBlocksPerSm_current/(nx/bdimx));
+        dim3 grid_dim(nx / bdimx, sm_count * numBlocksPerSm_current / (nx / bdimx));
 
-        dim3 executeBlockDim=block_dim;
-        dim3 executeGridDim=grid_dim;
+        dim3 executeBlockDim = block_dim;
+        dim3 executeGridDim = grid_dim;
 
-        printf("blk per sm is %d/%d\n", numBlocksPerSm_current,blkpsm);
-        printf("grid is (%d,%d)\n", grid_dim.x, grid_dim.y);
+#define halo HALO
 
-        #define halo HALO
-
-        size_t max_sm_flder=0;
-        int tmp0=SharedMemoryUsed/sizeof(real)/numBlocksPerSm_current;
-        int tmp1=2*HALO*isBOX;
-        int tmp2=basic_sm_space;
-        int tmp3=2*HALO*(REG_FOLDER_Y)*LOCAL_RTILE_Y;
-        int tmp4=2*HALO*(bdimx+2*HALO);
-        tmp0=tmp0-tmp1-tmp2-tmp3-tmp4;
-        tmp0=tmp0>0?tmp0:0;
-        max_sm_flder=(tmp0)/(bdimx+4*HALO)/LOCAL_RTILE_Y;
+        size_t max_sm_flder = 0;
+        int tmp0 = SharedMemoryUsed / sizeof(real) / numBlocksPerSm_current;
+        int tmp1 = 2 * HALO * isBOX;
+        int tmp2 = basic_sm_space;
+        int tmp3 = 2 * HALO * (REG_FOLDER_Y)*LOCAL_RTILE_Y;
+        int tmp4 = 2 * HALO * (bdimx + 2 * HALO);
+        tmp0 = tmp0 - tmp1 - tmp2 - tmp3 - tmp4;
+        tmp0 = tmp0 > 0 ? tmp0 : 0;
+        max_sm_flder = (tmp0) / (bdimx + 4 * HALO) / LOCAL_RTILE_Y;
         // printf("smflder is %d\n",max_sm_flder);
-        if(!useSM)max_sm_flder=0;
-        if(useSM&&max_sm_flder==0) {
+        if (!useSM) max_sm_flder = 0;
+        if (useSM && max_sm_flder == 0) {
             std::cout << "Jesse" << std::endl;
         }
 
-        size_t sm_cache_size =max_sm_flder==0?0: (max_sm_flder*LOCAL_RTILE_Y+2*HALO)*(bdimx+2*HALO)*sizeof(real);
-        size_t y_axle_halo = (HALO*2*((max_sm_flder + REG_FOLDER_Y)*LOCAL_RTILE_Y+isBOX))*sizeof(real);
-        executeSM=sharememory_basic+y_axle_halo;
-        executeSM+=sm_cache_size;
+        size_t sm_cache_size = max_sm_flder == 0 ? 0
+                                                 : (max_sm_flder * LOCAL_RTILE_Y + 2 * HALO) *
+                                                       (bdimx + 2 * HALO) * sizeof(real);
+        size_t y_axle_halo =
+            (HALO * 2 * ((max_sm_flder + REG_FOLDER_Y) * LOCAL_RTILE_Y + isBOX)) * sizeof(real);
+        executeSM = sharememory_basic + y_axle_halo;
+        executeSM += sm_cache_size;
 
-        #undef halo
+#undef halo
 
-        printf("the max flder is %ld and the total sm size is %ld/block\n", max_sm_flder, executeSM);
+        void *ExecuteKernelArgs[] = {(void **)&input,    (void **)&ny,         (void *)&nx,
+                                     (void *)&__var_2__, (void *)&L2_cache3,   (void *)&L2_cache4,
+                                     (void *)&iter_max,  (void *)&max_sm_flder};
 
-        int l_warmupiteration=warmupiteration>0?warmupiteration:1000;
+        // printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
+        // printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
+        // printf("Sm: %d\n", executeSM);
 
-        // void* KernelArgs_NULL[] ={
-        //     (void**)&__var_2__,
-        //     (void**)&ny,
-        //     (void*)&nx,
-        //     (void*)&__var_1__,
-        //     (void*)&L2_cache3,
-        //     (void*)&L2_cache4,
-        //     (void*)&l_warmupiteration,
-        //     (void *)&max_sm_flder
-        // };
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)execute_kernel, executeGridDim,
+                                                 executeBlockDim, ExecuteKernelArgs, executeSM, 0));
 
-        void* ExecuteKernelArgs[] ={
-            (void**)&input,
-            (void**)&ny,
-            (void*)&nx,
-            (void*)&__var_2__,
-            (void*)&L2_cache3,
-            (void*)&L2_cache4,
-            (void*)&iter_max,
-            (void*)&max_sm_flder
-        };
+        // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim,
+        // executeBlockDim, KernelArgs_NULL, executeSM,0));
 
-        printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
-        printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
-        printf("Sm: %d\n", executeSM);
-
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim, executeBlockDim, ExecuteKernelArgs, executeSM,0));
-        
-
-        // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim, executeBlockDim, KernelArgs_NULL, executeSM,0));
-
-        // int err = jacobi_iterative((real*)input_h, ny, nx, (real*)output,bdimx,blkpsm,iter_max,async,useSM,usewarmup, warmupiteration,isDoubleTile);
+        // int err = jacobi_iterative((real *)input_h, ny, nx, (real *)output, bdimx, blkpsm,
+        // iter_max,
+        //    async, useSM, usewarmup, warmupiteration, isDoubleTile);
         // if(err == 1) {
-            // printf("unsupport setting, no free space for cache with shared memory\n");
+        // printf("unsupport setting, no free space for cache with shared memory\n");
         // }
 
         // std::cout << "Ran PERKS. Err: " << err << std::endl;
 
         // for (int i = 0; i < nx; i++) {
-            // for (int ii = 0; ii < ny; ii++) {
-                // std::cout << output[i][ii] << "|" << output_gold[i][ii] << std::endl;
-                // std::cout << output_gold[i][ii] << std::endl;
-            // }
+        // for (int ii = 0; ii < ny; ii++) {
+        // std::cout << output[i][ii] << "|" << output_gold[i][ii] << std::endl;
+        // std::cout << output_gold[i][ii] << std::endl;
+        // }
         // }
 
-        int halo = iter_max;
+        // int halo = iter_max;
 
         // double error =
-        // checkError2D
-        // (nx, (real*)output, (real*) output_gold, halo, ny-halo, halo, nx-halo);
+        // checkError2D(nx, (real *)output, (real *)output_gold, halo, ny - halo, halo, nx - halo);
 
-        // printf("[Test] RMS Error : %e\n",error);
+        // printf("[Test] RMS Error : %e\n", error);
 
         // for (int i = 0; i < nx * ny; i++) {
-            // std::cout << a_ref_h[i] << std::endl;
+        // std::cout << a_ref_h[i] << std::endl;
         // }
 
         // THE KERNELS ARE SERIALIZED!
         // perhaps only on V100
         // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::jacobi_kernel,
-                                                //  dim_grid, dim_block, kernelArgsInner, 0,
-                                                //  inner_domain_stream));
+        //  dim_grid, dim_block, kernelArgsInner, 0,
+        //  inner_domain_stream));
 
         // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel,
         //                                          2, dim_block, kernelArgsBoundary, 0,
@@ -771,7 +779,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         // Technically, we don't know the iteration number (since we'll be doing l2-norm)
         // Could write iter to CPU when kernel is done
         // if (iter_max % 2 == 1) {
-            // std::swap(a_new[dev_id], a[dev_id]);
+        // std::swap(a_new[dev_id], a[dev_id]);
         // }
 
 #pragma omp barrier
@@ -784,20 +792,21 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
             //                cudaMemcpyDeviceToHost));
 
             // CUDA_RT_CALL(
-                // cudaMemcpy(a_h + iy_start_global * nx, output,
-                            // std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
-                            // cudaMemcpyDeviceToHost));
+            // cudaMemcpy(a_h + iy_start_global * nx, output,
+            // std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
+            // cudaMemcpyDeviceToHost));
         }
 
 #pragma omp barrier
 
 #pragma omp master
         {
-            // report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start,
+            // report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
+            // start,
             //                stop, compare_to_single_gpu);
 
-            // report_results(ny, nx, a_ref_h, output, num_devices, runtime_serial_non_persistent, start,
-                // stop, compare_to_single_gpu);
+            // report_results(ny, nx, a_ref_h, output, num_devices, runtime_serial_non_persistent,
+            // start, stop, compare_to_single_gpu);
         }
 
         // CUDA_RT_CALL(cudaFree(a_new[dev_id]));
