@@ -557,11 +557,14 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         int bdimx = 256;
         int blkpsm = 0;
 
+        // damnit
+        if(blkpsm<=0)blkpsm=100;
+
         bool async = false;
         bool useSM = true;
         bool usewarmup = false;
         int warmupiteration = -1;
-        bool isDoubleTile = false;
+        bool isDoubleTile = true;
 
         // Change this later
         int ptx = 800;
@@ -603,7 +606,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         // jacobi_gold_iterative((real*)input, ny, nx, (real*)output_gold,iter_max);
 
-        #define LOCAL_RTILE_Y RTILE_Y
+        const int LOCAL_RTILE_Y = isDoubleTile?RTILE_Y*2:RTILE_Y;
 
         int sm_count;
         cudaDeviceGetAttribute ( &sm_count, cudaDevAttrMultiProcessorCount,0 );
