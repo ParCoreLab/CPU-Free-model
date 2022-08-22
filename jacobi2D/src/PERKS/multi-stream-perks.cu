@@ -30,10 +30,10 @@ __global__ void __launch_bounds__(1024, 1)
                          const int comm_tile_size, const int num_comm_tiles, const int iter_max,
                          volatile real *local_halo_buffer_for_top_neighbor,
                          volatile real *local_halo_buffer_for_bottom_neighbor,
-                         volatile real *remote_my_halo_buffer_on_top_neighbor,
-                         volatile real *remote_my_halo_buffer_on_bottom_neighbor,
-                         volatile int *local_is_top_neighbor_done_writing_to_me,
-                         volatile int *local_is_bottom_neighbor_done_writing_to_me,
+                         const volatile real *remote_my_halo_buffer_on_top_neighbor,
+                         const volatile real *remote_my_halo_buffer_on_bottom_neighbor,
+                         const volatile int *local_is_top_neighbor_done_writing_to_me,
+                         const volatile int *local_is_bottom_neighbor_done_writing_to_me,
                          volatile int *remote_am_done_writing_to_top_neighbor,
                          volatile int *remote_am_done_writing_to_bottom_neighbor,
                          volatile int *iteration_done) {
@@ -159,6 +159,8 @@ __global__ void __launch_bounds__(1024, 1)
 }
 }  // namespace MultiStreamPERKS
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "openmp-use-default-none"
 int MultiStreamPERKS::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
@@ -182,8 +184,89 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
-
     num_devices = 1;
+
+    // ------------------------------------
+    // PERKS config
+    // ------------------------------------
+
+    // Buffers
+    real(*output)[nx] = (real(*)[nx])getZero2DArray(ny, nx);
+    real(*output_gold)[nx] = (real(*)[nx])getZero2DArray(ny, nx);
+
+    // 128 or 256
+    int bdimx = 256;
+    int blkpsm = 0;
+
+    // damnit
+    if (blkpsm <= 0) blkpsm = 100;
+
+    bool async = false;
+    bool useSM = true;
+    bool usewarmup = false;
+    int warmupiteration = -1;
+    bool isDoubleTile = true;
+
+    // Change this later
+    int ptx = 800;
+
+    int REG_FOLDER_Y = 0;
+
+    if (blkpsm * bdimx >= 2 * 256) {
+        if (useSM) {
+            if (ptx == 800)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 128, 800, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 128, 800, true, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 128, 700, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 128, 700, true, real>::val);
+        } else {
+            if (ptx == 800)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 128, 800, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 128, 800, false, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 128, 700, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 128, 700, false, real>::val);
+        }
+    } else {
+        if (useSM) {
+            if (ptx == 800)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 256, 800, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 256, 800, true, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 256, 700, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 256, 700, true, real>::val);
+        } else {
+            if (ptx == 800)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 256, 800, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 256, 800, false, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 256, 700, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 256, 700, false, real>::val);
+        }
+    }
+
+    auto execute_kernel =
+        isDoubleTile ? (blkpsm * bdimx >= 2 * 256
+                            ? (useSM ? kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 128, true>
+                                     : kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 128, false>)
+                            : (useSM ? kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 256, true>
+                                     : kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 256, false>))
+                     : (blkpsm * bdimx >= 2 * 256
+                            ? (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 128, true>
+                                     : kernel_general_wrapper<real, RTILE_Y, HALO, 128, false>)
+                            : (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 256, true>
+                                     : kernel_general_wrapper<real, RTILE_Y, HALO, 256, false>));
+
+    real(*input_h)[nx] = (real(*)[nx])getRandom2DArray(ny, nx);
 
 #pragma omp parallel num_threads(num_devices)
     {
@@ -193,31 +276,10 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaFree(nullptr));
 
         // Taken from PERKS
-        // single gpu for now
-        real(*input_h)[nx] = (real(*)[nx])getRandom2DArray(ny, nx);
-
-        real *input_ref = new real[nx * ny];
-
-        for (int i = 0; i < nx; i++) {
-            for (int ii = 0; ii < ny; ii++) {
-                input_ref[ii * ny + i] = input_h[i][ii];
-            }
-        }
-
-        // real *output = new real[ny * nx]; //getZero2DArray(ny, nx);
-
-        // for (int i = 0; i < nx * ny; i++) {
-        // output[i] = 1;
-        // }
-
         if (compare_to_single_gpu && 0 == dev_id) {
-            CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
-            CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
-
             std::cout << "Running single gpu" << std::endl;
 
-            runtime_serial_non_persistent =
-                single_gpu(input_ref, nx, ny, iter_max, a_ref_h, 0, true);
+            jacobi_gold_iterative((real *)input_h, ny, nx, (real *)output_gold, iter_max);
         }
 
 #pragma omp barrier
@@ -386,112 +448,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
         CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-        // real (*input)[nx] = (real (*)[nx])
-        // getRandom2DArray<real>(ny, nx);
-        // real (*output)[nx] = (real (*)[nx])
-        // getZero2DArray<real>(ny, nx);
-
-        // int err = jacobi_iterative(
-        //     input,
-        //     ny, nx,
-        //     output,
-        //     256,
-        //     -1,
-        //     iter_max,
-        //     false,
-        //     true,
-        //     false,
-        //     -1,
-        //     true
-        // );
-
-        real(*output)[nx] = (real(*)[nx])getZero2DArray(ny, nx);
-
-        real(*output_gold)[nx] = (real(*)[nx])getZero2DArray(ny, nx);
-
-        // 128 or 256
-        int bdimx = 256;
-        int blkpsm = 0;
-
-        // damnit
-        if (blkpsm <= 0) blkpsm = 100;
-
-        bool async = false;
-        bool useSM = true;
-        bool usewarmup = false;
-        int warmupiteration = -1;
-        bool isDoubleTile = true;
-
-        // Change this later
-        int ptx = 800;
-
-        int REG_FOLDER_Y = 0;
-
-        if (blkpsm * bdimx >= 2 * 256) {
-            if (useSM) {
-                if (ptx == 800)
-                    REG_FOLDER_Y =
-                        isDoubleTile
-                            ? (regfolder<HALO, true, 128, 800, true, real, 2 * RTILE_Y>::val)
-                            : (regfolder<HALO, true, 128, 800, true, real>::val);
-                if (ptx == 700)
-                    REG_FOLDER_Y =
-                        isDoubleTile
-                            ? (regfolder<HALO, true, 128, 700, true, real, 2 * RTILE_Y>::val)
-                            : (regfolder<HALO, true, 128, 700, true, real>::val);
-            } else {
-                if (ptx == 800)
-                    REG_FOLDER_Y =
-                        isDoubleTile
-                            ? (regfolder<HALO, true, 128, 800, false, real, 2 * RTILE_Y>::val)
-                            : (regfolder<HALO, true, 128, 800, false, real>::val);
-                if (ptx == 700)
-                    REG_FOLDER_Y =
-                        isDoubleTile
-                            ? (regfolder<HALO, true, 128, 700, false, real, 2 * RTILE_Y>::val)
-                            : (regfolder<HALO, true, 128, 700, false, real>::val);
-            }
-        } else {
-            if (useSM) {
-                if (ptx == 800)
-                    REG_FOLDER_Y =
-                        isDoubleTile
-                            ? (regfolder<HALO, true, 256, 800, true, real, 2 * RTILE_Y>::val)
-                            : (regfolder<HALO, true, 256, 800, true, real>::val);
-                if (ptx == 700)
-                    REG_FOLDER_Y =
-                        isDoubleTile
-                            ? (regfolder<HALO, true, 256, 700, true, real, 2 * RTILE_Y>::val)
-                            : (regfolder<HALO, true, 256, 700, true, real>::val);
-            } else {
-                if (ptx == 800)
-                    REG_FOLDER_Y =
-                        isDoubleTile
-                            ? (regfolder<HALO, true, 256, 800, false, real, 2 * RTILE_Y>::val)
-                            : (regfolder<HALO, true, 256, 800, false, real>::val);
-                if (ptx == 700)
-                    REG_FOLDER_Y =
-                        isDoubleTile
-                            ? (regfolder<HALO, true, 256, 700, false, real, 2 * RTILE_Y>::val)
-                            : (regfolder<HALO, true, 256, 700, false, real>::val);
-            }
-        }
-
-        auto execute_kernel =
-            isDoubleTile
-                ? (blkpsm * bdimx >= 2 * 256
-                       ? (useSM ? kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 128, true>
-                                : kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 128, false>)
-                       : (useSM ? kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 256, true>
-                                : kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 256, false>))
-                : (blkpsm * bdimx >= 2 * 256
-                       ? (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 128, true>
-                                : kernel_general_wrapper<real, RTILE_Y, HALO, 128, false>)
-                       : (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 256, true>
-                                : kernel_general_wrapper<real, RTILE_Y, HALO, 256, false>));
-
-        // jacobi_gold_iterative((real *)input_h, ny, nx, (real *)output_gold, iter_max);
-
         const int LOCAL_RTILE_Y = isDoubleTile ? RTILE_Y * 2 : RTILE_Y;
 
         int sm_count;
@@ -579,58 +535,18 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         executeSM += sm_cache_size;
 
 #undef halo
-
-        void *ExecuteKernelArgs[] = {(void **)&input,    (void **)&ny,         (void *)&nx,
+        void *ExecuteKernelArgs[] = {(void *)&input,     (void **)&ny,         (void *)&nx,
                                      (void *)&__var_2__, (void *)&L2_cache3,   (void *)&L2_cache4,
                                      (void *)&iter_max,  (void *)&max_sm_flder};
 
-        // printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
-        // printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
-        // printf("Sm: %d\n", executeSM);
-
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)execute_kernel, executeGridDim,
-                                                 executeBlockDim, ExecuteKernelArgs, executeSM, 0));
+                                                 executeBlockDim, ExecuteKernelArgs, executeSM,
+                                                 inner_domain_stream));
 
-        // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim,
-        // executeBlockDim, KernelArgs_NULL, executeSM,0));
-
-        // int err = jacobi_iterative((real *)input_h, ny, nx, (real *)output, bdimx, blkpsm,
-        // iter_max,
-        //    async, useSM, usewarmup, warmupiteration, isDoubleTile);
-        // if(err == 1) {
-        // printf("unsupport setting, no free space for cache with shared memory\n");
-        // }
-
-        // std::cout << "Ran PERKS. Err: " << err << std::endl;
-
-        // for (int i = 0; i < nx; i++) {
-        // for (int ii = 0; ii < ny; ii++) {
-        // std::cout << output[i][ii] << "|" << output_gold[i][ii] << std::endl;
-        // std::cout << output_gold[i][ii] << std::endl;
-        // }
-        // }
-
-        // int halo = iter_max;
-
-        // double error =
-        // checkError2D(nx, (real *)output, (real *)output_gold, halo, ny - halo, halo, nx - halo);
-
-        // printf("[Test] RMS Error : %e\n", error);
-
-        // for (int i = 0; i < nx * ny; i++) {
-        // std::cout << a_ref_h[i] << std::endl;
-        // }
-
-        // THE KERNELS ARE SERIALIZED!
-        // perhaps only on V100
-        // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::jacobi_kernel,
-        //  dim_grid, dim_block, kernelArgsInner, 0,
-        //  inner_domain_stream));
-
-        // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel,
-        //                                          2, dim_block, kernelArgsBoundary, 0,
-        //                                          boundary_sync_stream));
-
+        //        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void
+        //        *)MultiStreamPERKS::boundary_sync_kernel, 2,
+        //                                                 dim_block, kernelArgsBoundary, 0,
+        //                                                 boundary_sync_stream));
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
         // Need to swap pointers on CPU if iteration count is odd
@@ -659,9 +575,8 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
 #pragma omp master
         {
-            // report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
-            // start,
-            //                stop, compare_to_single_gpu);
+            report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start,
+                           stop, /* compare_to_single_gpu */ false);
 
             // report_results(ny, nx, a_ref_h, output, num_devices, runtime_serial_non_persistent,
             // start, stop, compare_to_single_gpu);
@@ -671,10 +586,23 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         // CUDA_RT_CALL(cudaFree(a[dev_id]));
 
         if (compare_to_single_gpu && 0 == dev_id) {
-            // CUDA_RT_CALL(cudaFreeHost(a_h));
-            // CUDA_RT_CALL(cudaFreeHost(a_ref_h));
+            if (iter_max % 2 == 1) {
+                CUDA_RT_CALL(cudaMemcpy(output, __var_2__, sizeof(real) * ((ny - 0) * (nx - 0)),
+                                        cudaMemcpyDeviceToHost));
+            } else {
+                CUDA_RT_CALL(cudaMemcpy(output, input, sizeof(real) * ((ny - 0) * (nx - 0)),
+                                        cudaMemcpyDeviceToHost));
+            }
+
+            int halo = iter_max;
+
+            double error = checkError2D(nx, (real *)output, (real *)output_gold, halo, ny - halo,
+                                        halo, nx - halo);
+
+            printf("[Test] RMS Error : %e\n", error);
         }
     }
 
     return 0;
 }
+#pragma clang diagnostic pop
