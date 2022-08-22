@@ -191,6 +191,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
     // ------------------------------------
 
     // Buffers
+    real(*input_h)[nx] = (real(*)[nx])getRandom2DArray(ny, nx);
     real(*output)[nx] = (real(*)[nx])getZero2DArray(ny, nx);
     real(*output_gold)[nx] = (real(*)[nx])getZero2DArray(ny, nx);
 
@@ -266,8 +267,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
                             : (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 256, true>
                                      : kernel_general_wrapper<real, RTILE_Y, HALO, 256, false>));
 
-    real(*input_h)[nx] = (real(*)[nx])getRandom2DArray(ny, nx);
-
 #pragma omp parallel num_threads(num_devices)
     {
         int dev_id = omp_get_thread_num();
@@ -277,9 +276,10 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         // Taken from PERKS
         if (compare_to_single_gpu && 0 == dev_id) {
-            std::cout << "Running single gpu" << std::endl;
+            CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
+            CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
-            jacobi_gold_iterative((real *)input_h, ny, nx, (real *)output_gold, iter_max);
+            single_cpu((real *)input_h, nx, ny, iter_max, a_ref_h, 0, true);
         }
 
 #pragma omp barrier
@@ -575,11 +575,13 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
 #pragma omp master
         {
-            report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start,
-                           stop, /* compare_to_single_gpu */ false);
+            //            report_results(ny, nx, a_ref_h, a_h, num_devices,
+            //            runtime_serial_non_persistent, start,
+            //                           stop, /* compare_to_single_gpu */ false);
 
-            // report_results(ny, nx, a_ref_h, output, num_devices, runtime_serial_non_persistent,
-            // start, stop, compare_to_single_gpu);
+            //            report_results(ny, nx, a_ref_h, a_h, num_devices,
+            //            runtime_serial_non_persistent,
+            //                           start, stop, compare_to_single_gpu);
         }
 
         // CUDA_RT_CALL(cudaFree(a_new[dev_id]));
