@@ -392,8 +392,8 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
 
         // Set diriclet boundary conditions on left and right border
-        initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, chunk_size + 2, ny);
+        //        initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
+        //            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, chunk_size + 2, ny);
         CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -458,6 +458,11 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMalloc(&input, sizeof(real) * ((ny - 0) * (nx - 0))));
         CUDA_RT_CALL(cudaMemcpy(input, input_h, sizeof(real) * ((ny - 0) * (nx - 0)),
                                 cudaMemcpyHostToDevice));
+
+        // Initialize a[dev_id]
+        CUDA_RT_CALL(cudaMemcpy(a[dev_id], input_h, sizeof(real) * ((ny - 0) * (nx - 0)),
+                                cudaMemcpyHostToDevice));
+
         real *__var_1__;
         CUDA_RT_CALL(cudaMalloc(&__var_1__, sizeof(real) * ((ny - 0) * (nx - 0))));
         real *__var_2__;
@@ -535,9 +540,9 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         executeSM += sm_cache_size;
 
 #undef halo
-        void *ExecuteKernelArgs[] = {(void *)&input,     (void **)&ny,         (void *)&nx,
-                                     (void *)&__var_2__, (void *)&L2_cache3,   (void *)&L2_cache4,
-                                     (void *)&iter_max,  (void *)&max_sm_flder};
+        void *ExecuteKernelArgs[] = {(void **)&a[dev_id], (void **)&ny,         (void *)&nx,
+                                     (void *)&__var_2__,  (void *)&L2_cache3,   (void *)&L2_cache4,
+                                     (void *)&iter_max,   (void *)&max_sm_flder};
 
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)execute_kernel, executeGridDim,
                                                  executeBlockDim, ExecuteKernelArgs, executeSM,
@@ -560,10 +565,10 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         double stop = omp_get_wtime();
 
         if (compare_to_single_gpu) {
-            // CUDA_RT_CALL(
-            //     cudaMemcpy(a_h + iy_start_global * nx, a[dev_id] + nx,
-            //                std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
-            //                cudaMemcpyDeviceToHost));
+            //            CUDA_RT_CALL(
+            //                cudaMemcpy(a_h + iy_start_global * nx, a[dev_id] + nx,
+            //                           std::min((ny - iy_start_global) * nx, chunk_size * nx) *
+            //                           sizeof(real), cudaMemcpyDeviceToHost));
 
             // CUDA_RT_CALL(
             // cudaMemcpy(a_h + iy_start_global * nx, output,
@@ -589,18 +594,19 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         if (compare_to_single_gpu && 0 == dev_id) {
             if (iter_max % 2 == 1) {
-                CUDA_RT_CALL(cudaMemcpy(output, __var_2__, sizeof(real) * ((ny - 0) * (nx - 0)),
+                CUDA_RT_CALL(cudaMemcpy(a_h, __var_2__, sizeof(real) * ((ny - 0) * (nx - 0)),
                                         cudaMemcpyDeviceToHost));
             } else {
-                CUDA_RT_CALL(cudaMemcpy(output, input, sizeof(real) * ((ny - 0) * (nx - 0)),
+                CUDA_RT_CALL(cudaMemcpy(a_h, a[dev_id], sizeof(real) * ((ny - 0) * (nx - 0)),
                                         cudaMemcpyDeviceToHost));
             }
 
+            //            report_results(ny, nx, a_ref_h, a_h, num_devices,
+            //            runtime_serial_non_persistent, start,
+            //                           stop, compare_to_single_gpu);
+
             int halo = iter_max;
-
-            double error = checkError2D(nx, (real *)output, (real *)output_gold, halo, ny - halo,
-                                        halo, nx - halo);
-
+            double error = checkError2D(nx, a_h, a_ref_h, halo, ny - halo, halo, nx - halo);
             printf("[Test] RMS Error : %e\n", error);
         }
     }
