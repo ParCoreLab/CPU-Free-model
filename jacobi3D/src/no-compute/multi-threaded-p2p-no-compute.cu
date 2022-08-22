@@ -52,12 +52,12 @@ namespace BaselineMultiThreadedP2PNoCompute
 
         if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
         {
-            // const real new_val = (a[iz * ny * nx + iy + ix + 1] +
-            //                       a[iz * ny * nx + iy + ix - 1] +
+            // const real new_val = (a[iz * ny * nx + iy* nx + ix + 1] +
+            //                       a[iz * ny * nx + iy * nx+ ix - 1] +
             //                       a[iz * ny * nx + (iy + 1) * nx + ix] +
             //                       a[iz * ny * nx + (iy - 1) * nx + ix] +
-            //                       a[(iz + 1) * ny * nx + iy + ix] +
-            //                       a[(iz - 1) * ny * nx + iy + ix]) /
+            //                       a[(iz + 1) * ny * nx + iy * nx+ ix] +
+            //                       a[(iz - 1) * ny * nx + iy * nx+ ix]) /
             //                      real(6.0);
 
             // a_new[iz * ny * nx + iy + ix] = new_val;
@@ -213,7 +213,7 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char *argv[])
             iz_end[dev_id] = (iz_end_global - iz_start_global + 1) + iz_start;
 
             // Set diriclet boundary conditions on left and right boarder
-            initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
+            initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
                 a, a_new[dev_id], PI, iz_start_global - 1, nx, ny, (chunk_size + 2), nz);
             CUDA_RT_CALL(cudaGetLastError());
             CUDA_RT_CALL(cudaDeviceSynchronize());

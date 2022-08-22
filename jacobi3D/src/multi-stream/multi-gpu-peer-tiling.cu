@@ -49,14 +49,6 @@ namespace MultiGPUPeerTiling
         int next_iter_mod = 1;
         int temp_iter_mod = 0;
 
-        int comp_tile_idx_x;
-        int comp_tile_idx_y;
-
-        int comp_tile_start_ny;
-        int comp_tile_end_ny;
-        int comp_tile_start_nx;
-        int comp_tile_end_nx;
-
         int iz;
         int iz_below;
         int iz_above;
@@ -90,33 +82,6 @@ namespace MultiGPUPeerTiling
                     }
                 }
             }
-            /*for (comp_tile_idx_y = 0; comp_tile_idx_y < num_comp_tiles_y; comp_tile_idx_y++)
-            {
-                comp_tile_start_ny =
-                    (comp_tile_idx_y == 0) ? iy_start + 1 : comp_tile_idx_y * comp_tile_size_y;
-                comp_tile_end_ny = (comp_tile_idx_y == (num_comp_tiles_y - 1))
-                                       ? iy_end - 1
-                                       : (comp_tile_idx_y + 1) * comp_tile_size_y;
-
-                for (comp_tile_idx_x = 0; comp_tile_idx_x < num_comp_tiles_x; comp_tile_idx_x++)
-                {
-                    comp_tile_start_nx =
-                        (comp_tile_idx_x == 0) ? 1 : comp_tile_idx_x * comp_tile_size_x;
-                    comp_tile_end_nx = (comp_tile_idx_x == (num_comp_tiles_x - 1))
-                                           ? nx - 1
-                                           : (comp_tile_idx_x + 1) * comp_tile_size_x;
-
-                    iy = base_iy + comp_tile_start_ny;
-                    ix = base_ix + comp_tile_start_nx;
-
-                    if (iy < comp_tile_end_ny && ix < comp_tile_end_nx)
-                    {
-                        const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                                     a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                        a_new[iy * nx + ix] = new_val;
-                    }
-                }
-            }*/
 
             real *temp_pointer_first = a_new;
             a_new = a;
@@ -180,8 +145,6 @@ namespace MultiGPUPeerTiling
         int next_iter_comm_tile_flag_idx_y;
 
         int iy = 0;
-        int iy_below = 0;
-        int iy_above = 0;
         int ix = 0;
 
         while (iter < iter_max)
@@ -324,7 +287,7 @@ namespace MultiGPUPeerTiling
             cg::sync(grid);
         }
     }
-} // namespace MultiStreamPERKS
+} // namespace MultiGPUPeerTiling
 
 int MultiGPUPeerTiling::init(int argc, char *argv[])
 {
@@ -393,7 +356,7 @@ int MultiGPUPeerTiling::init(int argc, char *argv[])
         constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
         constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
 
-        int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+        int max_thread_blocks_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
         comp_tile_size_z = dim_block_z * max_thread_blocks_z;
 
@@ -491,7 +454,7 @@ int MultiGPUPeerTiling::init(int argc, char *argv[])
         iz_end[dev_id] = (iz_end_global - iz_start_global + 1) + iz_start;
 
         // Set diriclet boundary conditions on left and right border
-        initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
+        initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
             a[dev_id], a_new[dev_id], PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
         CUDA_RT_CALL(cudaGetLastError());
 
@@ -580,7 +543,7 @@ int MultiGPUPeerTiling::init(int argc, char *argv[])
         {
             CUDA_RT_CALL(cudaMemcpy(
                 a_h + iz_start_global * ny * nx, a[dev_id] + ny * nx,
-                std::min((ny - iz_start_global) * ny * nx, chunk_size * nx * ny) * sizeof(real),
+                std::min((nz - iz_start_global) * ny * nx, chunk_size * nx * ny) * sizeof(real),
                 cudaMemcpyDeviceToHost));
         }
 

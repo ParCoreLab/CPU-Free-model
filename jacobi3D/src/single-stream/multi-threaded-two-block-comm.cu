@@ -291,7 +291,7 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[])
         constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
         constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
 
-        int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+        int max_thread_blocks_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
         comp_tile_size_z = dim_block_z * max_thread_blocks_z;
 
@@ -436,7 +436,7 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[])
 
             CUDA_RT_CALL(cudaMemcpy(
                 a_h + iz_start_global * ny * nx, a[dev_id] + ny * nx,
-                std::min((ny - iz_start_global) * ny * nx, chunk_size * nx * ny) * sizeof(real),
+                std::min((nz - iz_start_global) * ny * nx, chunk_size * nx * ny) * sizeof(real),
                 cudaMemcpyDeviceToHost));
         }
 
