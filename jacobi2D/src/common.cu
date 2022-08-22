@@ -2,6 +2,8 @@
 
 #include <cooperative_groups.h>
 
+#include "./PERKS/common/jacobi_reference.hpp"
+
 namespace cg = cooperative_groups;
 
 bool get_arg(char **begin, char **end, const std::string &arg) {
@@ -135,26 +137,26 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
     //    }
 }
 
-double single_cpu(real *a_h_input, const int nx, const int ny, const int iter_max, real *const a_ref_h,
-                  const int nccheck, const bool print) {
-//    real *a;
-//    real *a_new;
+double single_cpu(real *a_h_input, const int nx, const int ny, const int iter_max,
+                  real *const a_ref_h, const int nccheck, const bool print) {
+    //    real *a;
+    //    real *a_new;
 
-//    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * sizeof(real)));
-//    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * sizeof(real)));
-//
-//    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * sizeof(real)));
-//    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * sizeof(real)));
-//
+    //    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * sizeof(real)));
+    //    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * sizeof(real)));
+    //
+    //    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * sizeof(real)));
+    //    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * sizeof(real)));
+    //
     // Set diriclet boundary conditions on left and right boarder
-//    initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, 0, nx, ny, ny);
+    //    initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, 0, nx, ny, ny);
 
-//    real *a_h_input = new real[nx * ny];
-//    CUDA_RT_CALL(cudaMemcpy(a_h_input, a, nx * ny * sizeof(real), cudaMemcpyDeviceToHost));
+    //    real *a_h_input = new real[nx * ny];
+    //    CUDA_RT_CALL(cudaMemcpy(a_h_input, a, nx * ny * sizeof(real), cudaMemcpyDeviceToHost));
 
     jacobi_gold_iterative(a_h_input, ny, nx, a_ref_h, iter_max);
 
-//    delete[] a_h_input;
+    //    delete[] a_h_input;
 }
 
 double single_gpu(const int nx, const int ny, const int iter_max, real *const a_ref_h,
@@ -200,7 +202,8 @@ double single_gpu(const int nx, const int ny, const int iter_max, real *const a_
 
     if (print)
         printf(
-            "Single GPU jacobi relaxation (non-persistent kernel): %d iterations on %d x %d mesh "
+            "Single GPU jacobi relaxation (non-persistent kernel): %d iterations on %d x %d "
+            "mesh "
             "with "
             "norm "
             "check every %d iterations\n",
@@ -321,7 +324,8 @@ double single_gpu(real *a_h, const int nx, const int ny, const int iter_max, rea
 
     if (print)
         printf(
-            "Single GPU jacobi relaxation (non-persistent kernel): %d iterations on %d x %d mesh "
+            "Single GPU jacobi relaxation (non-persistent kernel): %d iterations on %d x %d "
+            "mesh "
             "with "
             "norm "
             "check every %d iterations\n",
@@ -427,7 +431,8 @@ double single_gpu_persistent(const int nx, const int ny, const int iter_max, rea
 
     if (print)
         printf(
-            "Single GPU jacobi relaxation (persistent kernel): %d iterations on %d x %d mesh with "
+            "Single GPU jacobi relaxation (persistent kernel): %d iterations on %d x %d mesh "
+            "with "
             "norm "
             "check every %d iterations\n",
             iter_max, ny, nx, nccheck);
