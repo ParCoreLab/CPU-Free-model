@@ -40,11 +40,10 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
         // const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
         //                              a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
 
-        const real new_val =    ((5 * a[(iy - 1) * nx + ix]) +
-                                (12 * a[iy * nx + ix + 1]) +
-                                (15 * a[iy * nx + ix]) +
-                                (12 * a[iy * nx + ix - 1]) + 
-                                (5 * a[(iy + 1) * nx + ix])) / 118;
+        const real new_val =
+            ((5 * a[(iy - 1) * nx + ix]) + (12 * a[iy * nx + ix + 1]) + (15 * a[iy * nx + ix]) +
+             (12 * a[iy * nx + ix - 1]) + (5 * a[(iy + 1) * nx + ix])) /
+            118;
 
         a_new[iy * nx + ix] = new_val;
 
@@ -60,10 +59,10 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
 
 // I changed the kernel, switch it back later
 __global__ void jacobi_kernel_single_gpu_perks(real *__restrict__ const a_new,
-                                         const real *__restrict__ const a,
-                                         real *__restrict__ const l2_norm, const int iy_start,
-                                         const int iy_end, const int nx,
-                                         const bool calculate_norm) {
+                                               const real *__restrict__ const a,
+                                               real *__restrict__ const l2_norm, const int iy_start,
+                                               const int iy_end, const int nx,
+                                               const bool calculate_norm) {
     int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
     //    real local_l2_norm = 0.0;
@@ -72,11 +71,10 @@ __global__ void jacobi_kernel_single_gpu_perks(real *__restrict__ const a_new,
         // const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
         //                              a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
 
-        const real new_val =    ((5 * a[(iy - 1) * nx + ix]) +
-                                (12 * a[iy * nx + ix + 1]) +
-                                (15 * a[iy * nx + ix]) +
-                                (12 * a[iy * nx + ix - 1]) + 
-                                (5 * a[(iy + 1) * nx + ix])) / 118;
+        const real new_val =
+            ((5 * a[(iy - 1) * nx + ix]) + (12 * a[iy * nx + ix + 1]) + (15 * a[iy * nx + ix]) +
+             (12 * a[iy * nx + ix - 1]) + (5 * a[(iy + 1) * nx + ix])) /
+            118;
 
         a_new[iy * nx + ix] = new_val;
 
@@ -478,7 +476,7 @@ void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const 
     if (compare_to_single_gpu) {
         for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy) {
             for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix) {
-                if (std::fabs(a_ref_h[iy * nx + ix] - a_h[iy * nx + ix]) > tol) {
+                if (std::fabs(a_ref_h[iy * nx + ix] - a_h[iy * nx + ix]) > tol || true) {
                     fprintf(stderr,
                             "ERROR: a[%d * %d + %d] = %.8f does not match %.8f "
                             "(reference)\n",
@@ -495,7 +493,8 @@ void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const 
 
         if (compare_to_single_gpu) {
             printf(
-                "Non-persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
+                "Non-persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: "
+                "%8.2f, "
                 "efficiency: %8.2f \n",
                 ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
                 runtime_serial_non_persistent / (stop - start),
