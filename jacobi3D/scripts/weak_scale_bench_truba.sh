@@ -36,11 +36,11 @@ version_name_to_idx_map["Double Stream (No Compute)"]=12
 
 BIN="./jacobi -s 1"
 
-STARTING_NX=${STARTING_NX:-32}
-STARTING_NY=${STARTING_NY:-32}
-STARTING_NZ=${STARTING_NZ:-32}
+STARTING_NX=${STARTING_NX:-256}
+STARTING_NY=${STARTING_NY:-256}
+STARTING_NZ=${STARTING_NZ:-256}
 
-NUM_ITER=${NUM_ITER:-1000000}
+NUM_ITER=${NUM_ITER:-100000}
 NUM_RUNS=${NUM_RUNS:-5}
 
 while [ $# -gt 0 ]; do
@@ -75,14 +75,10 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
 
         printf "\n"
 
-        if [[ $NZ -le $NY ]]; then
-            NZ=$((2*NZ))
+        if [[ $NY -le $NZ ]]; then
+            NY=$((2*NY))
         else
-		if [[ $NY -le $NX ]]; then
-			NY=$((2*NY))
-		else
-			NX=$((2*NX))
-    		fi
+            NZ=$((2*NZ))
         fi
     done
 
