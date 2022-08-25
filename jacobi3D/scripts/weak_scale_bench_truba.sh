@@ -7,12 +7,12 @@
 #SBATCH -A proj16
 #SBATCH -p palamut-cuda
 #SBATCH --gres=gpu:8
-#SBATCH --time=3:00:00
+#SBATCH --time=6:00:00
 #SBATCH -o stencil_bench_weak_output_%j.log
 
 . ./scripts/modules_truba.sh > /dev/null
 
-MAX_NUM_GPUS=1
+MAX_NUM_GPUS=8
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
 
 declare -A version_name_to_idx_map

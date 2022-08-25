@@ -4,12 +4,12 @@
 #SBATCH --ntasks=8
 #SBATCH --gres=gpu:8
 #SBATCH --partition hgx2q
-#SBATCH --time=03:00:00
+#SBATCH --time=06:00:00
 #SBATCH --output=sbatch_output_%j.log
 
 . ./scripts/modules.sh > /dev/null
 
-MAX_NUM_GPUS=1
+MAX_NUM_GPUS=8
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
 
 declare -A version_name_to_idx_map
