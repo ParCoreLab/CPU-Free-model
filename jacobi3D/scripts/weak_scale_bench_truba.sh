@@ -7,12 +7,12 @@
 #SBATCH -A proj16
 #SBATCH -p palamut-cuda
 #SBATCH --gres=gpu:8
-#SBATCH --time=3:00:00
+#SBATCH --time=6:00:00
 #SBATCH -o stencil_bench_weak_output_%j.log
 
 . ./scripts/modules_truba.sh > /dev/null
 
-MAX_NUM_GPUS=1
+MAX_NUM_GPUS=8
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
 
 declare -A version_name_to_idx_map
@@ -36,11 +36,11 @@ version_name_to_idx_map["Double Stream (No Compute)"]=12
 
 BIN="./jacobi -s 1"
 
-STARTING_NX=${STARTING_NX:-32}
-STARTING_NY=${STARTING_NY:-32}
-STARTING_NZ=${STARTING_NZ:-32}
+STARTING_NX=${STARTING_NX:-256}
+STARTING_NY=${STARTING_NY:-256}
+STARTING_NZ=${STARTING_NZ:-256}
 
-NUM_ITER=${NUM_ITER:-1000000}
+NUM_ITER=${NUM_ITER:-100000}
 NUM_RUNS=${NUM_RUNS:-5}
 
 while [ $# -gt 0 ]; do
@@ -75,14 +75,10 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
 
         printf "\n"
 
-        if [[ $NZ -le $NY ]]; then
-            NZ=$((2*NZ))
+        if [[ $NY -le $NZ ]]; then
+            NY=$((2*NY))
         else
-		if [[ $NY -le $NX ]]; then
-			NY=$((2*NY))
-		else
-			NX=$((2*NX))
-    		fi
+            NZ=$((2*NZ))
         fi
     done
 

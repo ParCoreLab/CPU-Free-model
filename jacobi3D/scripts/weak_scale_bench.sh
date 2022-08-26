@@ -4,12 +4,12 @@
 #SBATCH --ntasks=8
 #SBATCH --gres=gpu:8
 #SBATCH --partition hgx2q
-#SBATCH --time=03:00:00
+#SBATCH --time=06:00:00
 #SBATCH --output=sbatch_output_%j.log
 
 . ./scripts/modules.sh > /dev/null
 
-MAX_NUM_GPUS=1
+MAX_NUM_GPUS=8
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
 
 declare -A version_name_to_idx_map
@@ -37,7 +37,7 @@ STARTING_NX=${STARTING_NX:-256}
 STARTING_NY=${STARTING_NY:-256}
 STARTING_NZ=${STARTING_NZ:-256}
 
-NUM_ITER=${NUM_ITER:-1000000}
+NUM_ITER=${NUM_ITER:-100000}
 NUM_RUNS=${NUM_RUNS:-5}
 
 while [ $# -gt 0 ]; do
@@ -72,8 +72,7 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
 
         printf "\n"
 
-        if [[ $NX -le $NZ ]]; then
-            NX=$((2*NX))
+        if [[ $NY -le $NZ ]]; then
             NY=$((2*NY))
         else
             NZ=$((2*NZ))
