@@ -213,14 +213,14 @@ int BaselineMultiThreadedCopyOverlap::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaStreamWaitEvent(push_top_stream, reset_l2norm_done, 0));
             CUDA_RT_CALL(
                 cudaStreamWaitEvent(push_top_stream, push_bottom_done[(iter % 2)][top], 0));
-            jacobi_kernel<<<{nx / 16 + 1, ny / 16 + 1}, {16,16}, 0, push_top_stream>>>(
+            jacobi_kernel<<<{unsigned(nx) / 16 + 1, unsigned(ny) / 16 + 1}, {16,16}, 0, push_top_stream>>>(
                 a_new[dev_id], a, iz_start, (iz_start + 1), ny, nx);
             CUDA_RT_CALL(cudaGetLastError());
 
             CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream, reset_l2norm_done, 0));
             CUDA_RT_CALL(
                 cudaStreamWaitEvent(push_bottom_stream, push_top_done[(iter % 2)][bottom], 0));
-            jacobi_kernel<<<{nx / 16 + 1, ny / 16 + 1}, {16,16}, 0, push_bottom_stream>>>(
+            jacobi_kernel<<<{unsigned(nx) / 16 + 1, unsigned(ny) / 16 + 1}, {16,16}, 0, push_bottom_stream>>>(
                 a_new[dev_id], a, (iz_end[dev_id] - 1), iz_end[dev_id], ny, nx);
             CUDA_RT_CALL(cudaGetLastError());
 

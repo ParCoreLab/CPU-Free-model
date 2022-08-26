@@ -32,6 +32,7 @@ namespace MultiGPUPeerTilingNoCompute
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
+        /*
         const int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
         const int grid_dim_y = (comp_tile_size_y + blockDim.y - 1) / blockDim.y;
 
@@ -43,12 +44,6 @@ namespace MultiGPUPeerTilingNoCompute
         int base_iy = block_idx_y * blockDim.y + threadIdx.y;
         int base_ix = block_idx_x * blockDim.x + threadIdx.x;
 
-        int iter = 0;
-
-        int cur_iter_mod = 0;
-        int next_iter_mod = 1;
-        int temp_iter_mod = 0;
-
         int iz;
         int iz_below;
         int iz_above;
@@ -56,9 +51,15 @@ namespace MultiGPUPeerTilingNoCompute
         int iy_below;
         int iy_above;
         int ix;
+        */
+        int iter = 0;
 
+        int cur_iter_mod = 0;
+        int next_iter_mod = 1;
+        int temp_iter_mod = 0;
         while (iter < iter_max)
         {
+            /*
             for (iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx; iz += comp_tile_size_z * ny * nx)
             {
                 iz_below = iz + ny * nx;
@@ -82,6 +83,7 @@ namespace MultiGPUPeerTilingNoCompute
                     }
                 }
             }
+            */
             
 
             real *temp_pointer_first = a_new;
@@ -144,10 +146,11 @@ namespace MultiGPUPeerTilingNoCompute
         int cur_iter_comm_tile_flag_idx_y;
         int next_iter_comm_tile_flag_idx_x;
         int next_iter_comm_tile_flag_idx_y;
-
+        
+        //int iy_below = 0;
+        //int iy_above = 0;
         int iy = 0;
-        int iy_below = 0;
-        int iy_above = 0;
+        
         int ix = 0;
 
         while (iter < iter_max)
@@ -199,6 +202,7 @@ namespace MultiGPUPeerTilingNoCompute
                         }
 
                         cg::sync(cta);
+
 
                         if (cta.thread_rank() == 0)
                         {

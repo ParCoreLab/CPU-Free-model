@@ -13,219 +13,216 @@
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedTwoBlockCommNoCompute
-{
+namespace SSMultiThreadedTwoBlockCommNoCompute {
 
-    __global__ void __launch_bounds__(1024, 1)
-        jacobi_kernel(real *a_new, real *a,
-                      const int iz_start, const int iz_end,
-                      const int ny, const int nx,
-                      const int comp_tile_size_x, const int comp_tile_size_y, const int comp_tile_size_z,
-                      const int comm_tile_size_x, const int comm_tile_size_y,
-                      const int num_comp_tiles_x, const int num_comp_tiles_y, const int num_comp_tiles_z,
-                      const int num_comm_tiles_x, const int num_comm_tiles_y,
-                      const int iter_max,
-                      volatile real *local_halo_buffer_for_top_neighbor, volatile real *local_halo_buffer_for_bottom_neighbor,
-                      volatile real *remote_my_halo_buffer_on_top_neighbor, volatile real *remote_my_halo_buffer_on_bottom_neighbor,
-                      volatile int *local_is_top_neighbor_done_writing_to_me, volatile int *local_is_bottom_neighbor_done_writing_to_me,
-                      volatile int *remote_am_done_writing_to_top_neighbor, volatile int *remote_am_done_writing_to_bottom_neighbor)
-    {
-        cg::thread_block cta = cg::this_thread_block();
-        cg::grid_group grid = cg::this_grid();
+__global__ void __launch_bounds__(1024, 1)
+    jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
+                  const int nx, const int comp_tile_size_x, const int comp_tile_size_y,
+                  const int comp_tile_size_z, const int comm_tile_size_x,
+                  const int comm_tile_size_y, const int num_comp_tiles_x,
+                  const int num_comp_tiles_y, const int num_comp_tiles_z,
+                  const int num_comm_tiles_x, const int num_comm_tiles_y, const int iter_max,
+                  volatile real *local_halo_buffer_for_top_neighbor,
+                  volatile real *local_halo_buffer_for_bottom_neighbor,
+                  volatile real *remote_my_halo_buffer_on_top_neighbor,
+                  volatile real *remote_my_halo_buffer_on_bottom_neighbor,
+                  volatile int *local_is_top_neighbor_done_writing_to_me,
+                  volatile int *local_is_bottom_neighbor_done_writing_to_me,
+                  volatile int *remote_am_done_writing_to_top_neighbor,
+                  volatile int *remote_am_done_writing_to_bottom_neighbor) {
+    cg::thread_block cta = cg::this_thread_block();
+    cg::grid_group grid = cg::this_grid();
 
-        int iter = 0;
-        int cur_iter_mod = 0;
-        int next_iter_mod = 1;
-        const int num_flags = 2 * comm_tile_size_x * comm_tile_size_y;
-        int comm_tile_idx_y = 0;
-        int comm_tile_start_y = 0;
+    int iter = 0;
+    int cur_iter_mod = 0;
+    int next_iter_mod = 1;
+    const int num_flags = 2 * comm_tile_size_x * comm_tile_size_y;
 
-        int comm_tile_idx_x = 0;
-        int comm_tile_start_x = 0;
+    int comm_tile_idx_y;
+    int comm_tile_idx_x;
+    int cur_iter_comm_tile_flag_idx_x;
+    int cur_iter_comm_tile_flag_idx_y;
+    int next_iter_comm_tile_flag_idx_x;
+    int next_iter_comm_tile_flag_idx_y;
 
-        int cur_iter_comm_tile_flag_idx_x = 0;
-        int cur_iter_comm_tile_flag_idx_y = 0;
-        int next_iter_comm_tile_flag_idx_x = 0;
-        int next_iter_comm_tile_flag_idx_y = 0;
+    /*
+    int comm_tile_start_y;
+    int comm_tile_start_x;
 
-        const int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
-        const int grid_dim_y = (comp_tile_size_y + blockDim.y - 1) / blockDim.y;
+    const int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
+    const int grid_dim_y = (comp_tile_size_y + blockDim.y - 1) / blockDim.y;
 
-        const int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
-        const int block_idx_y = (blockIdx.x % (grid_dim_x * grid_dim_y)) / grid_dim_x;
-        const int block_idx_x = blockIdx.x % grid_dim_x;
+    const int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
+    const int block_idx_y = (blockIdx.x % (grid_dim_x * grid_dim_y)) / grid_dim_x;
+    const int block_idx_x = blockIdx.x % grid_dim_x;
 
-        const int base_iz = block_idx_z * blockDim.z + threadIdx.z;
-        const int base_iy = block_idx_y * blockDim.y + threadIdx.y;
-        const int base_ix = block_idx_x * blockDim.x + threadIdx.x;
+    const int base_iz = block_idx_z * blockDim.z + threadIdx.z;
+    const int base_iy = block_idx_y * blockDim.y + threadIdx.y;
+    const int base_ix = block_idx_x * blockDim.x + threadIdx.x;
 
-        int iz = 0;
-        int iz_below = 0;
-        int iz_above = 0;
-        int iy = 0;
-        int iy_below = 0;
-        int iy_above = 0;
-        int ix = 0;
 
-        while (iter < iter_max)
-        {
-            if (blockIdx.x == gridDim.x - 1)
-            {
-                for (comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++)
-                {
-                    comm_tile_start_y = (comm_tile_idx_y == 0) ? 1 : comm_tile_idx_y * comm_tile_size_y;
+    int iz_below;
+    int iz_above;
+    int iy_below;
+    int iy_above;
+   
+    int iz; 
+    
+    int iy;
+    int ix;
+    */
+    while (iter < iter_max) {
+        if (blockIdx.x == gridDim.x - 1) {
+            for (comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++) {
+                //comm_tile_start_y = (comm_tile_idx_y == 0) ? 1 : comm_tile_idx_y * comm_tile_size_y;
 
-                    iy = threadIdx.z * blockDim.y + threadIdx.y + comm_tile_start_y;
+                //iy = threadIdx.z * blockDim.y + threadIdx.y + comm_tile_start_y;
 
-                    for (comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++)
-                    {
-                        comm_tile_start_x = (comm_tile_idx_x == 0) ? 1 : comm_tile_idx_x * comm_tile_size_x;
+                for (comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++) {
+                    //comm_tile_start_x = (comm_tile_idx_x == 0) ? 1 : comm_tile_idx_x * comm_tile_size_x;
 
-                        ix = threadIdx.x + comm_tile_start_x;
+                    //ix = threadIdx.x + comm_tile_start_x;
 
-                        if (cta.thread_rank() == 0)
-                        {
-                            cur_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
-                            cur_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
+                    if (cta.thread_rank() == 0) {
+                        cur_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
+                        cur_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
 
-                            while (local_is_top_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
-                                                                            cur_iter_comm_tile_flag_idx_x +
-                                                                            cur_iter_mod * num_flags] != iter)
-                            {
-                            }
+                        while (local_is_top_neighbor_done_writing_to_me
+                                   [cur_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
+                                    cur_iter_comm_tile_flag_idx_x + cur_iter_mod * num_flags] !=
+                               iter) {
                         }
+                    }
 
-                        cg::sync(cta);
+                    cg::sync(cta);
 
-                        if (iy < ny - 1 && ix < nx - 1)
-                        {
-                            // const real first_row_val =
-                            //     (a[iz_start * ny * nx + iy * nx + ix + 1] +
-                            //      a[iz_start * ny * nx + iy * nx + ix - 1] +
-                            //      a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                            //      a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                            //      a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                            //      remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx + iy * nx + ix]) /
-                            //     real(6.0);
+                    /* 
+                    if (iy < ny - 1 && ix < nx - 1) {
+                        const real first_row_val =
+                            (a[iz_start * ny * nx + iy * nx + ix + 1] +
+                             a[iz_start * ny * nx + iy * nx + ix - 1] +
+                             a[iz_start * ny * nx + (iy + 1) * nx + ix] +
+                             a[iz_start * ny * nx + (iy - 1) * nx + ix] +
+                             a[(iz_start + 1) * ny * nx + iy * nx + ix] +
+                             remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx + iy *
+                             nx + ix]) /
+                            real(6.0);
 
-                            // a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
-                            // local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy * nx + ix] = first_row_val;
-                        }
+                        a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
+                        local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy * nx +
+                        ix] = first_row_val;
+                    }
 
-                        cg::sync(cta);
+                    cg::sync(cta);
+                    */
 
-                        if (cta.thread_rank() == 0)
-                        {
-                            next_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
-                            next_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
+                    if (cta.thread_rank() == 0) {
+                        next_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
+                        next_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
 
-                            remote_am_done_writing_to_top_neighbor[next_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
-                                                                   next_iter_comm_tile_flag_idx_x +
-                                                                   next_iter_mod * num_flags] = iter + 1;
-                        }
+                        remote_am_done_writing_to_top_neighbor[next_iter_comm_tile_flag_idx_y *
+                                                                   num_comm_tiles_x +
+                                                               next_iter_comm_tile_flag_idx_x +
+                                                               next_iter_mod * num_flags] =
+                            iter + 1;
                     }
                 }
             }
-            else if (blockIdx.x == gridDim.x - 2)
-            {
+        } else if (blockIdx.x == gridDim.x - 2) {
+            for (comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++) {
+                //comm_tile_start_y = (comm_tile_idx_y == 0) ? 1 : comm_tile_idx_y * comm_tile_size_y;
+                //iy = threadIdx.z * blockDim.y + threadIdx.y + comm_tile_start_y;
 
-                for (comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++)
-                {
-                    comm_tile_start_y = (comm_tile_idx_y == 0) ? 1 : comm_tile_idx_y * comm_tile_size_y;
-                    iy = threadIdx.z * blockDim.y + threadIdx.y + comm_tile_start_y;
+                for (comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++) {
+                    //comm_tile_start_x =(comm_tile_idx_x == 0) ? 1 : comm_tile_idx_x * comm_tile_size_x;
+                    //ix = threadIdx.x + comm_tile_start_x;
 
-                    for (comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++)
-                    {
-                        comm_tile_start_x = (comm_tile_idx_x == 0) ? 1 : comm_tile_idx_x * comm_tile_size_x;
-                        ix = threadIdx.x + comm_tile_start_x;
-
-                        if (cta.thread_rank() == 0)
-                        {
-                            cur_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
-                            cur_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
-                            while (
-                                local_is_bottom_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
-                                                                            cur_iter_comm_tile_flag_idx_x +
-                                                                            cur_iter_mod * num_flags] != iter)
-                            {
-                            }
+                    if (cta.thread_rank() == 0) {
+                        cur_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
+                        cur_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
+                        while (local_is_bottom_neighbor_done_writing_to_me
+                                   [cur_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
+                                    cur_iter_comm_tile_flag_idx_x + cur_iter_mod * num_flags] !=
+                               iter) {
                         }
+                    }
 
-                        cg::sync(cta);
+                    cg::sync(cta);
 
-                        if (iy < ny - 1 && ix < nx - 1)
-                        {
+                    /*
+                    if (iy < ny - 1 && ix < nx - 1) {
+                        const real last_row_val =
+                            (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
+                             a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
+                             a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
+                             a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
+                             remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx + iy
+                             * nx + ix] + a[(iz_end - 2) * ny * nx + iy * nx + ix]) /
+                            real(6.0);
 
-                            // const real last_row_val =
-                            //     (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                            //      a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                            //      a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                            //      a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                            //      remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx + iy * nx + ix] +
-                            //      a[(iz_end - 2) * ny * nx + iy * nx + ix]) /
-                            //     real(6.0);
+                        a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
+                        local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy * nx +
+                        ix] = last_row_val;
+                    }
 
-                            // a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
-                            // local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy * nx + ix] = last_row_val;
-                        }
+                    cg::sync(cta);
+                    */
+                   
+                    if (cta.thread_rank() == 0) {
+                        next_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
+                        next_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
 
-                        cg::sync(cta);
-
-                        if (cta.thread_rank() == 0)
-                        {
-                            next_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
-                            next_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
-
-                            remote_am_done_writing_to_bottom_neighbor[next_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
-                                                                      next_iter_comm_tile_flag_idx_x +
-                                                                      next_iter_mod * num_flags] = iter + 1;
-                        }
+                        remote_am_done_writing_to_bottom_neighbor[next_iter_comm_tile_flag_idx_y *
+                                                                      num_comm_tiles_x +
+                                                                  next_iter_comm_tile_flag_idx_x +
+                                                                  next_iter_mod * num_flags] =
+                            iter + 1;
                     }
                 }
             }
-            else
+        } else {
+            /*
+            for (iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx; iz +=
+            comp_tile_size_z * ny * nx)
             {
-
-                for (iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx; iz += comp_tile_size_z * ny * nx)
+                iz_below = iz + ny * nx;
+                iz_above = iz - ny * nx;
+                for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comp_tile_size_y * nx)
                 {
-                    iz_below = iz + ny * nx;
-                    iz_above = iz - ny * nx;
-                    for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comp_tile_size_y * nx)
+                    iy_below = iy + nx;
+                    iy_above = iy - nx;
+                    for (ix = base_ix + 1; ix < nx - 1; ix += comp_tile_size_x)
                     {
-                        iy_below = iy + nx;
-                        iy_above = iy - nx;
-                        for (ix = base_ix + 1; ix < nx - 1; ix += comp_tile_size_x)
-                        {
-                            // big bottleneck here
-                            // const real new_val = (a[iz + iy + ix + 1] +
-                            //                       a[iz + iy + ix - 1] +
-                            //                       a[iz + iy_below + ix] +
-                            //                       a[iz + iy_above + ix] +
-                            //                       a[iz_below + iy + ix] +
-                            //                       a[iz_above + iy + ix]) /
-                            //                      real(6.0);
+                        // big bottleneck here
+                        // const real new_val = (a[iz + iy + ix + 1] +
+                        //                       a[iz + iy + ix - 1] +
+                        //                       a[iz + iy_below + ix] +
+                        //                       a[iz + iy_above + ix] +
+                        //                       a[iz_below + iy + ix] +
+                        //                       a[iz_above + iy + ix]) /
+                        //                      real(6.0);
 
-                            // a_new[iz + iy + ix] = new_val;
-                        }
+                        // a_new[iz + iy + ix] = new_val;
                     }
                 }
             }
-
-            real *temp_pointer = a_new;
-            a_new = a;
-            a = temp_pointer;
-
-            iter++;
-
-            next_iter_mod = cur_iter_mod;
-            cur_iter_mod = 1 - cur_iter_mod;
-
-            cg::sync(grid);
+            */
         }
-    } // namespace SSMultiThreadedTwoBlockCommNoCompute
-}
-int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[])
-{
+
+        real *temp_pointer = a_new;
+        a_new = a;
+        a = temp_pointer;
+
+        iter++;
+
+        next_iter_mod = cur_iter_mod;
+        cur_iter_mod = 1 - cur_iter_mod;
+
+        cg::sync(grid);
+    }
+}  // namespace SSMultiThreadedTwoBlockCommNoCompute
+}  // namespace SSMultiThreadedTwoBlockCommNoCompute
+int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
@@ -257,8 +254,7 @@ int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(nullptr));
 
-        if (compare_to_single_gpu && 0 == dev_id)
-        {
+        if (compare_to_single_gpu && 0 == dev_id) {
             CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));
 
@@ -313,32 +309,22 @@ int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[])
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         const int bottom = (dev_id + 1) % num_devices;
 
-        if (top != dev_id)
-        {
+        if (top != dev_id) {
             int canAccessPeer = 0;
             CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
-            if (canAccessPeer)
-            {
+            if (canAccessPeer) {
                 CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
+            } else {
+                std::cerr << "P2P access required from " << dev_id << " to " << top << std::endl;
             }
-            else
-            {
-                std::cerr << "P2P access required from " << dev_id << " to " << top
-                          << std::endl;
-            }
-            if (top != bottom)
-            {
+            if (top != bottom) {
                 canAccessPeer = 0;
-                CUDA_RT_CALL(
-                    cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, bottom));
-                if (canAccessPeer)
-                {
+                CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, bottom));
+                if (canAccessPeer) {
                     CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom, 0));
-                }
-                else
-                {
-                    std::cerr << "P2P access required from " << dev_id << " to "
-                              << bottom << std::endl;
+                } else {
+                    std::cerr << "P2P access required from " << dev_id << " to " << bottom
+                              << std::endl;
                 }
             }
         }
@@ -352,28 +338,33 @@ int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
 
         CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
-        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
+        CUDA_RT_CALL(
+            cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, 2 * nx * ny * sizeof(real)));
-        CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx * ny * sizeof(real)));
+        CUDA_RT_CALL(
+            cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, 2 * nx * ny * sizeof(real)));
+        CUDA_RT_CALL(
+            cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx * ny * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, total_num_flags * sizeof(int)));
-        CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, total_num_flags * sizeof(int)));
+        CUDA_RT_CALL(
+            cudaMalloc(is_top_done_computing_flags + dev_id, total_num_flags * sizeof(int)));
+        CUDA_RT_CALL(
+            cudaMalloc(is_bottom_done_computing_flags + dev_id, total_num_flags * sizeof(int)));
 
-        CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, total_num_flags * sizeof(int)));
-        CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0, total_num_flags * sizeof(int)));
+        CUDA_RT_CALL(
+            cudaMemset(is_top_done_computing_flags[dev_id], 0, total_num_flags * sizeof(int)));
+        CUDA_RT_CALL(
+            cudaMemset(is_bottom_done_computing_flags[dev_id], 0, total_num_flags * sizeof(int)));
 
         // Calculate local domain boundaries
-        int iz_start_global; // My start index in the global array
-        if (dev_id < num_ranks_low)
-        {
+        int iz_start_global;  // My start index in the global array
+        if (dev_id < num_ranks_low) {
             iz_start_global = dev_id * chunk_size_low + 1;
+        } else {
+            iz_start_global =
+                num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
         }
-        else
-        {
-            iz_start_global = num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
-        }
-        int iz_end_global = iz_start_global + chunk_size - 1; // My last index in the global array
+        int iz_end_global = iz_start_global + chunk_size - 1;  // My last index in the global array
 
         int iz_start = 1;
         iz_end[dev_id] = (iz_end_global - iz_start_global + 1) + iz_start;
@@ -415,7 +406,9 @@ int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[])
 #pragma omp barrier
         double start = omp_get_wtime();
 
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)SSMultiThreadedTwoBlockCommNoCompute::jacobi_kernel, dim_grid, dim_block, kernelArgs, 0, nullptr));
+        CUDA_RT_CALL(
+            cudaLaunchCooperativeKernel((void *)SSMultiThreadedTwoBlockCommNoCompute::jacobi_kernel,
+                                        dim_grid, dim_block, kernelArgs, 0, nullptr));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
         CUDA_RT_CALL(cudaGetLastError());
@@ -423,17 +416,14 @@ int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[])
         // Need to swap pointers on CPU if iteration count is odd
         // Technically, we don't know the iteration number (since we'll be doing
         // l2-norm) Could write iter to CPU when kernel is done
-        if (iter_max % 2 == 1)
-        {
+        if (iter_max % 2 == 1) {
             std::swap(a_new[dev_id], a[dev_id]);
         }
 
 #pragma omp barrier
         double stop = omp_get_wtime();
 
-        if (compare_to_single_gpu)
-        {
-
+        if (compare_to_single_gpu) {
             CUDA_RT_CALL(cudaMemcpy(
                 a_h + iz_start_global * ny * nx, a[dev_id] + ny * nx,
                 std::min((nz - iz_start_global) * ny * nx, chunk_size * nx * ny) * sizeof(real),
@@ -444,16 +434,14 @@ int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[])
 
 #pragma omp master
         {
-            report_results(nz, ny, nx, a_ref_h, a_h, num_devices,
-                           runtime_serial_non_persistent, start, stop,
-                           compare_to_single_gpu);
+            report_results(nz, ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
+                           start, stop, compare_to_single_gpu);
         }
 
         CUDA_RT_CALL(cudaFree(a_new[dev_id]));
         CUDA_RT_CALL(cudaFree(a[dev_id]));
 
-        if (compare_to_single_gpu && 0 == dev_id)
-        {
+        if (compare_to_single_gpu && 0 == dev_id) {
             CUDA_RT_CALL(cudaFreeHost(a_h));
             CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }
