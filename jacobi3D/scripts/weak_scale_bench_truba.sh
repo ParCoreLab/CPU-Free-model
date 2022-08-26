@@ -75,11 +75,8 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
 
         printf "\n"
 
-        if [[ $NY -le $NZ ]]; then
-            NY=$((2*NY))
-        else
-            NZ=$((2*NZ))
-        fi
+        NZ=$((2*NZ))
+       
     done
 
     echo "-------------------------------------"
