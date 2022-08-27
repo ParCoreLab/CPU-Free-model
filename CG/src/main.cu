@@ -1,5 +1,6 @@
 #include <iostream>
 
+#include "../include/baseline/non-persistent-unified-memory-pipelined.cuh"
 #include "../include/baseline/persistent-unified-memory-gather-vector.cuh"
 #include "../include/baseline/persistent-unified-memory-stale-device-vector.cuh"
 #include "../include/baseline/persistent-unified-memory.cuh"
@@ -18,6 +19,8 @@ int main(int argc, char *argv[]) {
         make_pair(
             "Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale)",
             BaselinePersistentUnifiedMemoryStaleDeviceVector::init),
+        make_pair("Baseline Pipelined Non Persistent Kernel with Unified Memory ",
+                  BaselineNonPersistentUnifiedMemoryPipelined::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
