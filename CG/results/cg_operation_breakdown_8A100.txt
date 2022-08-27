@@ -1,0 +1,107 @@
+Results per matrix; rows are versions
+
+Results for matrix (generated) tridiagonal =>
+,Dot product,SpMV,Saxpy,Full
+Baseline Persistent Kernel with Unified Memory,8.2353,4.2045,6.5668,19.6382
+Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV),8.2498,204.3959,6.5646,236.8667
+Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale),8.2034,16.4205,6.5597,32.0618
+
+
+Results for matrix ecology2 =>
+,Dot product,SpMV,Saxpy,Full
+Baseline Persistent Kernel with Unified Memory,6.9373,0.1199,3.5224,11.1265
+Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV),6.8378,7.8454,3.5179,19.1241
+Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale),6.8319,0.1963,3.5142,12.6072
+
+
+Results for matrix hood =>
+,Dot product,SpMV,Saxpy,Full
+Baseline Persistent Kernel with Unified Memory,6.884,2.4929,3.4615,16.9434
+Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV),6.8317,6.0871,3.4241,21.0909
+Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale),6.8717,4.3186,3.4459,17.9794
+
+
+Results for matrix bmwcra_1 =>
+,Dot product,SpMV,Saxpy,Full
+Baseline Persistent Kernel with Unified Memory,6.9696,3.4733,3.4782,20.5044
+Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV),6.9175,7.5415,3.4907,23.6084
+Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale),6.9334,3.6532,3.5135,21.3207
+
+
+Results for matrix consph =>
+,Dot product,SpMV,Saxpy,Full
+Baseline Persistent Kernel with Unified Memory,6.8532,2.8468,3.4944,15.134
+Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV),6.8492,4.2691,3.4914,16.7215
+Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale),6.8422,3.237,3.4577,15.8058
+
+
+Results for matrix thermomech_dM =>
+,Dot product,SpMV,Saxpy,Full
+Baseline Persistent Kernel with Unified Memory,6.8522,0.7511,3.4705,15.3046
+Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV),6.8318,6.3024,3.4768,19.8838
+Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale),6.8596,3.4426,3.5912,17.4111
+
+
+Results for matrix tmt_sym =>
+,Dot product,SpMV,Saxpy,Full
+Baseline Persistent Kernel with Unified Memory,6.8019,0.1456,3.4094,11.0385
+Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV),6.7944,8.5592,3.3905,22.9295
+Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale),6.8839,0.1564,3.4687,12.2841
+
+
+Results for matrix crankseg_1 =>
+,Dot product,SpMV,Saxpy,Full
+Baseline Persistent Kernel with Unified Memory,6.871,9.2974,3.4765,33.6503
+Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV),6.8605,32.5161,3.4833,53.3858
+Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale),6.7646,13.7701,3.4691,47.3453
+
+
+Results for matrix crankseg_2 =>
+,Dot product,SpMV,Saxpy,Full
+Baseline Persistent Kernel with Unified Memory,6.839,17.0104,3.4495,46.1603
+Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV),6.8655,45.6666,3.4471,71.2362
+Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale),6.8436,34.6147,3.4578,65.5217
+
+
+
+Results per version; rows are matrices
+
+Results for version Baseline Persistent Kernel with Unified Memory =>
+,Dot product,SpMV,Saxpy,Full
+(generated) tridiagonal,8.2353,4.2045,6.5668,19.6382
+ecology2,6.9373,0.1199,3.5224,11.1265
+hood,6.884,2.4929,3.4615,16.9434
+bmwcra_1,6.9696,3.4733,3.4782,20.5044
+consph,6.8532,2.8468,3.4944,15.134
+thermomech_dM,6.8522,0.7511,3.4705,15.3046
+tmt_sym,6.8019,0.1456,3.4094,11.0385
+crankseg_1,6.871,9.2974,3.4765,33.6503
+crankseg_2,6.839,17.0104,3.4495,46.1603
+
+
+Results for version Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV) =>
+,Dot product,SpMV,Saxpy,Full
+(generated) tridiagonal,8.2498,204.3959,6.5646,236.8667
+ecology2,6.8378,7.8454,3.5179,19.1241
+hood,6.8317,6.0871,3.4241,21.0909
+bmwcra_1,6.9175,7.5415,3.4907,23.6084
+consph,6.8492,4.2691,3.4914,16.7215
+thermomech_dM,6.8318,6.3024,3.4768,19.8838
+tmt_sym,6.7944,8.5592,3.3905,22.9295
+crankseg_1,6.8605,32.5161,3.4833,53.3858
+crankseg_2,6.8655,45.6666,3.4471,71.2362
+
+
+Results for version Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale) =>
+,Dot product,SpMV,Saxpy,Full
+(generated) tridiagonal,8.2034,16.4205,6.5597,32.0618
+ecology2,6.8319,0.1963,3.5142,12.6072
+hood,6.8717,4.3186,3.4459,17.9794
+bmwcra_1,6.9334,3.6532,3.5135,21.3207
+consph,6.8422,3.237,3.4577,15.8058
+thermomech_dM,6.8596,3.4426,3.5912,17.4111
+tmt_sym,6.8839,0.1564,3.4687,12.2841
+crankseg_1,6.7646,13.7701,3.4691,47.3453
+crankseg_2,6.8436,34.6147,3.4578,65.5217
+
+
