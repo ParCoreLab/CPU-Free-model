@@ -540,9 +540,12 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         executeSM += sm_cache_size;
 
 #undef halo
-        void *ExecuteKernelArgs[] = {(void **)&a[dev_id], (void **)&ny,         (void *)&nx,
-                                     (void *)&__var_2__,  (void *)&L2_cache3,   (void *)&L2_cache4,
-                                     (void *)&iter_max,   (void *)&max_sm_flder};
+
+        void *ExecuteKernelArgs[] = {
+            (void **)&a[dev_id], (void **)&ny,          (void *)&nx,
+            (void *)&__var_2__,  (void *)&L2_cache3,    (void *)&L2_cache4,
+            (void *)&iter_max,   (void *)&max_sm_flder, (void *)&iteration_done_flags[0]};
+
 
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)execute_kernel, executeGridDim,
                                                  executeBlockDim, ExecuteKernelArgs, executeSM,
@@ -563,6 +566,8 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
 #pragma omp barrier
         double stop = omp_get_wtime();
+
+        std::cout << stop - start << std::endl;
 
         if (compare_to_single_gpu) {
             //            CUDA_RT_CALL(

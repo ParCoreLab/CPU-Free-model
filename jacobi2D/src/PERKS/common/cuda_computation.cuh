@@ -300,10 +300,10 @@ __global__ void  kernel_general_wrapper
   REAL * __restrict__ __var_4__, 
   REAL * __restrict__ l2_cache_o,REAL * __restrict__ l2_cache_i,
   int iteration,
-  int max_sm_flder);
+  int max_sm_flder, volatile int *iteration_done);
 
 #define PERKS_DECLARE_INITIONIZATION_GENERAL_WRAPPER(_type,tile,halo,ramount,usesm) \
-    __global__ void kernel_general_wrapper<_type,tile,halo,ramount,usesm>(_type*__restrict__,int,int,_type*__restrict__,_type*__restrict__,_type*__restrict__,int, int);
+    __global__ void kernel_general_wrapper<_type,tile,halo,ramount,usesm>(_type*__restrict__,int,int,_type*__restrict__,_type*__restrict__,_type*__restrict__,int, int, volatile int*);
 
 
 

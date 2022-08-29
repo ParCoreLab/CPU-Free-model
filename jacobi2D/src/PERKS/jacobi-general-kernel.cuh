@@ -19,6 +19,50 @@
 
 namespace cg = cooperative_groups;
 
+template <class REAL, int LOCAL_TILE_Y, int halo, int reg_folder_y, bool UseSMCache>
+__device__ __forceinline__ void inner_general(REAL* __restrict__ input, int width_y, int width_x,
+                                              REAL* __restrict__ __var_4__,
+                                              REAL* __restrict__ l2_cache_o,
+                                              REAL* __restrict__ l2_cache_i, int iteration,
+                                              int max_sm_flder, volatile int* iteration_done) {
+    if (!UseSMCache) max_sm_flder = 0;
+#define UseRegCache (reg_folder_y != 0)
+#ifdef BOX
+#define SM2REG sm2regs
+#define REG2REG regs2regs
+#else
+#define SM2REG sm2reg
+#define REG2REG reg2reg
+#endif
+    stencilParaT;
+    // basic pointer
+    cg::grid_group gg = cg::this_grid();
+    // extern __shared__ REAL sm[];
+    extern __shared__ char sm[];
+
+    const int total_sm_tile_y =
+        LOCAL_TILE_Y * max_sm_flder;  // SM_FOLER_Y;//consider how to automatically compute it later
+    const int total_reg_tile_y = LOCAL_TILE_Y * reg_folder_y;
+    const int total_tile_y = total_sm_tile_y + total_reg_tile_y;
+    const int total_reg_tile_y_with_halo = total_reg_tile_y + 2 * halo;
+
+    const int sizeof_rspace = total_reg_tile_y_with_halo;
+    const int sizeof_rbuffer = LOCAL_TILE_Y + 2 * halo;
+
+    const int tile_x = blockDim.x;
+    const int tile_x_with_halo = tile_x + 2 * halo;
+    const int tile_y_with_halo = LOCAL_TILE_Y + 2 * halo;
+    const int basic_sm_space = tile_x_with_halo * tile_y_with_halo;
+
+    const int boundary_line_size = total_tile_y + isBOX;
+    const int e_step = 0;
+    const int w_step = boundary_line_size * halo;
+
+    REAL* sm_rbuffer = (REAL*)sm + 1;
+
+    REAL* boundary_buffer = sm_rbuffer + basic_sm_space;
+    REAL* sm_space =
+        boundary_buffer + (2 * halo * boundary_line_size);  // BOX need add additional stuffs.
 
 template<class REAL, int LOCAL_TILE_Y, int halo, int reg_folder_y, bool UseSMCache>
 __device__ __forceinline__ void inner_general
