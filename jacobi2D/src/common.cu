@@ -137,24 +137,9 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
 
 double single_cpu(real *a_h_input, const int nx, const int ny, const int iter_max,
                   real *const a_ref_h, const int nccheck, const bool print) {
-    //    real *a;
-    //    real *a_new;
-
-    //    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * sizeof(real)));
-    //    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * sizeof(real)));
-    //
-    //    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * sizeof(real)));
-    //    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * sizeof(real)));
-    //
-    // Set diriclet boundary conditions on left and right boarder
-    //    initialize_boundaries<<<ny / 128 + 1, 128>>>(a, a_new, PI, 0, nx, ny, ny);
-
-    //    real *a_h_input = new real[nx * ny];
-    //    CUDA_RT_CALL(cudaMemcpy(a_h_input, a, nx * ny * sizeof(real), cudaMemcpyDeviceToHost));
-
+    double start = omp_get_wtime();
     jacobi_gold_iterative(a_h_input, ny, nx, a_ref_h, iter_max);
-
-    //    delete[] a_h_input;
+    return omp_get_wtime() - start;
 }
 
 double single_gpu(const int nx, const int ny, const int iter_max, real *const a_ref_h,
