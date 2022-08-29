@@ -57,8 +57,13 @@ __global__ void __launch_bounds__(1024, 1)
     int comm_tile_end;
 
     while (iter < iter_max) {
+
+//        printf("Outer: %d/%d\n", iteration_done[1], iter);
+
         while (iteration_done[1] != iter) {
         }
+
+//        printf("Outer ok\n");
 
         if (blockIdx.x == gridDim.x - 1) {
             for (comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++) {
@@ -73,13 +78,13 @@ __global__ void __launch_bounds__(1024, 1)
                 next_iter_comm_tile_flag_idx =
                     (num_comm_tiles + comm_tile_idx) + next_iter_mod * num_flags;
 
-                if (cta.thread_rank() == 0) {
-                    while (local_is_top_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
-                           iter) {
-                    }
-                }
-
-                cg::sync(cta);
+//                if (cta.thread_rank() == 0) {
+//                    while (local_is_top_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
+//                           iter) {
+//                    }
+//                }
+//
+//                cg::sync(cta);
 
                 if (col < comm_tile_end) {
                     const real first_row_val =
@@ -91,11 +96,11 @@ __global__ void __launch_bounds__(1024, 1)
                     local_halo_buffer_for_top_neighbor[nx * next_iter_mod + col] = first_row_val;
                 }
 
-                cg::sync(cta);
-
-                if (cta.thread_rank() == 0) {
-                    remote_am_done_writing_to_top_neighbor[next_iter_comm_tile_flag_idx] = iter + 1;
-                }
+//                cg::sync(cta);
+//
+//                if (cta.thread_rank() == 0) {
+//                    remote_am_done_writing_to_top_neighbor[next_iter_comm_tile_flag_idx] = iter + 1;
+//                }
             }
         } else if (blockIdx.x == gridDim.x - 2) {
             for (comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++) {
@@ -110,14 +115,14 @@ __global__ void __launch_bounds__(1024, 1)
                     (num_comm_tiles + comm_tile_idx) + cur_iter_mod * num_flags;
                 next_iter_comm_tile_flag_idx = comm_tile_idx + next_iter_mod * num_flags;
 
-                if (cta.thread_rank() == 0) {
-                    while (
-                        local_is_bottom_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
-                        iter) {
-                    }
-                }
-
-                cg::sync(cta);
+//                if (cta.thread_rank() == 0) {
+//                    while (
+//                        local_is_bottom_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
+//                        iter) {
+//                    }
+//                }
+//
+//                cg::sync(cta);
 
                 if (col < comm_tile_end) {
                     const real last_row_val =
@@ -129,12 +134,12 @@ __global__ void __launch_bounds__(1024, 1)
                     local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + col] = last_row_val;
                 }
 
-                cg::sync(cta);
-
-                if (cta.thread_rank() == 0) {
-                    remote_am_done_writing_to_bottom_neighbor[next_iter_comm_tile_flag_idx] =
-                        iter + 1;
-                }
+//                cg::sync(cta);
+//
+//                if (cta.thread_rank() == 0) {
+//                    remote_am_done_writing_to_bottom_neighbor[next_iter_comm_tile_flag_idx] =
+//                        iter + 1;
+//                }
             }
         }
 
@@ -204,8 +209,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
     bool async = false;
     bool useSM = true;
-    bool usewarmup = false;
-    int warmupiteration = -1;
+//    bool useSM = false;
     bool isDoubleTile = true;
 
     // Change this later
@@ -453,6 +457,9 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         int sm_count;
         cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, 0);
 
+        // Reserve 2 for the boundary kernel
+        sm_count -= 2;
+
         // initialization input and output space
         real *input;
         CUDA_RT_CALL(cudaMalloc(&input, sizeof(real) * ((ny - 0) * (nx - 0))));
@@ -505,6 +512,8 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         // int smbound=SharedMemoryUsed/executeSM;
         // printf("%d,%d,%d\n",numBlocksPerSm_current,blkpsm,smbound);
         if (blkpsm != 0) {
+//            blkpsm = 1;
+
             numBlocksPerSm_current = min(numBlocksPerSm_current, blkpsm);
         }
 
@@ -541,21 +550,35 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
 #undef halo
 
+//        dim_block.x = 16;
+//        dim_block.y = 16;
+
+        printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
+        printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
+        printf("Boundary: %d %d %d\n", dim_block.x, dim_block.y, dim_block.z);
+
+//        exit(1);
+
         void *ExecuteKernelArgs[] = {
             (void **)&a[dev_id], (void **)&ny,          (void *)&nx,
             (void *)&__var_2__,  (void *)&L2_cache3,    (void *)&L2_cache4,
             (void *)&iter_max,   (void *)&max_sm_flder, (void *)&iteration_done_flags[0]};
 
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel, 1,
+                                                 executeBlockDim, kernelArgsBoundary, 0,
+                                                 boundary_sync_stream));
 
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)execute_kernel, executeGridDim,
                                                  executeBlockDim, ExecuteKernelArgs, executeSM,
                                                  inner_domain_stream));
 
-        //        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void
-        //        *)MultiStreamPERKS::boundary_sync_kernel, 2,
-        //                                                 dim_block, kernelArgsBoundary, 0,
-        //                                                 boundary_sync_stream));
+
         CUDA_RT_CALL(cudaDeviceSynchronize());
+//        CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
+
+//        std::cout << "ok" << std::endl;
+
+//        CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
 
         // Need to swap pointers on CPU if iteration count is odd
         // Technically, we don't know the iteration number (since we'll be doing l2-norm)
