@@ -78,13 +78,13 @@ __global__ void __launch_bounds__(1024, 1)
                 next_iter_comm_tile_flag_idx =
                     (num_comm_tiles + comm_tile_idx) + next_iter_mod * num_flags;
 
-//                if (cta.thread_rank() == 0) {
-//                    while (local_is_top_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
-//                           iter) {
-//                    }
-//                }
-//
-//                cg::sync(cta);
+                if (cta.thread_rank() == 0) {
+                    while (local_is_top_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
+                           iter) {
+                    }
+                }
+
+                cg::sync(cta);
 
                 if (col < comm_tile_end) {
                     const real first_row_val =
@@ -96,11 +96,11 @@ __global__ void __launch_bounds__(1024, 1)
                     local_halo_buffer_for_top_neighbor[nx * next_iter_mod + col] = first_row_val;
                 }
 
-//                cg::sync(cta);
-//
-//                if (cta.thread_rank() == 0) {
-//                    remote_am_done_writing_to_top_neighbor[next_iter_comm_tile_flag_idx] = iter + 1;
-//                }
+                cg::sync(cta);
+
+                if (cta.thread_rank() == 0) {
+                    remote_am_done_writing_to_top_neighbor[next_iter_comm_tile_flag_idx] = iter + 1;
+                }
             }
         } else if (blockIdx.x == gridDim.x - 2) {
             for (comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++) {
@@ -115,14 +115,14 @@ __global__ void __launch_bounds__(1024, 1)
                     (num_comm_tiles + comm_tile_idx) + cur_iter_mod * num_flags;
                 next_iter_comm_tile_flag_idx = comm_tile_idx + next_iter_mod * num_flags;
 
-//                if (cta.thread_rank() == 0) {
-//                    while (
-//                        local_is_bottom_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
-//                        iter) {
-//                    }
-//                }
-//
-//                cg::sync(cta);
+                if (cta.thread_rank() == 0) {
+                    while (
+                        local_is_bottom_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
+                        iter) {
+                    }
+                }
+
+                cg::sync(cta);
 
                 if (col < comm_tile_end) {
                     const real last_row_val =
@@ -134,12 +134,12 @@ __global__ void __launch_bounds__(1024, 1)
                     local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + col] = last_row_val;
                 }
 
-//                cg::sync(cta);
-//
-//                if (cta.thread_rank() == 0) {
-//                    remote_am_done_writing_to_bottom_neighbor[next_iter_comm_tile_flag_idx] =
-//                        iter + 1;
-//                }
+                cg::sync(cta);
+
+                if (cta.thread_rank() == 0) {
+                    remote_am_done_writing_to_bottom_neighbor[next_iter_comm_tile_flag_idx] =
+                        iter + 1;
+                }
             }
         }
 
@@ -155,7 +155,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
-        if (threadIdx.x == 0 && threadIdx.y == 0) {
+        if (grid.thread_rank() == 0) {
             iteration_done[0] = iter;
         }
 
@@ -458,7 +458,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, 0);
 
         // Reserve 2 for the boundary kernel
-        sm_count -= 2;
+        sm_count -= 4;
 
         // initialization input and output space
         real *input;
@@ -564,7 +564,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
             (void *)&__var_2__,  (void *)&L2_cache3,    (void *)&L2_cache4,
             (void *)&iter_max,   (void *)&max_sm_flder, (void *)&iteration_done_flags[0]};
 
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel, 1,
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel, 2,
                                                  executeBlockDim, kernelArgsBoundary, 0,
                                                  boundary_sync_stream));
 
