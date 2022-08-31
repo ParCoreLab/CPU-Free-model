@@ -405,26 +405,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         dim3 dim_grid(numSms - 2, 1, 1);
         dim3 dim_block(dim_block_x, dim_block_y);
 
-        void *kernelArgsInner[] = {(void *)&a_new[dev_id],
-                                   (void *)&a[dev_id],
-                                   (void *)&iy_start,
-                                   (void *)&iy_end[dev_id],
-                                   (void *)&nx,
-                                   (void *)&comp_tile_size_x,
-                                   (void *)&comp_tile_size_y,
-                                   (void *)&num_comp_tiles_x,
-                                   (void *)&num_comp_tiles_y,
-                                   (void *)&iter_max,
-                                   (void *)&halo_buffer_for_top_neighbor[dev_id],
-                                   (void *)&halo_buffer_for_bottom_neighbor[dev_id],
-                                   (void *)&halo_buffer_for_bottom_neighbor[top],
-                                   (void *)&halo_buffer_for_top_neighbor[bottom],
-                                   (void *)&is_top_done_computing_flags[dev_id],
-                                   (void *)&is_bottom_done_computing_flags[dev_id],
-                                   (void *)&is_bottom_done_computing_flags[top],
-                                   (void *)&is_top_done_computing_flags[bottom],
-                                   (void *)&iteration_done_flags[0]};
-
         void *kernelArgsBoundary[] = {(void *)&a_new[dev_id],
                                       (void *)&a[dev_id],
                                       (void *)&iy_start,
@@ -550,19 +530,28 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
 #undef halo
 
-//        dim_block.x = 16;
-//        dim_block.y = 16;
+        //        dim_block.x = 16;
+        //        dim_block.y = 16;
 
         printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
         printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
         printf("Boundary: %d %d %d\n", dim_block.x, dim_block.y, dim_block.z);
 
-//        exit(1);
+        //        exit(1);
 
-        void *ExecuteKernelArgs[] = {
-            (void **)&a[dev_id], (void **)&ny,          (void *)&nx,
-            (void *)&__var_2__,  (void *)&L2_cache3,    (void *)&L2_cache4,
-            (void *)&iter_max,   (void *)&max_sm_flder, (void *)&iteration_done_flags[0]};
+        real *a_inner_start = a[dev_id] + ny * iy_start;
+
+        void *ExecuteKernelArgs[] = {(void *)&a[dev_id],
+                                     (void *)&chunk_size,
+                                     (void *)&nx,
+                                     (void *)&iy_start,
+                                     (void *)&iy_end[dev_id],
+                                     (void *)&a_new[dev_id],
+                                     (void *)&L2_cache3,
+                                     (void *)&L2_cache4,
+                                     (void *)&iter_max,
+                                     (void *)&max_sm_flder,
+                                     (void *)&iteration_done_flags[0]};
 
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel, 2,
                                                  executeBlockDim, kernelArgsBoundary, 0,
