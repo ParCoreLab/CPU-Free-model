@@ -43,7 +43,7 @@
 
 #include <omp.h>
 
-#include "../../include/baseline/non-persistent-unified-memory-pipelined.cuh"
+#include "../../include/baseline/non-persistent-unified-memory-non-pipelined.cuh"
 #include "../../include/common.h"
 
 #include <cooperative_groups.h>
@@ -51,7 +51,7 @@
 
 namespace cg = cooperative_groups;
 
-namespace BaselineNonPersistentUnifiedMemoryPipelined {
+namespace BaselineNonPersistentUnifiedMemoryNonPipelined {
 
 #define ENABLE_CPU_DEBUG_CODE 0
 #define THREADS_PER_BLOCK 512
@@ -220,27 +220,32 @@ __device__ void store_arrived(unsigned char *arrived, unsigned char val) {
 #endif
 }
 
-__global__ void syncPeers(MultiDeviceData &data) {
+__global__ void syncPeers(const int device_rank, const int num_devices,
+                          unsigned char *hostMemoryArrivedList) {
     int local_grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
     // One thread from each grid participates in the sync.
     if (local_grid_rank == 0) {
-        if (data.deviceRank == 0) {
+        if (device_rank == 0) {
             // Leader grid waits for others to join and then releases them.
             // Other GPUs can arrive in any order, so the leader have to wait for
             // all others.
-            for (int i = 0; i < data.numDevices - 1; i++) {
-                while (load_arrived(&data.hostMemoryArrivedList[i]) == 0)
+
+            for (int i = 0; i < num_devices - 1; i++) {
+                while (load_arrived(&hostMemoryArrivedList[i]) == 0)
                     ;
             }
-            for (int i = 0; i < data.numDevices - 1; i++) {
-                store_arrived(&data.hostMemoryArrivedList[i], 0);
+
+            for (int i = 0; i < num_devices - 1; i++) {
+                store_arrived(&hostMemoryArrivedList[i], 0);
             }
+
             __threadfence_system();
         } else {
             // Other grids note their arrival and wait to be released.
-            store_arrived(&data.hostMemoryArrivedList[data.deviceRank - 1], 1);
-            while (load_arrived(&data.hostMemoryArrivedList[data.deviceRank - 1]) == 1)
+            store_arrived(&hostMemoryArrivedList[device_rank - 1], 1);
+
+            while (load_arrived(&hostMemoryArrivedList[device_rank - 1]) == 1)
                 ;
         }
     }
@@ -254,9 +259,9 @@ __global__ void resetLocalDotProduct(double *dot_result) {
     }
 }
 
-}  // namespace BaselineNonPersistentUnifiedMemoryPipelined
+}  // namespace BaselineNonPersistentUnifiedMemoryNonPipelined
 
-int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
+int BaselineNonPersistentUnifiedMemoryNonPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
     const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare");
@@ -378,6 +383,8 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
 
     // ASSUMPTION: All GPUs are the same and P2P callable
 
+    cudaStream_t nStreams[num_devices];
+
     int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
     int numThreads = THREADS_PER_BLOCK;
 
@@ -400,14 +407,12 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
 #endif
 
     // Structure used for cross-grid synchronization.
-    MultiDeviceData multi_device_data;
-    CUDA_RT_CALL(cudaHostAlloc(&multi_device_data.hostMemoryArrivedList,
-                               (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList),
+    unsigned char *hostMemoryArrivedList;
+
+    CUDA_RT_CALL(cudaHostAlloc((void **)&hostMemoryArrivedList,
+                               (num_devices - 1) * sizeof(*hostMemoryArrivedList),
                                cudaHostAllocPortable));
-    memset(multi_device_data.hostMemoryArrivedList, 0,
-           (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList));
-    multi_device_data.numDevices = num_devices;
-    multi_device_data.deviceRank = 0;
+    memset(hostMemoryArrivedList, 0, (num_devices - 1) * sizeof(*hostMemoryArrivedList));
 
     int numBlocksInitVectorsPerSM = 0;
     int numBlocksSpmvPerSM = 0;
@@ -415,9 +420,6 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
     int numBlocksDotProductPerSM = 0;
     int numBlocksCopyVectorPerSM = 0;
     int numBlocksScaleVectorAndSaxpyPerSM = 0;
-
-    // CUDA_RT_CALL(cudaOccupancyMaxPotentialBlockSize(&numBlocksInitVectors, &blockSizeInitVectors,
-    //                                                 initVectors));
 
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksInitVectorsPerSM, gpuSpMV,
                                                                THREADS_PER_BLOCK, 0));
@@ -439,37 +441,30 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
     int copyVectorGridSize = numBlocksCopyVectorPerSM * numSms;
     int scaleVectorAndSaxpyGridSize = numBlocksScaleVectorAndSaxpyPerSM * numSms;
 
-    // Since this is non-pipelined, will launch everything in default stream
-
-    // #pragma omp parallel num_threads(num_devices)
-    //     {
-    // int gpu_idx = omp_get_thread_num();
-    //     }
-
     double start = omp_get_wtime();
 
-    for (int gpu_idx = 0; gpu_idx < num_devices; gpu_idx++) {
+#pragma omp parallel num_threads(num_devices)
+    {
+        int gpu_idx = omp_get_thread_num();
+
         CUDA_RT_CALL(cudaSetDevice(gpu_idx));
+        CUDA_RT_CALL(cudaStreamCreate(&nStreams[gpu_idx]));
 
-        multi_device_data.deviceRank = gpu_idx;
+        initVectors<<<initVectorsGridSize, THREADS_PER_BLOCK, 0, nStreams[gpu_idx]>>>(
+            um_r, um_x, num_rows, gpu_idx, num_devices);
 
-        initVectors<<<initVectorsGridSize, THREADS_PER_BLOCK, 0, 0>>>(um_r, um_x, num_rows, gpu_idx,
-                                                                      num_devices);
+        gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, nStreams[gpu_idx]>>>(
+            um_I, um_J, um_val, nnz, num_rows, alpha, um_x, um_ax, gpu_idx, num_devices);
 
-        gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, 0>>>(um_I, um_J, um_val, nnz, num_rows, alpha,
-                                                           um_x, um_ax, gpu_idx, num_devices);
+        gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, nStreams[gpu_idx]>>>(
+            um_ax, um_r, um_alpham1, num_rows, gpu_idx, num_devices);
 
-        gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, 0>>>(um_ax, um_r, um_alpham1, num_rows,
-                                                             gpu_idx, num_devices);
+        gpuDotProduct<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize, nStreams[gpu_idx]>>>(
+            um_r, um_r, num_rows, gpu_idx, num_devices);
 
-        gpuDotProduct<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize, 0>>>(um_r, um_r, num_rows,
-                                                                              gpu_idx, num_devices);
+        addLocalDotContribution<<<1, 1, 0, nStreams[gpu_idx]>>>(um_dot_result);
 
-        addLocalDotContribution<<<1, 1, 0, 0>>>(um_dot_result);
-
-        syncPeers<<<1, 1, 0, 0>>>(multi_device_data);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
+        syncPeers<<<1, 1, 0, nStreams[gpu_idx]>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
         um_r1[0] = um_dot_result[0];
 
@@ -477,64 +472,62 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
 
         while (k <= iter_max) {
             if (k > 1) {
-                r1_div_x<<<1, 1, 0, 0>>>(um_r1, um_r0, um_b);
+                r1_div_x<<<1, 1, 0, nStreams[gpu_idx]>>>(um_r1, um_r0, um_b);
 
-                gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0, 0>>>(
-                    um_r, um_p, alpha, um_b, num_rows, gpu_idx, num_devices);
+                gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
+                                         nStreams[gpu_idx]>>>(um_r, um_p, alpha, um_b, num_rows,
+                                                              gpu_idx, num_devices);
             } else {
-                gpuCopyVector<<<copyVectorGridSize, THREADS_PER_BLOCK, 0, 0>>>(
+                gpuCopyVector<<<copyVectorGridSize, THREADS_PER_BLOCK, 0, nStreams[gpu_idx]>>>(
                     um_r, um_p, num_rows, gpu_idx, num_devices);
             }
 
-            syncPeers<<<1, 1, 0, 0>>>(multi_device_data);
+            syncPeers<<<1, 1, 0, nStreams[gpu_idx]>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
-            gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, sMemSize, 0>>>(
+            gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, sMemSize, nStreams[gpu_idx]>>>(
                 um_I, um_J, um_val, nnz, num_rows, alpha, um_p, um_ax, gpu_idx, num_devices);
 
-            resetLocalDotProduct<<<1, 1, 0, 0>>>(um_dot_result);
+            resetLocalDotProduct<<<1, 1, 0, nStreams[gpu_idx]>>>(um_dot_result);
 
-            syncPeers<<<1, 1, 0, 0>>>(multi_device_data);
+            syncPeers<<<1, 1, 0, nStreams[gpu_idx]>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
-            gpuDotProduct<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize, 0>>>(
+            gpuDotProduct<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize, nStreams[gpu_idx]>>>(
                 um_p, um_ax, num_rows, gpu_idx, num_devices);
 
-            addLocalDotContribution<<<1, 1, 0, 0>>>(um_dot_result);
+            addLocalDotContribution<<<1, 1, 0, nStreams[gpu_idx]>>>(um_dot_result);
 
-            syncPeers<<<1, 1, 0, 0>>>(multi_device_data);
+            syncPeers<<<1, 1, 0, nStreams[gpu_idx]>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
-            // Second argument is supposed to be float* but dot_result is double
-            r1_div_x<<<1, 1, 0, 0>>>(um_r1, (float *)um_dot_result, um_a);
+            r1_div_x<<<1, 1, 0, nStreams[gpu_idx]>>>(um_r1, (float *)um_dot_result, um_a);
 
-            gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, 0>>>(um_p, um_x, um_a, num_rows,
-                                                                 gpu_idx, num_devices);
+            gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, nStreams[gpu_idx]>>>(
+                um_p, um_x, um_a, num_rows, gpu_idx, num_devices);
 
-            a_minus<<<1, 1, 0, 0>>>(um_a, um_na);
+            a_minus<<<1, 1, 0, nStreams[gpu_idx]>>>(um_a, um_na);
 
-            gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, 0>>>(um_ax, um_r, um_na, num_rows,
-                                                                 gpu_idx, num_devices);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(0));
+            gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, nStreams[gpu_idx]>>>(
+                um_ax, um_r, um_na, num_rows, gpu_idx, num_devices);
 
             um_r0[0] = um_r1[0];
 
-            syncPeers<<<1, 1, 0, 0>>>(multi_device_data);
+            syncPeers<<<1, 1, 0, nStreams[gpu_idx]>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
-            resetLocalDotProduct<<<1, 1, 0, 0>>>(um_dot_result);
+            resetLocalDotProduct<<<1, 1, 0, nStreams[gpu_idx]>>>(um_dot_result);
 
-            syncPeers<<<1, 1, 0, 0>>>(multi_device_data);
+            syncPeers<<<1, 1, 0, nStreams[gpu_idx]>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
-            gpuDotProduct<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize, 0>>>(
+            gpuDotProduct<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize, nStreams[gpu_idx]>>>(
                 um_r, um_r, num_rows, gpu_idx, num_devices);
 
-            addLocalDotContribution<<<1, 1, 0, 0>>>(um_dot_result);
+            addLocalDotContribution<<<1, 1, 0, nStreams[gpu_idx]>>>(um_dot_result);
 
-            syncPeers<<<1, 1, 0, 0>>>(multi_device_data);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(0));
+            syncPeers<<<1, 1, 0, nStreams[gpu_idx]>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
             um_r1[0] = um_dot_result[0];
 
-            CUDA_RT_CALL(cudaStreamSynchronize(0));
+            CUDA_RT_CALL(cudaStreamSynchronize(nStreams[gpu_idx]));
+
+#pragma omp barrier
 
             k++;
         }
@@ -566,7 +559,7 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
         }
     }
 
-    CUDA_RT_CALL(cudaFreeHost(multi_device_data.hostMemoryArrivedList));
+    CUDA_RT_CALL(cudaFreeHost(hostMemoryArrivedList));
     CUDA_RT_CALL(cudaFree(um_I));
     CUDA_RT_CALL(cudaFree(um_J));
     CUDA_RT_CALL(cudaFree(um_val));
