@@ -310,12 +310,6 @@ int BaselineNonPersistentUnifiedMemoryNonPipelined::init(int argc, char *argv[])
     float r1;
     float alpha = 1.0;
     float alpham1 = -1.0;
-    float beta = 0.0;
-
-    cudaStream_t streamFirstIter[num_devices];
-    cudaStream_t streamSaxpy[num_devices];
-    cudaStream_t streamDot[num_devices];
-    cudaStream_t streamSpMV[num_devices];
 
     for (int gpu_idx_i = 0; gpu_idx_i < num_devices; gpu_idx_i++) {
         CUDA_RT_CALL(cudaSetDevice(gpu_idx_i));
@@ -386,7 +380,6 @@ int BaselineNonPersistentUnifiedMemoryNonPipelined::init(int argc, char *argv[])
     cudaStream_t nStreams[num_devices];
 
     int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
-    int numThreads = THREADS_PER_BLOCK;
 
     CUDA_RT_CALL(cudaSetDevice(0));
     cudaDeviceProp deviceProp;
