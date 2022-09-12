@@ -391,14 +391,14 @@ int SingleStreamUnifiedMemoryPipelined::init(int argc, char *argv[]) {
     dim3 dimGrid(numSms * numBlocksPerSm, 1, 1), dimBlock(THREADS_PER_BLOCK, 1, 1);
 
 #if ENABLE_CPU_DEBUG_CODE
-    float *Ax_cpu = (float *)malloc(sizeof(float) * N);
+    float *s_cpu = (float *)malloc(sizeof(float) * N);
     float *r_cpu = (float *)malloc(sizeof(float) * N);
     float *p_cpu = (float *)malloc(sizeof(float) * N);
     float *x_cpu = (float *)malloc(sizeof(float) * N);
 
     for (int i = 0; i < N; i++) {
         r_cpu[i] = 1.0;
-        Ax_cpu[i] = x_cpu[i] = 0.0;
+        s_cpu[i] = x_cpu[i] = 0.0;
     }
 #endif
 
@@ -465,7 +465,7 @@ int SingleStreamUnifiedMemoryPipelined::init(int argc, char *argv[]) {
     printf("Execution time: %8.4f s\n", (stop - start));
 
 #if ENABLE_CPU_DEBUG_CODE
-    cpuConjugateGrad(I, J, val, x_cpu, Ax_cpu, p_cpu, r_cpu, nz, N, tol);
+    cpuConjugateGrad(I, J, val, x_cpu, s_cpu, p_cpu, r_cpu, nz, N, tol);
 #endif
 
     float rsum, diff, err = 0.0;
@@ -498,7 +498,7 @@ int SingleStreamUnifiedMemoryPipelined::init(int argc, char *argv[]) {
     free(host_val);
 
 #if ENABLE_CPU_DEBUG_CODE
-    free(Ax_cpu);
+    free(s_cpu);
     free(r_cpu);
     free(p_cpu);
     free(x_cpu);

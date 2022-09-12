@@ -287,10 +287,13 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     float *um_val = NULL;
 
     const float tol = 1e-5f;
-    float *x;
     float rhs = 1.0;
     float r1;
-    float *r, *p, *Ax;
+
+    float *um_x;
+    float *um_r;
+    float *um_p;
+    float *um_s;
 
     for (int gpu_idx_i = 0; gpu_idx_i < num_devices; gpu_idx_i++) {
         CUDA_RT_CALL(cudaSetDevice(gpu_idx_i));
@@ -339,7 +342,7 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMemAdvise(um_J, sizeof(int) * nnz, cudaMemAdviseSetReadMostly, 0));
     CUDA_RT_CALL(cudaMemAdvise(um_val, sizeof(float) * nnz, cudaMemAdviseSetReadMostly, 0));
 
-    CUDA_RT_CALL(cudaMallocManaged((void **)&x, sizeof(float) * num_rows));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(float) * num_rows));
 
     double *dot_result;
     CUDA_RT_CALL(cudaMallocManaged((void **)&dot_result, sizeof(double)));
@@ -347,9 +350,9 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMemset(dot_result, 0, sizeof(double)));
 
     // temp memory for ConjugateGradient
-    CUDA_RT_CALL(cudaMallocManaged((void **)&r, num_rows * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&p, num_rows * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&Ax, num_rows * sizeof(float)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(float)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(float)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(float)));
 
     // ASSUMPTION: All GPUs are the same and P2P callable
 
@@ -381,7 +384,7 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamCreate(&nStreams[gpu_idx]));
 
         int perGPUIter = num_rows / (totalThreadsPerGPU * num_devices);
-        int offset_Ax = gpu_idx * totalThreadsPerGPU;
+        int offset_s = gpu_idx * totalThreadsPerGPU;
         int offset_r = gpu_idx * totalThreadsPerGPU;
         int offset_p = gpu_idx * totalThreadsPerGPU;
         int offset_x = gpu_idx * totalThreadsPerGPU;
@@ -391,32 +394,32 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMemPrefetchAsync(um_val, sizeof(float) * nnz, gpu_idx, nStreams[gpu_idx]));
         CUDA_RT_CALL(cudaMemPrefetchAsync(um_J, sizeof(float) * nnz, gpu_idx, nStreams[gpu_idx]));
 
-        if (offset_Ax <= num_rows) {
+        if (offset_s <= num_rows) {
             for (int i = 0; i < perGPUIter; i++) {
-                cudaMemAdvise(Ax + offset_Ax, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_s + offset_s, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
-                cudaMemAdvise(r + offset_r, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_r + offset_r, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
-                cudaMemAdvise(x + offset_x, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_x + offset_x, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
-                cudaMemAdvise(p + offset_p, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_p + offset_p, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
 
-                cudaMemAdvise(Ax + offset_Ax, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_s + offset_s, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
-                cudaMemAdvise(r + offset_r, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_r + offset_r, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
-                cudaMemAdvise(p + offset_p, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_p + offset_p, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
-                cudaMemAdvise(x + offset_x, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_x + offset_x, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
 
-                offset_Ax += totalThreadsPerGPU * num_devices;
+                offset_s += totalThreadsPerGPU * num_devices;
                 offset_r += totalThreadsPerGPU * num_devices;
                 offset_p += totalThreadsPerGPU * num_devices;
                 offset_x += totalThreadsPerGPU * num_devices;
 
-                if (offset_Ax >= num_rows) {
+                if (offset_s >= num_rows) {
                     break;
                 }
             }
@@ -424,14 +427,14 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     }
 
 #if ENABLE_CPU_DEBUG_CODE
-    float *Ax_cpu = (float *)malloc(sizeof(float) * N);
+    float *s_cpu = (float *)malloc(sizeof(float) * N);
     float *r_cpu = (float *)malloc(sizeof(float) * N);
     float *p_cpu = (float *)malloc(sizeof(float) * N);
     float *x_cpu = (float *)malloc(sizeof(float) * N);
 
     for (int i = 0; i < N; i++) {
         r_cpu[i] = 1.0;
-        Ax_cpu[i] = x_cpu[i] = 0.0;
+        s_cpu[i] = x_cpu[i] = 0.0;
     }
 #endif
 
@@ -448,8 +451,8 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     multi_device_data.deviceRank = 0;
 
     void *kernelArgs[] = {
-        (void *)&um_I,     (void *)&um_J,     (void *)&um_val, (void *)&x,
-        (void *)&Ax,       (void *)&p,        (void *)&r,      (void *)&dot_result,
+        (void *)&um_I,     (void *)&um_J,     (void *)&um_val, (void *)&um_x,
+        (void *)&um_s,     (void *)&um_p,     (void *)&um_r,   (void *)&dot_result,
         (void *)&nnz,      (void *)&num_rows, (void *)&tol,    (void *)&multi_device_data,
         (void *)&iter_max,
     };
@@ -464,7 +467,7 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         multi_device_data.deviceRank++;
     }
 
-    CUDA_RT_CALL(cudaMemPrefetchAsync(x, sizeof(float) * num_rows, cudaCpuDeviceId));
+    CUDA_RT_CALL(cudaMemPrefetchAsync(um_x, sizeof(float) * num_rows, cudaCpuDeviceId));
     CUDA_RT_CALL(cudaMemPrefetchAsync(dot_result, sizeof(double), cudaCpuDeviceId));
 
     for (int gpu_idx = 0; gpu_idx < num_devices; gpu_idx++) {
@@ -479,7 +482,7 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     printf("Execution time: %8.4f s\n", (stop - start));
 
 #if ENABLE_CPU_DEBUG_CODE
-    cpuConjugateGrad(I, J, val, x_cpu, Ax_cpu, p_cpu, r_cpu, nz, N, tol);
+    cpuConjugateGrad(I, J, val, x_cpu, s_cpu, p_cpu, r_cpu, nz, N, tol);
 #endif
 
     float rsum, diff, err = 0.0;
@@ -488,7 +491,7 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
         rsum = 0.0;
 
         for (int j = um_I[i]; j < um_J[i + 1]; j++) {
-            rsum += host_val[j] * x[um_J[j]];
+            rsum += host_val[j] * um_x[um_J[j]];
         }
 
         diff = fabs(rsum - rhs);
@@ -502,15 +505,15 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaFree(um_I));
     CUDA_RT_CALL(cudaFree(um_J));
     CUDA_RT_CALL(cudaFree(um_val));
-    CUDA_RT_CALL(cudaFree(x));
-    CUDA_RT_CALL(cudaFree(r));
-    CUDA_RT_CALL(cudaFree(p));
-    CUDA_RT_CALL(cudaFree(Ax));
+    CUDA_RT_CALL(cudaFree(um_x));
+    CUDA_RT_CALL(cudaFree(um_r));
+    CUDA_RT_CALL(cudaFree(um_p));
+    CUDA_RT_CALL(cudaFree(um_s));
     CUDA_RT_CALL(cudaFree(dot_result));
     free(host_val);
 
 #if ENABLE_CPU_DEBUG_CODE
-    free(Ax_cpu);
+    free(s_cpu);
     free(r_cpu);
     free(p_cpu);
     free(x_cpu);
