@@ -81,6 +81,9 @@ __device__ void gpuSaxpy(float *x, float *y, float a, int size, const PeerGroup 
     }
 }
 
+// Performs two dot products at the same time
+// Used to perform <r, r> and <r, w> at the same time
+// Can we combined the two atomicAdds somehow?
 __device__ void gpuDotProductsMerged(float *vecA_delta, float *vecB_delta, float *vecA_gamma,
                                      float *vecB_gamma, int size, const cg::thread_block &cta,
                                      const PeerGroup &peer_group) {
@@ -145,8 +148,8 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
     cg::grid_group grid = cg::this_grid();
     PeerGroup peer_group(multi_device_data, grid);
 
-    float alpha = 1.0;
-    float alpham1 = -1.0;
+    float float_positive_one = 1.0;
+    float float_negative_one = -1.0;
 
     float tmp_dot_delta_0 = 0.0;
     float tmp_dot_gamma_0 = 0.0;
@@ -165,15 +168,15 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     cg::sync(grid);
 
-    gpuSpMV(I, J, val, nnz, N, alpha, x, s, peer_group);
+    gpuSpMV(I, J, val, nnz, N, float_positive_one, x, s, peer_group);
 
     cg::sync(grid);
 
-    gpuSaxpy(s, r, alpham1, N, peer_group);
+    gpuSaxpy(s, r, float_negative_one, N, peer_group);
 
     cg::sync(grid);
 
-    gpuSpMV(I, J, val, nnz, N, alpha, r, w, peer_group);
+    gpuSpMV(I, J, val, nnz, N, float_positive_one, r, w, peer_group);
 
     cg::sync(grid);
 
@@ -201,9 +204,9 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         if (k > 1) {
             b = tmp_dot_delta_1 / tmp_dot_delta_0;
 
-            gpuScaleVectorAndSaxpy(r, p, alpha, b, N, peer_group);
-            gpuScaleVectorAndSaxpy(w, s, alpha, b, N, peer_group);
-            gpuScaleVectorAndSaxpy(t, u, alpha, b, N, peer_group);
+            gpuScaleVectorAndSaxpy(r, p, float_positive_one, b, N, peer_group);
+            gpuScaleVectorAndSaxpy(w, s, float_positive_one, b, N, peer_group);
+            gpuScaleVectorAndSaxpy(t, u, float_positive_one, b, N, peer_group);
 
         } else {
             gpuCopyVector(r, p, N, peer_group);
@@ -219,7 +222,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         // Need to figure out how to do it
         // Need to keep track of peer_group.sync() calls
 
-        gpuSpMV(I, J, val, nnz, N, alpha, p, s, peer_group);
+        gpuSpMV(I, J, val, nnz, N, float_positive_one, p, s, peer_group);
 
         if (peer_group.thread_rank() == 0) {
             *dot_result_delta = 0.0;

@@ -303,13 +303,13 @@ int BaselineNonPersistentUnifiedMemoryNonPipelined::init(int argc, char *argv[])
     float *um_a;
     float *um_na;
     float *um_b;
-    float *um_alpham1;
+    float *um_float_negative_one;
 
     const float tol = 1e-5f;
     float rhs = 1.0;
     float r1;
-    float alpha = 1.0;
-    float alpham1 = -1.0;
+    float float_positive_one = 1.0;
+    float float_negative_one = -1.0;
 
     for (int gpu_idx_i = 0; gpu_idx_i < num_devices; gpu_idx_i++) {
         CUDA_RT_CALL(cudaSetDevice(gpu_idx_i));
@@ -372,8 +372,9 @@ int BaselineNonPersistentUnifiedMemoryNonPipelined::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_na, sizeof(float)));
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_b, sizeof(float)));
 
-    CUDA_RT_CALL(cudaMalloc((void **)&um_alpham1, sizeof(float)));
-    CUDA_RT_CALL(cudaMemcpy(um_alpham1, &alpham1, sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMalloc((void **)&um_float_negative_one, sizeof(float)));
+    CUDA_RT_CALL(cudaMemcpy(um_float_negative_one, &float_negative_one, sizeof(float),
+                            cudaMemcpyHostToDevice));
 
     // ASSUMPTION: All GPUs are the same and P2P callable
 
@@ -447,10 +448,11 @@ int BaselineNonPersistentUnifiedMemoryNonPipelined::init(int argc, char *argv[])
             um_r, um_x, num_rows, gpu_idx, num_devices);
 
         gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, nStreams[gpu_idx]>>>(
-            um_I, um_J, um_val, nnz, num_rows, alpha, um_x, um_ax, gpu_idx, num_devices);
+            um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_x, um_ax, gpu_idx,
+            num_devices);
 
         gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, nStreams[gpu_idx]>>>(
-            um_ax, um_r, um_alpham1, num_rows, gpu_idx, num_devices);
+            um_ax, um_r, um_float_negative_one, num_rows, gpu_idx, num_devices);
 
         gpuDotProduct<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize, nStreams[gpu_idx]>>>(
             um_r, um_r, num_rows, gpu_idx, num_devices);
@@ -468,8 +470,8 @@ int BaselineNonPersistentUnifiedMemoryNonPipelined::init(int argc, char *argv[])
                 r1_div_x<<<1, 1, 0, nStreams[gpu_idx]>>>(um_r1, um_r0, um_b);
 
                 gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
-                                         nStreams[gpu_idx]>>>(um_r, um_p, alpha, um_b, num_rows,
-                                                              gpu_idx, num_devices);
+                                         nStreams[gpu_idx]>>>(um_r, um_p, float_positive_one, um_b,
+                                                              num_rows, gpu_idx, num_devices);
             } else {
                 gpuCopyVector<<<copyVectorGridSize, THREADS_PER_BLOCK, 0, nStreams[gpu_idx]>>>(
                     um_r, um_p, num_rows, gpu_idx, num_devices);
@@ -478,7 +480,8 @@ int BaselineNonPersistentUnifiedMemoryNonPipelined::init(int argc, char *argv[])
             syncPeers<<<1, 1, 0, nStreams[gpu_idx]>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
             gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, sMemSize, nStreams[gpu_idx]>>>(
-                um_I, um_J, um_val, nnz, num_rows, alpha, um_p, um_ax, gpu_idx, num_devices);
+                um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_p, um_ax, gpu_idx,
+                num_devices);
 
             resetLocalDotProduct<<<1, 1, 0, nStreams[gpu_idx]>>>(um_dot_result);
 

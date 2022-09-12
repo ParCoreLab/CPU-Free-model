@@ -56,6 +56,8 @@ namespace BaselineNonPersistentUnifiedMemoryPipelined {
 #define ENABLE_CPU_DEBUG_CODE 0
 #define THREADS_PER_BLOCK 512
 
+// delta => <r, r>
+// gamma => <r, w>
 __device__ double grid_dot_result_delta = 0.0;
 __device__ double grid_dot_result_gamma = 0.0;
 
@@ -141,9 +143,12 @@ __global__ void gpuSaxpy(float *x, float *y, float *a, int num_rows, const int d
     }
 }
 
-__global__ void gpuDotProduct(float *vecA_delta, float *vecB_delta, float *vecA_gamma,
-                              float *vecB_gamma, int num_rows, const int device_rank,
-                              const int num_devices) {
+// Performs two dot products at the same time
+// Used to perform <r, r> and <r, w> at the same time
+// Can we combined the two atomicAdds somehow?
+__global__ void gpuDotProductsMerged(float *vecA_delta, float *vecB_delta, float *vecA_gamma,
+                                     float *vecB_gamma, int num_rows, const int device_rank,
+                                     const int num_devices) {
     cg::thread_block cta = cg::this_thread_block();
 
     size_t local_grid_size = gridDim.x * blockDim.x;
@@ -339,14 +344,13 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
     float *um_a;
     float *um_na;
     float *um_b;
-    float *um_alpham1;
+    float *um_float_negative_one;
 
     const float tol = 1e-5f;
     float rhs = 1.0;
     float r1;
-    float alpha = 1.0;
-    float alpham1 = -1.0;
-    float beta = 0.0;
+    float float_positive_one = 1.0;
+    float float_negative_one = -1.0;
 
     cudaStream_t streamsOtherOps[num_devices];
     cudaStream_t streamsSaxpy[num_devices];
@@ -424,14 +428,14 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_na, sizeof(float)));
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_b, sizeof(float)));
 
-    CUDA_RT_CALL(cudaMalloc((void **)&um_alpham1, sizeof(float)));
-    CUDA_RT_CALL(cudaMemcpy(um_alpham1, &alpham1, sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMalloc((void **)&um_float_negative_one, sizeof(float)));
+    CUDA_RT_CALL(cudaMemcpy(um_float_negative_one, &float_negative_one, sizeof(float),
+                            cudaMemcpyHostToDevice));
 
     // ASSUMPTION: All GPUs are the same and P2P callable
 
     // Multiplying by 2 because the two dot products are merged
     int sMemSize = 2 * (sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1));
-    int numThreads = THREADS_PER_BLOCK;
 
     CUDA_RT_CALL(cudaSetDevice(0));
     cudaDeviceProp deviceProp;
@@ -473,7 +477,7 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksSaxpyPerSM, gpuSaxpy,
                                                                THREADS_PER_BLOCK, 0));
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksDotProductPerSM, gpuDotProduct, THREADS_PER_BLOCK, 0));
+        &numBlocksDotProductPerSM, gpuDotProductsMerged, THREADS_PER_BLOCK, 0));
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksCopyVectorPerSM, gpuCopyVector, THREADS_PER_BLOCK, 0));
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
@@ -503,18 +507,20 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
             um_r, um_x, num_rows, gpu_idx, num_devices);
 
         gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
-            um_I, um_J, um_val, nnz, num_rows, alpha, um_x, um_s, gpu_idx, num_devices);
+            um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_x, um_s, gpu_idx,
+            num_devices);
 
         gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
-            um_s, um_r, um_alpham1, num_rows, gpu_idx, num_devices);
+            um_s, um_r, um_float_negative_one, num_rows, gpu_idx, num_devices);
 
         // w0 = Ar0
         gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
-            um_I, um_J, um_val, nnz, num_rows, alpha, um_r, um_w, gpu_idx, num_devices);
+            um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_r, um_w, gpu_idx,
+            num_devices);
 
-        gpuDotProduct<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize,
-                        streamsOtherOps[gpu_idx]>>>(um_r, um_r, um_r, um_w, num_rows, gpu_idx,
-                                                    num_devices);
+        gpuDotProductsMerged<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize,
+                               streamsOtherOps[gpu_idx]>>>(um_r, um_r, um_r, um_w, num_rows,
+                                                           gpu_idx, num_devices);
 
         addLocalDotContributions<<<1, 1, 0, streamsOtherOps[gpu_idx]>>>(um_dot_result_delta,
                                                                         um_dot_result_gamma);
@@ -533,15 +539,15 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
 
                 gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
                                          streamsOtherOps[gpu_idx]>>>(
-                    um_r, um_p, alpha, um_b, num_rows, gpu_idx, num_devices);
+                    um_r, um_p, float_positive_one, um_b, num_rows, gpu_idx, num_devices);
 
                 gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
                                          streamsOtherOps[gpu_idx]>>>(
-                    um_w, um_s, alpha, um_b, num_rows, gpu_idx, num_devices);
+                    um_w, um_s, float_positive_one, um_b, num_rows, gpu_idx, num_devices);
 
                 gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
                                          streamsOtherOps[gpu_idx]>>>(
-                    um_t, um_u, alpha, um_b, num_rows, gpu_idx, num_devices);
+                    um_t, um_u, float_positive_one, um_b, num_rows, gpu_idx, num_devices);
             } else {
                 gpuCopyVector<<<copyVectorGridSize, THREADS_PER_BLOCK, 0,
                                 streamsOtherOps[gpu_idx]>>>(um_r, um_p, num_rows, gpu_idx,
@@ -559,14 +565,16 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
 
             // SpMV
             gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, sMemSize, streamsSpMV[gpu_idx]>>>(
-                um_I, um_J, um_val, nnz, num_rows, alpha, um_p, um_s, gpu_idx, num_devices);
+                um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_p, um_s, gpu_idx,
+                num_devices);
 
             // Two dot products => <r, r> and <r, w>
             resetLocalDotProducts<<<1, 1, 0, streamsDot[gpu_idx]>>>(um_dot_result_delta,
                                                                     um_dot_result_gamma);
 
-            gpuDotProduct<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize, streamsDot[gpu_idx]>>>(
-                um_r, um_r, um_r, um_w, num_rows, gpu_idx, num_devices);
+            gpuDotProductsMerged<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize,
+                                   streamsDot[gpu_idx]>>>(um_r, um_r, um_r, um_w, num_rows, gpu_idx,
+                                                          num_devices);
 
             addLocalDotContributions<<<1, 1, 0, streamsDot[gpu_idx]>>>(um_dot_result_delta,
                                                                        um_dot_result_gamma);

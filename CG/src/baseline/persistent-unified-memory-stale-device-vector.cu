@@ -134,8 +134,8 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
     cg::grid_group grid = cg::this_grid();
     PeerGroup peer_group(multi_device_data, grid);
 
-    float alpha = 1.0;
-    float alpham1 = -1.0;
+    float float_positive_one = 1.0;
+    float float_negative_one = -1.0;
     float r0 = 0.0, r1, b, a, na;
 
     for (int i = peer_group.thread_rank(); i < N; i += peer_group.size()) {
@@ -145,11 +145,11 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     cg::sync(grid);
 
-    gpuSpMV(I, J, val, nnz, N, alpha, x, Ax, peer_group);
+    gpuSpMV(I, J, val, nnz, N, float_positive_one, x, Ax, peer_group);
 
     cg::sync(grid);
 
-    gpuSaxpy(Ax, r, alpham1, N, peer_group);
+    gpuSaxpy(Ax, r, float_negative_one, N, peer_group);
 
     cg::sync(grid);
 
@@ -174,7 +174,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         if (k > 1) {
             b = r1 / r0;
-            gpuScaleVectorAndSaxpy(r, um_p, alpha, b, N, peer_group);
+            gpuScaleVectorAndSaxpy(r, um_p, float_positive_one, b, N, peer_group);
         } else {
             gpuCopyVector(r, um_p, N, peer_group);
         }
@@ -185,7 +185,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         // SpMV Start
 
-        gpuSpMV(I, J, val, nnz, N, alpha, device_p, Ax, peer_group);
+        gpuSpMV(I, J, val, nnz, N, float_positive_one, device_p, Ax, peer_group);
 
         // SpMV End
 
