@@ -5,6 +5,7 @@
 #include "../include/baseline/persistent-unified-memory-gather-vector.cuh"
 #include "../include/baseline/persistent-unified-memory-stale-device-vector.cuh"
 #include "../include/baseline/persistent-unified-memory.cuh"
+#include "../include/single-stream/unified-memory-pipelined.cuh"
 
 #include "../include/common.h"
 
@@ -22,8 +23,10 @@ int main(int argc, char *argv[]) {
             BaselinePersistentUnifiedMemoryStaleDeviceVector::init),
         make_pair("Baseline Non Pipelined Non Persistent Kernel with Unified Memory ",
                   BaselineNonPersistentUnifiedMemoryNonPipelined::init),
-        make_pair("Baseline Pipelined Non Persistent Kernel with Unified Memory ",
+        make_pair("Baseline Pipelined Non Persistent Kernel with Unified Memory",
                   BaselineNonPersistentUnifiedMemoryPipelined::init),
+        make_pair("Single Stream Unified Memory Pipelined ",
+                  SingleStreamUnifiedMemoryPipelined::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
