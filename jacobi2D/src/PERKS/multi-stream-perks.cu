@@ -189,7 +189,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
-    num_devices = 1;
+//    num_devices = 1;
 
     // ------------------------------------
     // PERKS config
@@ -207,9 +207,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
     // damnit
     if (blkpsm <= 0) blkpsm = 100;
 
-    bool async = false;
     bool useSM = true;
-//    bool useSM = false;
     bool isDoubleTile = true;
 
     // Change this later
@@ -366,8 +364,11 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + 2) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
+        // Initialize a[dev_id]
+        CUDA_RT_CALL(cudaMemcpy(a[dev_id], input_h, nx * (chunk_size + 2) * sizeof(real),
+                                cudaMemcpyHostToDevice));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
+        //        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
         CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * sizeof(real)));
         CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * sizeof(real)));
@@ -446,10 +447,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMemcpy(input, input_h, sizeof(real) * ((ny - 0) * (nx - 0)),
                                 cudaMemcpyHostToDevice));
 
-        // Initialize a[dev_id]
-        CUDA_RT_CALL(cudaMemcpy(a[dev_id], input_h, sizeof(real) * ((ny - 0) * (nx - 0)),
-                                cudaMemcpyHostToDevice));
-
         real *__var_1__;
         CUDA_RT_CALL(cudaMalloc(&__var_1__, sizeof(real) * ((ny - 0) * (nx - 0))));
         real *__var_2__;
@@ -492,7 +489,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         // int smbound=SharedMemoryUsed/executeSM;
         // printf("%d,%d,%d\n",numBlocksPerSm_current,blkpsm,smbound);
         if (blkpsm != 0) {
-//            blkpsm = 1;
+            //            blkpsm = 1;
 
             numBlocksPerSm_current = min(numBlocksPerSm_current, blkpsm);
         }
@@ -533,13 +530,15 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         //        dim_block.x = 16;
         //        dim_block.y = 16;
 
-        printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
-        printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
-        printf("Boundary: %d %d %d\n", dim_block.x, dim_block.y, dim_block.z);
+#pragma omp master
+        {
+            printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
+            printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
+            printf("Boundary: %d %d %d\n", dim_block.x, dim_block.y, dim_block.z);
+            std::cout << std::endl;
+        }
 
         //        exit(1);
-
-        real *a_inner_start = a[dev_id] + ny * iy_start;
 
         void *ExecuteKernelArgs[] = {(void *)&a[dev_id],
                                      (void *)&chunk_size,
@@ -561,13 +560,12 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
                                                  executeBlockDim, ExecuteKernelArgs, executeSM,
                                                  inner_domain_stream));
 
-
         CUDA_RT_CALL(cudaDeviceSynchronize());
-//        CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
+        //        CUDA_RT_CALL(cudaStreamSynchronize(inner_domain_stream));
 
-//        std::cout << "ok" << std::endl;
+        //        std::cout << "ok" << std::endl;
 
-//        CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
+        //        CUDA_RT_CALL(cudaStreamSynchronize(boundary_sync_stream));
 
         // Need to swap pointers on CPU if iteration count is odd
         // Technically, we don't know the iteration number (since we'll be doing l2-norm)
@@ -578,8 +576,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
 #pragma omp barrier
         double stop = omp_get_wtime();
-
-        std::cout << stop - start << std::endl;
 
         if (compare_to_single_gpu) {
             //            CUDA_RT_CALL(
@@ -609,18 +605,27 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         // CUDA_RT_CALL(cudaFree(a_new[dev_id]));
         // CUDA_RT_CALL(cudaFree(a[dev_id]));
 
-        if (compare_to_single_gpu && 0 == dev_id) {
+        if (compare_to_single_gpu) {
             if (iter_max % 2 == 1) {
-                CUDA_RT_CALL(cudaMemcpy(a_h, __var_2__, sizeof(real) * ((ny - 0) * (nx - 0)),
-                                        cudaMemcpyDeviceToHost));
+                CUDA_RT_CALL(cudaMemcpy(
+                    a_h + iy_start_global * nx, __var_2__ + nx,
+                    std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
+                    cudaMemcpyDeviceToHost));
             } else {
-                CUDA_RT_CALL(cudaMemcpy(a_h, a[dev_id], sizeof(real) * ((ny - 0) * (nx - 0)),
-                                        cudaMemcpyDeviceToHost));
+                CUDA_RT_CALL(cudaMemcpy(
+                    a_h + iy_start_global * nx, a[dev_id] + nx,
+                    std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
+                    cudaMemcpyDeviceToHost));
             }
+        }
 
-            //            report_results(ny, nx, a_ref_h, a_h, num_devices,
-            //            runtime_serial_non_persistent, start,
-            //                           stop, compare_to_single_gpu);
+#pragma omp barrier
+
+#pragma omp master
+        {
+            std::cout << "Time: " << stop - start << std::endl;
+
+            std::cout << "Num GPUs: " << num_devices << std::endl;
 
             int halo = iter_max;
             double error = checkError2D(nx, a_h, a_ref_h, halo, ny - halo, halo, nx - halo);
