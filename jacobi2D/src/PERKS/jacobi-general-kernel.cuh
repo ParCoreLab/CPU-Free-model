@@ -21,10 +21,12 @@ namespace cg = cooperative_groups;
 
 template <class REAL, int LOCAL_TILE_Y, int halo, int reg_folder_y, bool UseSMCache>
 __device__ __forceinline__ void inner_general(REAL* __restrict__ input, int width_y, int width_x,
-                                              REAL* __restrict__ __var_4__,
+                                              int iy_start, int iy_end,
+                                              REAL* __var_4__,
                                               REAL* __restrict__ l2_cache_o,
                                               REAL* __restrict__ l2_cache_i, int iteration,
                                               int max_sm_flder, volatile int* iteration_done) {
+
     if (!UseSMCache) max_sm_flder = 0;
 #define UseRegCache (reg_folder_y != 0)
 #ifdef BOX
