@@ -54,7 +54,6 @@ namespace cg = cooperative_groups;
 namespace SingleStreamUnifiedMemoryPipelined {
 
 #define ENABLE_CPU_DEBUG_CODE 0
-#define THREADS_PER_BLOCK 512
 
 __device__ double grid_dot_result_delta = 0.0;
 __device__ double grid_dot_result_gamma = 0.0;
@@ -63,8 +62,8 @@ __device__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float
                         float *inputVecX, float *outputVecY,
                         const cg::thread_group &spmv_thread_group, const int device_rank,
                         const int num_devices) {
-    size_t global_subgroup_size = spmv_thread_group.size() * num_devices;
-    size_t global_subgroup_rank =
+    int global_subgroup_size = spmv_thread_group.size() * num_devices;
+    int global_subgroup_rank =
         device_rank * spmv_thread_group.size() + spmv_thread_group.thread_rank();
 
     for (int i = global_subgroup_rank; i < num_rows; i += global_subgroup_size) {
@@ -93,15 +92,20 @@ __device__ void gpuSaxpy(float *x, float *y, float a, int size, const PeerGroup 
 __device__ void gpuDotProductsMerged(float *vecA_delta, float *vecB_delta, float *vecA_gamma,
                                      float *vecB_gamma, int num_rows, const cg::thread_block &cta,
                                      const cg::thread_group &dot_product_thread_group,
-                                     const int device_rank, const int num_devices) {
-    extern __shared__ double tmp_delta[];
-    extern __shared__ double tmp_gamma[];
+                                     const int device_rank, const int num_devices,
+                                     const int sMemSize) {
+    // First half (up to sMemSize / 2) will be used for delta
+    // Second half (from sMemSize / 2) will be used for gamma
+    extern __shared__ double tmp[];
+
+    double *tmp_delta = (double *)tmp;
+    double *tmp_gamma = (double *)&tmp_delta[sMemSize / (2 * sizeof(double))];
 
     double temp_sum_delta = 0.0;
     double temp_sum_gamma = 0.0;
 
-    size_t global_subgroup_size = dot_product_thread_group.size() * num_devices;
-    size_t global_subgroup_rank =
+    int global_subgroup_size = dot_product_thread_group.size() * num_devices;
+    int global_subgroup_rank =
         device_rank * dot_product_thread_group.size() + dot_product_thread_group.thread_rank();
 
     for (int i = global_subgroup_rank; i < num_rows; i += global_subgroup_size) {
@@ -155,7 +159,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
                                           double *dot_result_delta, double *dot_result_gamma,
                                           int nnz, int N, float tol,
                                           MultiDeviceData multi_device_data, const int iter_max,
-                                          const int num_blocks_for_spmv) {
+                                          const int num_blocks_for_spmv, const int sMemSize) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
     PeerGroup peer_group(multi_device_data, grid);
@@ -199,7 +203,8 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     cg::sync(grid);
 
-    gpuDotProductsMerged(r, r, r, w, N, cta, grid_active_threads, device_rank, num_devices);
+    gpuDotProductsMerged(r, r, r, w, N, cta, grid_active_threads, device_rank, num_devices,
+                         sMemSize);
 
     cg::sync(grid);
 
@@ -250,6 +255,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         // if => SpMV
         // else => Dot
+
         if (cta.group_index().x < num_blocks_for_spmv) {
             cg::coalesced_group spmv_thread_group = cg::coalesced_threads();
 
@@ -259,17 +265,17 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
             cg::coalesced_group dot_product_thread_group = cg::coalesced_threads();
 
             gpuDotProductsMerged(r, r, r, w, N, cta, dot_product_thread_group, device_rank,
-                                 num_devices);
+                                 num_devices, sMemSize);
 
             cg::sync(dot_product_thread_group);
+        }
 
-            if (dot_product_thread_group.thread_rank() == 0) {
-                atomicAdd_system(dot_result_delta, grid_dot_result_delta);
-                atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
+        if (grid.thread_rank() == 0) {
+            atomicAdd_system(dot_result_delta, grid_dot_result_delta);
+            atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
 
-                grid_dot_result_delta = 0.0;
-                grid_dot_result_gamma = 0.0;
-            }
+            grid_dot_result_delta = 0.0;
+            grid_dot_result_gamma = 0.0;
         }
 
         peer_group.sync();
@@ -475,6 +481,7 @@ int SingleStreamUnifiedMemoryPipelined::init(int argc, char *argv[]) {
         (void *)&multi_device_data,
         (void *)&iter_max,
         (void *)&num_blocks_for_spmv,
+        (void *)&sMemSize,
     };
 
     cudaStream_t nStreams[num_devices];

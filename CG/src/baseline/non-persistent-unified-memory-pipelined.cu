@@ -54,7 +54,6 @@ namespace cg = cooperative_groups;
 namespace BaselineNonPersistentUnifiedMemoryPipelined {
 
 #define ENABLE_CPU_DEBUG_CODE 0
-#define THREADS_PER_BLOCK 512
 
 // delta => <r, r>
 // gamma => <r, w>
@@ -146,9 +145,10 @@ __global__ void gpuSaxpy(float *x, float *y, float *a, int num_rows, const int d
 // Performs two dot products at the same time
 // Used to perform <r, r> and <r, w> at the same time
 // Can we combined the two atomicAdds somehow?
+
 __global__ void gpuDotProductsMerged(float *vecA_delta, float *vecB_delta, float *vecA_gamma,
                                      float *vecB_gamma, int num_rows, const int device_rank,
-                                     const int num_devices) {
+                                     const int num_devices, const int sMemSize) {
     cg::thread_block cta = cg::this_thread_block();
 
     size_t local_grid_size = gridDim.x * blockDim.x;
@@ -157,8 +157,10 @@ __global__ void gpuDotProductsMerged(float *vecA_delta, float *vecB_delta, float
     size_t global_grid_size = local_grid_size * num_devices;
     size_t global_grid_rank = device_rank * local_grid_size + local_grid_rank;
 
-    extern __shared__ double tmp_delta[];
-    extern __shared__ double tmp_gamma[];
+    extern __shared__ double tmp[];
+
+    double *tmp_delta = (double *)tmp;
+    double *tmp_gamma = (double *)&tmp_delta[sMemSize / (2 * sizeof(double))];
 
     double temp_sum_delta = 0.0;
     double temp_sum_gamma = 0.0;
@@ -520,7 +522,7 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
 
         gpuDotProductsMerged<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize,
                                streamsOtherOps[gpu_idx]>>>(um_r, um_r, um_r, um_w, num_rows,
-                                                           gpu_idx, num_devices);
+                                                           gpu_idx, num_devices, sMemSize);
 
         addLocalDotContributions<<<1, 1, 0, streamsOtherOps[gpu_idx]>>>(um_dot_result_delta,
                                                                         um_dot_result_gamma);
@@ -574,7 +576,7 @@ int BaselineNonPersistentUnifiedMemoryPipelined::init(int argc, char *argv[]) {
 
             gpuDotProductsMerged<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize,
                                    streamsDot[gpu_idx]>>>(um_r, um_r, um_r, um_w, num_rows, gpu_idx,
-                                                          num_devices);
+                                                          num_devices, sMemSize);
 
             addLocalDotContributions<<<1, 1, 0, streamsDot[gpu_idx]>>>(um_dot_result_delta,
                                                                        um_dot_result_gamma);

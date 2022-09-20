@@ -8,6 +8,8 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 
+constexpr int THREADS_PER_BLOCK = 512;
+
 namespace cg = cooperative_groups;
 
 template <typename T_ELEM>
