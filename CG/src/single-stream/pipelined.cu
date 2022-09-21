@@ -300,7 +300,8 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
     int num_blocks_for_spmv = get_argval<int>(argv, argv + argc, "-num-spmv-blocks", -1);
-    const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare");
+    const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare-cpu");
+    const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
     bool generate_random_tridiag_matrix = matrix_path_str.empty();
@@ -382,6 +383,20 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
         memcpy(um_I, host_I, sizeof(int) * (num_rows + 1));
         memcpy(um_J, host_J, sizeof(int) * nnz);
         memcpy(um_val, host_val, sizeof(float) * nnz);
+    }
+
+// Comparing to Single GPU Non-Persistent Non-Pipelined implementation
+#pragma omp parallel num_threads(num_devices)
+    {
+        int gpu_idx = omp_get_thread_num();
+
+        if (compare_to_single_gpu && gpu_idx == 0) {
+            CUDA_RT_CALL(cudaSetDevice(gpu_idx));
+
+            SingleGPUPipelinedNonPersistent::run_single_gpu(iter_max, matrix_path_char,
+                                                            generate_random_tridiag_matrix, um_I,
+                                                            um_J, um_val, host_val, num_rows, nnz);
+        }
     }
 
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(float) * num_rows));
