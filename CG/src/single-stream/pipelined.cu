@@ -299,6 +299,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 int SingleStreamPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
+    int num_blocks_for_spmv = get_argval<int>(argv, argv + argc, "-num-spmv-blocks", -1);
     const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare");
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
@@ -424,7 +425,11 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     // Can also determine experimentally
     // Hardcoding for now => half and half to each
 
-    int num_blocks_for_spmv = (numSms * numBlocksPerSm) - 10;
+    // If number of blocks for SpMV is not specified, split evenly between SpMV and Dot
+    if (num_blocks_for_spmv == -1) {
+        std::cout << "Splitting thread blocks evenly between SpMV and Dot" << std::endl;
+        num_blocks_for_spmv = (numSms * numBlocksPerSm) / 2;
+    }
 
 #if ENABLE_CPU_DEBUG_CODE
     float *s_cpu = (float *)malloc(sizeof(float) * N);
