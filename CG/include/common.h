@@ -98,6 +98,19 @@ class PeerGroup {
 
         grid.sync();
     }
+
+    // Calculate size of a grid with `num_allocated_tbs` thread blocks
+    __device__ unsigned int calc_subgrid_size(const int num_allocated_tbs) const {
+        return num_allocated_tbs * THREADS_PER_BLOCK;
+    }
+
+    // Calculate rank of a thread in grid with `num_allocated_tbs thread blocks
+    __device__ unsigned int calc_subgrid_thread_rank(const int num_allocated_tbs) const {
+        int thread_rank = grid.thread_rank();
+        int subgrid_size = calc_subgrid_size(num_allocated_tbs);
+
+        return (subgrid_size > thread_rank) ? thread_rank : thread_rank - subgrid_size;
+    }
 };
 
 bool get_arg(char **begin, char **end, const std::string &arg);
