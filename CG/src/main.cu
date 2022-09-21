@@ -1,9 +1,9 @@
 #include <iostream>
 
-#include "../include/baseline/non-persistent-unified-memory-non-pipelined.cuh"
-#include "../include/baseline/non-persistent-unified-memory-pipelined.cuh"
-#include "../include/baseline/persistent-unified-memory.cuh"
-#include "../include/single-stream/unified-memory-pipelined.cuh"
+#include "../include/baseline/non-persistent-non-pipelined.cuh"
+#include "../include/baseline/non-persistent-pipelined.cuh"
+#include "../include/baseline/persistent-non-pipelined.cuh"
+#include "../include/single-stream/pipelined.cuh"
 
 #include "../include/common.h"
 
@@ -11,14 +11,11 @@ using std::make_pair;
 
 int main(int argc, char *argv[]) {
     const std::array versions{
-        make_pair("Baseline Persistent Kernel with Unified Memory",
-                  BaselinePersistentUnifiedMemory::init),
-        make_pair("Baseline Non Pipelined Non Persistent Kernel with Unified Memory ",
-                  BaselineNonPersistentUnifiedMemoryNonPipelined::init),
-        make_pair("Baseline Pipelined Non Persistent Kernel with Unified Memory",
-                  BaselineNonPersistentUnifiedMemoryPipelined::init),
-        make_pair("Single Stream Unified Memory Pipelined ",
-                  SingleStreamUnifiedMemoryPipelined::init),
+        make_pair("Baseline Non-Persistent Non-Pipelined", BaselineNonPersistentNonPipelined::init),
+        make_pair("Baseline Non-Persistent Pipelined", BaselineNonPersistentPipelined::init),
+        make_pair("Baseline Persistent Non-Pipelined (with Prefetching)",
+                  BaselinePersistentNonPipelined::init),
+        make_pair("Single Stream Pipelined ", SingleStreamPipelined::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);

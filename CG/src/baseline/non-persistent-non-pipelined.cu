@@ -43,7 +43,7 @@
 
 #include <omp.h>
 
-#include "../../include/baseline/non-persistent-unified-memory-non-pipelined.cuh"
+#include "../../include/baseline/non-persistent-non-pipelined.cuh"
 #include "../../include/common.h"
 
 #include <cooperative_groups.h>
@@ -51,10 +51,9 @@
 
 namespace cg = cooperative_groups;
 
-namespace BaselineNonPersistentUnifiedMemoryNonPipelined {
+namespace BaselineNonPersistentNonPipelined {
 
 #define ENABLE_CPU_DEBUG_CODE 0
-#define THREADS_PER_BLOCK 512
 
 __device__ double grid_dot_result = 0.0;
 
@@ -259,9 +258,9 @@ __global__ void resetLocalDotProduct(double *dot_result) {
     }
 }
 
-}  // namespace BaselineNonPersistentUnifiedMemoryNonPipelined
+}  // namespace BaselineNonPersistentNonPipelined
 
-int BaselineNonPersistentUnifiedMemoryNonPipelined::init(int argc, char *argv[]) {
+int BaselineNonPersistentNonPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
     const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare");
