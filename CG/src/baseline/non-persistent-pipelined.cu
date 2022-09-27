@@ -53,8 +53,6 @@ namespace cg = cooperative_groups;
 
 namespace BaselineNonPersistentPipelined {
 
-#define ENABLE_CPU_DEBUG_CODE 0
-
 // delta => <r, r>
 // gamma => <r, w>
 __device__ double grid_dot_result_delta = 0.0;

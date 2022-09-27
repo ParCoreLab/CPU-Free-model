@@ -53,9 +53,6 @@ namespace cg = cooperative_groups;
 
 namespace BaselinePersistentNonPipelined {
 
-#define ENABLE_CPU_DEBUG_CODE 0
-#define THREADS_PER_BLOCK 512
-
 __device__ double grid_dot_result = 0.0;
 
 __device__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
@@ -447,18 +444,6 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
         }
     }
 
-#if ENABLE_CPU_DEBUG_CODE
-    float *s_cpu = (float *)malloc(sizeof(float) * N);
-    float *r_cpu = (float *)malloc(sizeof(float) * N);
-    float *p_cpu = (float *)malloc(sizeof(float) * N);
-    float *x_cpu = (float *)malloc(sizeof(float) * N);
-
-    for (int i = 0; i < N; i++) {
-        r_cpu[i] = 1.0;
-        s_cpu[i] = x_cpu[i] = 0.0;
-    }
-#endif
-
     dim3 dimGrid(numSms * numBlocksPerSm, 1, 1), dimBlock(numThreads, 1, 1);
 
     // Structure used for cross-grid synchronization.
@@ -513,26 +498,6 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
         }
     }
 
-#if ENABLE_CPU_DEBUG_CODE
-    cpuConjugateGrad(I, J, val, x_cpu, s_cpu, p_cpu, r_cpu, nz, N, tol);
-#endif
-
-    float rsum, diff, err = 0.0;
-
-    for (int i = 0; i < num_rows; i++) {
-        rsum = 0.0;
-
-        for (int j = um_I[i]; j < um_J[i + 1]; j++) {
-            rsum += host_val[j] * um_x[um_J[j]];
-        }
-
-        diff = fabs(rsum - rhs);
-
-        if (diff > err) {
-            err = diff;
-        }
-    }
-
     CUDA_RT_CALL(cudaFreeHost(multi_device_data.hostMemoryArrivedList));
     CUDA_RT_CALL(cudaFree(um_I));
     CUDA_RT_CALL(cudaFree(um_J));
@@ -543,20 +508,6 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaFree(um_s));
     CUDA_RT_CALL(cudaFree(dot_result));
     free(host_val);
-
-#if ENABLE_CPU_DEBUG_CODE
-    free(s_cpu);
-    free(r_cpu);
-    free(p_cpu);
-    free(x_cpu);
-#endif
-
-    if (compare_to_cpu) {
-        printf("GPU Final, residual = %e \n  ", sqrt(r1));
-        printf("Test Summary:  Error amount = %f \n", err);
-        fprintf(stdout, "&&&& conjugateGradientMultiDeviceCG %s\n",
-                (sqrt(r1) < tol) ? "PASSED" : "FAILED");
-    }
 
     return 0;
 }

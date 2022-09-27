@@ -53,8 +53,6 @@ namespace cg = cooperative_groups;
 
 namespace BaselineNonPersistentNonPipelined {
 
-#define ENABLE_CPU_DEBUG_CODE 0
-
 __device__ double grid_dot_result = 0.0;
 
 __global__ void initVectors(float *r, float *x, int num_rows, const int device_rank,
@@ -263,7 +261,6 @@ __global__ void resetLocalDotProduct(double *dot_result) {
 int BaselineNonPersistentNonPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
-    const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare");
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
@@ -289,6 +286,8 @@ int BaselineNonPersistentNonPipelined::init(int argc, char *argv[]) {
     int *host_I = NULL;
     int *host_J = NULL;
     float *host_val = NULL;
+    float *x_host = NULL;
+    float *x_ref_host = NULL;
 
     int *um_I = NULL;
     int *um_J = NULL;
@@ -405,18 +404,6 @@ int BaselineNonPersistentNonPipelined::init(int argc, char *argv[]) {
     cudaGetDeviceProperties(&deviceProp, 0);
 
     int numSms = deviceProp.multiProcessorCount;
-
-#if ENABLE_CPU_DEBUG_CODE
-    float *s_cpu = (float *)malloc(sizeof(float) * N);
-    float *r_cpu = (float *)malloc(sizeof(float) * N);
-    float *p_cpu = (float *)malloc(sizeof(float) * N);
-    float *x_cpu = (float *)malloc(sizeof(float) * N);
-
-    for (int i = 0; i < N; i++) {
-        r_cpu[i] = 1.0;
-        s_cpu[i] = x_cpu[i] = 0.0;
-    }
-#endif
 
     // Structure used for cross-grid synchronization.
     unsigned char *hostMemoryArrivedList;
@@ -551,25 +538,12 @@ int BaselineNonPersistentNonPipelined::init(int argc, char *argv[]) {
 
     double stop = omp_get_wtime();
 
-    printf("Execution time: %8.4f s\n", (stop - start));
+    for (int gpu_idx = 0; gpu_idx < num_devices; gpu_idx++) {
+        CUDA_RT_CALL(cudaSetDevice(gpu_idx));
 
-#if ENABLE_CPU_DEBUG_CODE
-    cpuConjugateGrad(I, J, val, x_cpu, s_cpu, p_cpu, r_cpu, nz, N, tol);
-#endif
-
-    float rsum, diff, err = 0.0;
-
-    for (int i = 0; i < num_rows; i++) {
-        rsum = 0.0;
-
-        for (int j = um_I[i]; j < um_J[i + 1]; j++) {
-            rsum += host_val[j] * um_x[um_J[j]];
-        }
-
-        diff = fabs(rsum - rhs);
-
-        if (diff > err) {
-            err = diff;
+        if (compare_to_single_gpu && gpu_idx == 0) {
+            report_results(num_rows, x_ref_host, x_host, num_devices, single_gpu_runtime, start,
+                           stop, compare_to_single_gpu, tol);
         }
     }
 
@@ -583,20 +557,6 @@ int BaselineNonPersistentNonPipelined::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaFree(um_ax));
     CUDA_RT_CALL(cudaFree(um_dot_result));
     free(host_val);
-
-#if ENABLE_CPU_DEBUG_CODE
-    free(s_cpu);
-    free(r_cpu);
-    free(p_cpu);
-    free(x_cpu);
-#endif
-
-    if (compare_to_cpu) {
-        printf("GPU Final, residual = %e \n  ", sqrt(r1));
-        printf("Test Summary:  Error amount = %f \n", err);
-        fprintf(stdout, "&&&& conjugateGradientMultiDeviceCG %s\n",
-                (sqrt(r1) < tol) ? "PASSED" : "FAILED");
-    }
 
     return 0;
 }

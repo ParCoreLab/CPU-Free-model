@@ -154,15 +154,6 @@ bool get_arg(char **begin, char **end, const std::string &arg);
 
 void genTridiag(int *I, int *J, float *val, int N, int nz);
 
-float dotProduct(float *vecA, float *vecB, int size);
-
-void scaleVector(float *vec, float alpha, int size);
-
-void saxpy(float *x, float *y, float a, int size);
-
-void cpuConjugateGrad(int *I, int *J, float *val, float *x, float *Ax, float *p, float *r, int nnz,
-                      int N, float tol);
-
 #define noop
 
 #ifdef USE_NVTX
