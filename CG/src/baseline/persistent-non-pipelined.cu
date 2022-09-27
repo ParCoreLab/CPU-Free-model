@@ -482,16 +482,21 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
     double stop = omp_get_wtime();
 
-    for (int i = 0; i < num_rows; i++) {
-        x_host[i] = um_x[i];
-    }
-
     for (int gpu_idx = 0; gpu_idx < num_devices; gpu_idx++) {
         CUDA_RT_CALL(cudaSetDevice(gpu_idx));
 
-        if (compare_to_single_gpu && gpu_idx == 0) {
+        if (compare_to_single_gpu) {
+            for (int i = 0; i < num_rows; i++) {
+                x_host[i] = um_x[i];
+            }
+        }
+
+        if (gpu_idx == 0) {
             report_results(num_rows, x_ref_host, x_host, num_devices, single_gpu_runtime, start,
                            stop, compare_to_single_gpu);
+
+            CUDA_RT_CALL(cudaFreeHost(x_host));
+            CUDA_RT_CALL(cudaFreeHost(x_ref_host));
         }
     }
 
