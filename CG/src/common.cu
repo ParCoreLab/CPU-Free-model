@@ -134,6 +134,37 @@ void cpuConjugateGrad(int *I, int *J, float *val, float *x, float *Ax, float *p,
     }
 }
 
+void report_results(const int num_rows, float *x_ref, float *x, const int num_devices,
+                    const double single_gpu_runtime, const double start, const double stop,
+                    const bool compare_to_single_gpu, const float tol) {
+    bool result_correct = true;
+
+    if (compare_to_single_gpu) {
+        for (int i = 0; i < num_rows; i++) {
+            if (std::fabs(x_ref[i] - x[i]) > tol) {
+                fprintf(stderr,
+                        "ERROR: x[%d] = %.8f does not match %.8f "
+                        "(reference)\n",
+                        i, x[i], x_ref[i]);
+                // result_correct = false;
+            }
+        }
+    }
+
+    if (result_correct) {
+        printf("Execution time: %8.4f s\n", (stop - start));
+
+        if (compare_to_single_gpu) {
+            printf(
+                "Non-persistent kernel - 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
+                "efficiency: %8.2f \n",
+                single_gpu_runtime, num_devices, (stop - start),
+                single_gpu_runtime / (stop - start),
+                single_gpu_runtime / (num_devices * (stop - start)) * 100);
+        }
+    }
+}
+
 // Single GPU Pipelined Implementation
 
 namespace SingleGPUPipelinedNonPersistent {
@@ -303,7 +334,7 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
 
 double run_single_gpu(const int iter_max, char *matrix_path_char,
                       bool generate_random_tridiag_matrix, int *um_I, int *um_J, float *um_val,
-                      float *host_val, int num_rows, int nnz) {
+                      float *const x_ref, int num_rows, int nnz) {
     CUDA_RT_CALL(cudaSetDevice(0));
 
     float *um_r;
@@ -513,35 +544,10 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
 
     double stop = omp_get_wtime();
 
-    printf("Execution time: %8.4f s\n", (stop - start));
-
-    float rsum, diff, err = 0.0;
-
     for (int i = 0; i < num_rows; i++) {
-        rsum = 0.0;
-
-        for (int j = um_I[i]; j < um_J[i + 1]; j++) {
-            rsum += host_val[j] * um_x[um_J[j]];
-        }
-
-        diff = fabs(rsum - rhs);
-
-        if (diff > err) {
-            err = diff;
-        }
+        x_ref[i] = um_x[i];
     }
 
-    CUDA_RT_CALL(cudaFree(um_x));
-    CUDA_RT_CALL(cudaFree(um_r));
-    CUDA_RT_CALL(cudaFree(um_p));
-    CUDA_RT_CALL(cudaFree(um_s));
-    CUDA_RT_CALL(cudaFree(um_dot_result_delta));
-    CUDA_RT_CALL(cudaFree(um_dot_result_gamma));
-
-    printf("Test Summary:  Error amount = %f \n", err);
-    fprintf(stdout, "&&&& SingleGPUPipelinedNonPersistent %s\n",
-            (sqrt(r1) < tol) ? "PASSED" : "FAILED");
-
-    return 0;
+    return (stop - start);
 }
 }  // namespace SingleGPUPipelinedNonPersistent

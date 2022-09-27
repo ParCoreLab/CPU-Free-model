@@ -303,6 +303,7 @@ int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
     const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare");
+    const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
     bool generate_random_tridiag_matrix = matrix_path_str.empty();
@@ -316,6 +317,7 @@ int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
     // std::cout << "Running on matrix: " << matrix_name << "\n" << std::endl;
 
     int num_devices = 0;
+    double single_gpu_runtime;
 
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
 
@@ -326,6 +328,8 @@ int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
     int *host_I = NULL;
     int *host_J = NULL;
     float *host_val = NULL;
+    float *x_host = NULL;
+    float *x_ref_host = NULL;
 
     int *um_I = NULL;
     int *um_J = NULL;
@@ -403,6 +407,23 @@ int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
     }
 
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(float) * num_rows));
+
+    // Comparing to Single GPU Non-Persistent Non-Pipelined implementation
+#pragma omp parallel num_threads(num_devices)
+    {
+        int gpu_idx = omp_get_thread_num();
+
+        if (compare_to_single_gpu && gpu_idx == 0) {
+            CUDA_RT_CALL(cudaSetDevice(gpu_idx));
+
+            CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(float)));
+            CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(float)));
+
+            single_gpu_runtime = SingleGPUPipelinedNonPersistent::run_single_gpu(
+                iter_max, matrix_path_char, generate_random_tridiag_matrix, um_I, um_J, um_val,
+                x_ref_host, num_rows, nnz);
+        }
+    }
 
     double *um_dot_result_delta;
     double *um_dot_result_gamma;
@@ -614,6 +635,19 @@ int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
     r1 = (float)um_dot_result_gamma[0];
 
     double stop = omp_get_wtime();
+
+    for (int i = 0; i < num_rows; i++) {
+        x_host[i] = um_x[i];
+    }
+
+    for (int gpu_idx = 0; gpu_idx < num_devices; gpu_idx++) {
+        CUDA_RT_CALL(cudaSetDevice(gpu_idx));
+
+        if (compare_to_single_gpu && gpu_idx == 0) {
+            report_results(num_rows, x_ref_host, x_host, num_devices, single_gpu_runtime, start,
+                           stop, compare_to_single_gpu, tol);
+        }
+    }
 
     printf("Execution time: %8.4f s\n", (stop - start));
 

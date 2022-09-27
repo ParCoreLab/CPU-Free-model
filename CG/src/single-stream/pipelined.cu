@@ -315,6 +315,7 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     // std::cout << "Running on matrix: " << matrix_name << "\n" << std::endl;
 
     int num_devices = 0;
+    double single_gpu_runtime;
 
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
 
@@ -325,6 +326,8 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     int *host_I = NULL;
     int *host_J = NULL;
     float *host_val = NULL;
+    float *x_host = NULL;
+    float *x_ref_host = NULL;
 
     int *um_I = NULL;
     int *um_J = NULL;
@@ -393,9 +396,12 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
         if (compare_to_single_gpu && gpu_idx == 0) {
             CUDA_RT_CALL(cudaSetDevice(gpu_idx));
 
-            SingleGPUPipelinedNonPersistent::run_single_gpu(iter_max, matrix_path_char,
-                                                            generate_random_tridiag_matrix, um_I,
-                                                            um_J, um_val, host_val, num_rows, nnz);
+            CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(float)));
+            CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(float)));
+
+            single_gpu_runtime = SingleGPUPipelinedNonPersistent::run_single_gpu(
+                iter_max, matrix_path_char, generate_random_tridiag_matrix, um_I, um_J, um_val,
+                x_ref_host, num_rows, nnz);
         }
     }
 
@@ -525,7 +531,18 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 
     double stop = omp_get_wtime();
 
-    printf("Execution time: %8.4f s\n", (stop - start));
+    for (int i = 0; i < num_rows; i++) {
+        x_host[i] = um_x[i];
+    }
+
+    for (int gpu_idx = 0; gpu_idx < num_devices; gpu_idx++) {
+        CUDA_RT_CALL(cudaSetDevice(gpu_idx));
+
+        if (compare_to_single_gpu && gpu_idx == 0) {
+            report_results(num_rows, x_ref_host, x_host, num_devices, single_gpu_runtime, start,
+                           stop, compare_to_single_gpu, tol);
+        }
+    }
 
 #if ENABLE_CPU_DEBUG_CODE
     cpuConjugateGrad(I, J, val, x_cpu, s_cpu, p_cpu, r_cpu, nz, N, tol);

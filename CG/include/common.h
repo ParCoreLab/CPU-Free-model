@@ -27,6 +27,10 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
     return argval;
 }
 
+void report_results(const int num_rows, float *x_ref, float *x, const int num_devices,
+                    const double single_gpu_runtime, const double start, const double stop,
+                    const bool compare_to_single_gpu, const float tol);
+
 // Data filled on CPU needed for MultiGPU operations.
 struct MultiDeviceData {
     unsigned char *hostMemoryArrivedList;
