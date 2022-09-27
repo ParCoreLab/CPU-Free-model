@@ -254,7 +254,6 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
-    const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare");
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
@@ -287,8 +286,6 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
     int *um_J = NULL;
     float *um_val = NULL;
 
-    const float tol = 1e-5f;
-    float rhs = 1.0;
     float r1;
 
     float *um_x;
@@ -494,7 +491,7 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
         if (compare_to_single_gpu && gpu_idx == 0) {
             report_results(num_rows, x_ref_host, x_host, num_devices, single_gpu_runtime, start,
-                           stop, compare_to_single_gpu, tol);
+                           stop, compare_to_single_gpu);
         }
     }
 

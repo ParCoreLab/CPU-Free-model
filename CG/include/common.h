@@ -9,6 +9,7 @@
 #include <cooperative_groups/reduce.h>
 
 constexpr int THREADS_PER_BLOCK = 512;
+constexpr float tol = 1e-5f;
 
 namespace cg = cooperative_groups;
 
@@ -29,7 +30,7 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
 
 void report_results(const int num_rows, float *x_ref, float *x, const int num_devices,
                     const double single_gpu_runtime, const double start, const double stop,
-                    const bool compare_to_single_gpu, const float tol);
+                    const bool compare_to_single_gpu);
 
 // Data filled on CPU needed for MultiGPU operations.
 struct MultiDeviceData {

@@ -338,8 +338,6 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     float *um_u;
     float *um_t;
 
-    const float tol = 1e-5f;
-    float rhs = 1.0;
     float r1;
 
     for (int gpu_idx_i = 0; gpu_idx_i < num_devices; gpu_idx_i++) {
@@ -525,7 +523,7 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 
         if (compare_to_single_gpu && gpu_idx == 0) {
             report_results(num_rows, x_ref_host, x_host, num_devices, single_gpu_runtime, start,
-                           stop, compare_to_single_gpu, tol);
+                           stop, compare_to_single_gpu);
         }
     }
 

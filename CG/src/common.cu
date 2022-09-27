@@ -50,7 +50,7 @@ void genTridiag(int *I, int *J, float *val, int N, int nnz) {
 
 void report_results(const int num_rows, float *x_ref, float *x, const int num_devices,
                     const double single_gpu_runtime, const double start, const double stop,
-                    const bool compare_to_single_gpu, const float tol) {
+                    const bool compare_to_single_gpu) {
     bool result_correct = true;
 
     if (compare_to_single_gpu) {
@@ -268,7 +268,6 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
     float *um_b;
     float *um_float_negative_one;
 
-    const float tol = 1e-5f;
     float rhs = 1.0;
     float r1;
     float float_positive_one = 1.0;

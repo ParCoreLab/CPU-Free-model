@@ -305,8 +305,6 @@ int BaselineNonPersistentNonPipelined::init(int argc, char *argv[]) {
     float *um_b;
     float *um_float_negative_one;
 
-    const float tol = 1e-5f;
-    float rhs = 1.0;
     float r1;
     float float_positive_one = 1.0;
     float float_negative_one = -1.0;
@@ -543,7 +541,7 @@ int BaselineNonPersistentNonPipelined::init(int argc, char *argv[]) {
 
         if (compare_to_single_gpu && gpu_idx == 0) {
             report_results(num_rows, x_ref_host, x_host, num_devices, single_gpu_runtime, start,
-                           stop, compare_to_single_gpu, tol);
+                           stop, compare_to_single_gpu);
         }
     }
 
