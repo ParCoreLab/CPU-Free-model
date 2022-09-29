@@ -316,7 +316,6 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
 int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
-    const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare");
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
@@ -520,22 +519,26 @@ int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
         initVectors<<<initVectorsGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
             um_r, um_x, num_rows, gpu_idx, num_devices);
 
+        CUDA_RT_CALL(cudaDeviceSynchronize());
+
         // ax0 = Ax0
         gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
             um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_x, um_ax0, gpu_idx,
             num_devices);
 
-        // r0 = b0 - s0
+        CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        // r0 = b0 - ax0
         // NOTE: b is a unit vector.
         gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
             um_ax0, um_r, float_negative_one, num_rows, gpu_idx, num_devices);
+
+        CUDA_RT_CALL(cudaDeviceSynchronize());
 
         // w0 = Ar0
         gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
             um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_r, um_w, gpu_idx,
             num_devices);
-
-        syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -558,9 +561,9 @@ int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
                 um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_w, um_q, gpu_idx,
                 num_devices);
 
-            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
             CUDA_RT_CALL(cudaDeviceSynchronize());
+
+            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
             if (k > 1) {
                 update_b_k<<<1, 1, 0, streamsOtherOps[gpu_idx]>>>((float)*um_tmp_dot_delta1,
@@ -573,9 +576,9 @@ int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
                     (float)*um_tmp_dot_delta1, (float)*um_tmp_dot_gamma1, um_alpha);
             }
 
-            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
             CUDA_RT_CALL(cudaDeviceSynchronize());
+
+            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
             // z_i = q_i + beta_i * z_(i-1)
             gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
@@ -608,12 +611,14 @@ int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
 
             CUDA_RT_CALL(cudaDeviceSynchronize());
 
+            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
+
             *um_tmp_dot_delta0 = (float)*um_tmp_dot_delta1;
             *um_tmp_dot_gamma0 = (float)*um_tmp_dot_gamma1;
 
-            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
             CUDA_RT_CALL(cudaDeviceSynchronize());
+
+            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
 #pragma omp barrier
 
@@ -639,6 +644,20 @@ int BaselineNonPersistentPipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaFreeHost(x_ref_host));
         }
     }
+
+    CUDA_RT_CALL(cudaFreeHost(hostMemoryArrivedList));
+    CUDA_RT_CALL(cudaFree(um_I));
+    CUDA_RT_CALL(cudaFree(um_J));
+    CUDA_RT_CALL(cudaFree(um_val));
+    CUDA_RT_CALL(cudaFree(um_x));
+    CUDA_RT_CALL(cudaFree(um_r));
+    CUDA_RT_CALL(cudaFree(um_p));
+    CUDA_RT_CALL(cudaFree(um_s));
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_delta0));
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_delta1));
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma0));
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma1));
+    free(host_val);
 
     return 0;
 }
