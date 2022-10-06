@@ -57,13 +57,12 @@ __global__ void __launch_bounds__(1024, 1)
     int comm_tile_end;
 
     while (iter < iter_max) {
-
-//        printf("Outer: %d/%d\n", iteration_done[1], iter);
+        //        printf("Outer: %d/%d\n", iteration_done[1], iter);
 
         while (iteration_done[1] != iter) {
         }
 
-//        printf("Outer ok\n");
+        //        printf("Outer ok\n");
 
         if (blockIdx.x == gridDim.x - 1) {
             for (comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++) {
@@ -87,10 +86,19 @@ __global__ void __launch_bounds__(1024, 1)
                 cg::sync(cta);
 
                 if (col < comm_tile_end) {
-                    const real first_row_val =
-                        0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                a[(iy_start + 1) * nx + col] +
-                                remote_my_halo_buffer_on_top_neighbor[nx * cur_iter_mod + col]);
+//                    const real new_val =
+//                        ((5 * a[(iy - 1) * nx + ix]) + (12 * a[iy * nx + ix + 1]) + (15 * a[iy * nx + ix]) +
+//                         (12 * a[iy * nx + ix - 1]) + (5 * a[(iy + 1) * nx + ix])) /
+//                        118;
+                    const real first_row_val = (
+                        12 * a[iy_start * nx + col + 1] +
+                        12 * a[iy_start * nx + col - 1] +
+                        15 * a[iy_start + nx + col] +
+                        5  * a[(iy_start + 1) * nx + col] +
+                        5 * remote_my_halo_buffer_on_top_neighbor[nx * cur_iter_mod + col]
+                    ) / 118;
+
+//                    const real first_row_val = 1000;
 
                     a_new[iy_start * nx + col] = first_row_val;
                     local_halo_buffer_for_top_neighbor[nx * next_iter_mod + col] = first_row_val;
@@ -118,17 +126,27 @@ __global__ void __launch_bounds__(1024, 1)
                 if (cta.thread_rank() == 0) {
                     while (
                         local_is_bottom_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx] !=
-                        iter) {
+                    iter) {
                     }
                 }
 
                 cg::sync(cta);
 
                 if (col < comm_tile_end) {
-                    const real last_row_val =
-                        0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + col] +
-                                a[(iy_end - 2) * nx + col]);
+//                    const real last_row_val =
+//                        0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
+//                                remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + col] +
+//                                a[(iy_end - 2) * nx + col]);
+
+                    const real last_row_val = (
+                        12 * a[iy_end * nx + col + 1] +
+                        12 * a[iy_end * nx + col - 1] +
+                        15 * a[iy_end + nx + col] +
+                        5  * remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + col] +
+                        5  * a[(iy_end - 2) * nx + col]
+                    ) / 118;
+
+//                    const real last_row_val = 1000;
 
                     a_new[(iy_end - 1) * nx + col] = last_row_val;
                     local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + col] = last_row_val;
