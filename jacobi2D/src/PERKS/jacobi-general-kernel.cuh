@@ -63,6 +63,9 @@ __device__ __forceinline__ void inner_general(REAL* __restrict__ input, int widt
     REAL* sm_rbuffer = (REAL*)sm + 1;
 
     REAL* boundary_buffer = sm_rbuffer + basic_sm_space;
+
+//    REAL* boundary_buffer = input;
+
     REAL* sm_space =
         boundary_buffer + (2 * halo * boundary_line_size);  // BOX need add additional stuffs.
 
