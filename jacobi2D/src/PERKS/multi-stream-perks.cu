@@ -314,8 +314,8 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
         int numSms = deviceProp.multiProcessorCount;
 
-        constexpr int dim_block_x = 32;
-        constexpr int dim_block_y = 32;
+        constexpr int dim_block_x = 16;
+        constexpr int dim_block_y = 16;
 
         int comp_tile_size_x = 256;
         int comp_tile_size_y;
@@ -550,10 +550,10 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
 #pragma omp master
         {
-            printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
-            printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
-            printf("Boundary: %d %d %d\n", dim_block.x, dim_block.y, dim_block.z);
-            std::cout << std::endl;
+//            printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
+//            printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
+//            printf("Boundary: %d %d %d\n", dim_block.x, dim_block.y, dim_block.z);
+//            std::cout << std::endl;
         }
 
         //        exit(1);
@@ -571,7 +571,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
                                      (void *)&iteration_done_flags[0]};
 
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel, 2,
-                                                 executeBlockDim, kernelArgsBoundary, 0,
+                                                 dim_block, kernelArgsBoundary, 0,
                                                  boundary_sync_stream));
 
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)execute_kernel, executeGridDim,
@@ -626,7 +626,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         if (compare_to_single_gpu) {
             if (iter_max % 2 == 1) {
                 CUDA_RT_CALL(cudaMemcpy(
-                    a_h + iy_start_global * nx, __var_2__ + nx,
+                    a_h + iy_start_global * nx, a_new[dev_id] + nx,
                     std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
                     cudaMemcpyDeviceToHost));
             } else {
@@ -642,6 +642,8 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 #pragma omp master
         {
             std::cout << "Time: " << stop - start << std::endl;
+
+            printf("Execution time: %8.4f s\n", (stop - start));
 
             std::cout << "Num GPUs: " << num_devices << std::endl;
 
