@@ -558,12 +558,19 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         //        exit(1);
 
-        void *ExecuteKernelArgs[] = {(void *)&a[dev_id],
+        // This is so PERKS doesn't touch boundary
+        const auto a_local = a[dev_id] + ny;
+        const auto a_new_local = a_new[dev_id] + ny;
+
+//        const auto a_local = a[dev_id];
+//        const auto a_new_local = a_new[dev_id];
+
+        void *ExecuteKernelArgs[] = {(void *)&a_local,
                                      (void *)&chunk_size,
                                      (void *)&nx,
                                      (void *)&iy_start,
                                      (void *)&iy_end[dev_id],
-                                     (void *)&a_new[dev_id],
+                                     (void *)&a_new_local,
                                      (void *)&L2_cache3,
                                      (void *)&L2_cache4,
                                      (void *)&iter_max,
@@ -613,7 +620,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         {
             //            report_results(ny, nx, a_ref_h, a_h, num_devices,
             //            runtime_serial_non_persistent, start,
-            //                           stop, /* compare_to_single_gpu */ false);
+            //                           stop, /* comparet_to_single_gpu */ false);
 
             //            report_results(ny, nx, a_ref_h, a_h, num_devices,
             //            runtime_serial_non_persistent,
@@ -647,9 +654,11 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
             std::cout << "Num GPUs: " << num_devices << std::endl;
 
-            int halo = iter_max;
-            double error = checkError2D(nx, a_h, a_ref_h, halo, ny - halo, halo, nx - halo);
-            printf("[Test] RMS Error : %e\n", error);
+            if (compare_to_single_gpu) {
+               int halo = iter_max;
+                double error = checkError2D(nx, a_h, a_ref_h, halo, ny - halo, halo, nx - halo);
+                printf("[Test] RMS Error : %e\n", error);
+            }
         }
     }
 
