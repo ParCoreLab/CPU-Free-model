@@ -1,5 +1,10 @@
 #include "../include/common.h"
 
+#include <cooperative_groups.h>
+#include <cooperative_groups/reduce.h>
+
+namespace cg = cooperative_groups;
+
 bool get_arg(char **begin, char **end, const std::string &arg) {
     char **itr = std::find(begin, end, arg);
     if (itr != end) {
@@ -9,7 +14,7 @@ bool get_arg(char **begin, char **end, const std::string &arg) {
 }
 
 /* genTridiag: generate a random tridiagonal symmetric matrix */
-void genTridiag(int *I, int *J, float *val, int N, int nz) {
+void genTridiag(int *I, int *J, float *val, int N, int nnz) {
     I[0] = 0, J[0] = 0, J[1] = 1;
     val[0] = (float)rand() / RAND_MAX + 10.0f;
     val[1] = (float)rand() / RAND_MAX;
@@ -38,7 +43,7 @@ void genTridiag(int *I, int *J, float *val, int N, int nz) {
         }
     }
 
-    I[N] = nz;
+    I[N] = nnz;
 }
 
 // Host functions

@@ -25,11 +25,14 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new,
     {
         for (unsigned int iy = 0; iy < ny; iy++)
         {
-            const real y0 = real(offset + iz) - real(iy);
-            a[iz * nx * ny + iy * nx + 0] = y0;
-            a[iz * nx * ny + iy * nx + (nx - 1)] = y0;
-            a_new[iz * nx * ny + iy * nx + 0] = y0;
-            a_new[iz * nx * ny + iy * nx + (nx - 1)] = y0;
+            for (unsigned int ix = 0; ix < nx; ix++)
+            {
+
+                const real y0 = real(offset + iz) - real(iy) - real(ix);
+                a[iz * nx * ny + iy * nx + 0] = y0;
+
+                a_new[iz * nx * ny + iy * nx + 0] = y0;
+            }
         }
     }
 }
@@ -178,7 +181,7 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
                "norm "
                "check every %d iterations\n",
                iter_max, nx, ny, nz, nccheck);
-
+    fflush(stdout);
     constexpr int dim_block_x = 8;
     constexpr int dim_block_y = 8;
     constexpr int dim_block_z = 16;

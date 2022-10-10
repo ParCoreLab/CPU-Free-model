@@ -1,13 +1,16 @@
 #!/bin/bash
 
-#SBATCH --job-name=stencil-bench
-#SBATCH --ntasks=8
+#SBATCH -J stencil-bench-strong
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 128
+#SBATCH -A proj16
+#SBATCH -p palamut-cuda
 #SBATCH --gres=gpu:8
-#SBATCH --partition hgx2q
-#SBATCH --time=06:00:00
-#SBATCH --output=sbatch_output_%j.log
+#SBATCH --time=6:00:00
+#SBATCH -o stencil_bench_strong_output_%j.log
 
-. ./scripts/modules.sh > /dev/null
+. ./scripts/modules_truba.sh > /dev/null
 
 MAX_NUM_GPUS=8
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
@@ -30,6 +33,7 @@ version_name_to_idx_map["Baseline P2P (No Compute)"]=9
 version_name_to_idx_map["Single Stream 1TB (No Compute)"]=10
 version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
 version_name_to_idx_map["Double Stream (No Compute)"]=12
+
 BIN="./jacobi -s 1"
 
 NX=${NX:-512}
