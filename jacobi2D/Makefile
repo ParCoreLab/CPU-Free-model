@@ -15,13 +15,14 @@ GENCODE_FLAGS	:= $(GENCODE_SM70) $(GENCODE_SM80)
 #NVCC_FLAGS += -Xcompiler -fopenmp -lineinfo -DUSE_NVTX -lnvToolsExt $(GENCODE_FLAGS) -std=c++17
 NVCC_FLAGS += -Xcompiler -g -Xcompiler -fopenmp -std=c++17 -gencode="arch=compute_80,code=sm_80" -ccbin=g++-11 -D"__PRINT__" -D"GENWR"
 
-MAKEFLAGS += -j$(shell grep -c 'processor' /proc/cpuinfo)
+#MAKEFLAGS += -j$(shell grep -c 'processor' /proc/cpuinfo)
 
 SRC=$(shell sh -c "find ./src/ -name '*.cu'")
 OUT=$(SRC:=.o)
 #OBJECTS := $(patsubst ./src/%.cu, obj/%.o, $(SRC))
 OBJECTS := $(addprefix obj/,$(SRC:.cu=.o))
-#HED=$(shell sh -c find . -name '*.*h')
+
+all: jacobi
 
 jacobi: $(OBJECTS)
 	$(NVCC) $(NVCC_FLAGS) -I./include -o $@ $^
