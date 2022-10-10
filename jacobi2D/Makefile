@@ -13,7 +13,7 @@ GENCODE_FLAGS	:= $(GENCODE_SM70) $(GENCODE_SM80)
 #endif
 
 #NVCC_FLAGS += -Xcompiler -fopenmp -lineinfo -DUSE_NVTX -lnvToolsExt $(GENCODE_FLAGS) -std=c++17
-NVCC_FLAGS += -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(CXX) -D"__PRINT__" -D"GENWR"
+NVCC_FLAGS += -Xcompiler -g -Xcompiler -fopenmp -std=c++17 -gencode="arch=compute_80,code=sm_80" -ccbin=g++-11 -D"__PRINT__" -D"GENWR"
 
 MAKEFLAGS += -j$(shell grep -c 'processor' /proc/cpuinfo)
 
