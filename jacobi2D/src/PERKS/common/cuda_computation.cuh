@@ -257,7 +257,7 @@ __global__ void kernel_persistent_baseline_box_async( REAL * __restrict__ input,
     __global__ void kernel_persistent_baseline_box_async<_type,tile,halo>(_type*__restrict__,int,int,_type*__restrict__,_type*__restrict__,_type*__restrict__,int );
 
 template<class REAL, int LOCAL_TILE_Y, int halo,int reg_folder_y, int minblocks, bool UseSMCache>
-__global__ void kernel_general(REAL *__restrict__  input, int width_y, int width_x, 
+__global__ void kernel_general(REAL *__restrict__  input, int width_y, int width_x,
   REAL *__restrict__  __var_4__,REAL *__restrict__  l2_cache, REAL *__restrict__  l2_cachetmp, 
   int iteration, int max_sm_flder);
 
@@ -296,14 +296,14 @@ template<class REAL, int LOCAL_TILE_Y, int halo,
           int registeramount, bool UseSMCache, bool isstar=(isBOX==0),
           int minblocks=256/registeramount>
 __global__ void  kernel_general_wrapper
-(REAL * __restrict__ input, int width_y, int width_x, 
+(REAL * __restrict__ input, int width_y, int width_x, int iy_start, int iy_end,
   REAL * __restrict__ __var_4__, 
   REAL * __restrict__ l2_cache_o,REAL * __restrict__ l2_cache_i,
   int iteration,
-  int max_sm_flder);
+  int max_sm_flder, volatile int *iteration_done);
 
 #define PERKS_DECLARE_INITIONIZATION_GENERAL_WRAPPER(_type,tile,halo,ramount,usesm) \
-    __global__ void kernel_general_wrapper<_type,tile,halo,ramount,usesm>(_type*__restrict__,int,int,_type*__restrict__,_type*__restrict__,_type*__restrict__,int, int);
+    __global__ void kernel_general_wrapper<_type,tile,halo,ramount,usesm>(_type*__restrict__,int,int,int,int,_type*__restrict__,_type*__restrict__,_type*__restrict__,int, int, volatile int*);
 
 
 

@@ -5,6 +5,15 @@
 #include <sstream>
 #include <string>
 
+#include <cooperative_groups.h>
+#include <cooperative_groups/reduce.h>
+
+namespace cg = cooperative_groups;
+
+template <typename T_ELEM>
+int loadMMSparseMatrix(char *filename, char elem_type, bool csrFormat, int *m, int *n, int *nnz,
+                       T_ELEM **aVal, int **aRowInd, int **aColInd, int extendSymMatrix);
+
 template <typename T>
 T get_argval(char **begin, char **end, const std::string &arg, const T default_val) {
     T argval = default_val;
@@ -15,6 +24,79 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
     }
     return argval;
 }
+
+// Data filled on CPU needed for MultiGPU operations.
+struct MultiDeviceData {
+    unsigned char *hostMemoryArrivedList;
+    unsigned int numDevices;
+    unsigned int deviceRank;
+};
+
+// Class used for coordination of multiple devices.
+class PeerGroup {
+    const MultiDeviceData &data;
+    const cg::grid_group &grid;
+
+    __device__ unsigned char load_arrived(unsigned char *arrived) const {
+#if __CUDA_ARCH__ < 700
+        return *(volatile unsigned char *)arrived;
+#else
+        unsigned int result;
+        asm volatile("ld.acquire.sys.global.u8 %0, [%1];" : "=r"(result) : "l"(arrived) : "memory");
+        return result;
+#endif
+    }
+
+    __device__ void store_arrived(unsigned char *arrived, unsigned char val) const {
+#if __CUDA_ARCH__ < 700
+        *(volatile unsigned char *)arrived = val;
+#else
+        unsigned int reg_val = val;
+        asm volatile("st.release.sys.global.u8 [%1], %0;" ::"r"(reg_val) "l"(arrived) : "memory");
+
+        // Avoids compiler warnings from unused variable val.
+        (void)(reg_val = reg_val);
+#endif
+    }
+
+   public:
+    __device__ PeerGroup(const MultiDeviceData &data, const cg::grid_group &grid)
+        : data(data), grid(grid){};
+
+    __device__ unsigned int size() const { return data.numDevices * grid.size(); }
+
+    __device__ unsigned int thread_rank() const {
+        return data.deviceRank * grid.size() + grid.thread_rank();
+    }
+
+    __device__ void sync() const {
+        grid.sync();
+
+        // One thread from each grid participates in the sync.
+        if (grid.thread_rank() == 0) {
+            if (data.deviceRank == 0) {
+                // Leader grid waits for others to join and then releases them.
+                // Other GPUs can arrive in any order, so the leader have to wait for
+                // all others.
+                for (int i = 0; i < data.numDevices - 1; i++) {
+                    while (load_arrived(&data.hostMemoryArrivedList[i]) == 0)
+                        ;
+                }
+                for (int i = 0; i < data.numDevices - 1; i++) {
+                    store_arrived(&data.hostMemoryArrivedList[i], 0);
+                }
+                __threadfence_system();
+            } else {
+                // Other grids note their arrival and wait to be released.
+                store_arrived(&data.hostMemoryArrivedList[data.deviceRank - 1], 1);
+                while (load_arrived(&data.hostMemoryArrivedList[data.deviceRank - 1]) == 1)
+                    ;
+            }
+        }
+
+        grid.sync();
+    }
+};
 
 bool get_arg(char **begin, char **end, const std::string &arg);
 
@@ -68,5 +150,13 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
                     #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus), cudaStatus); \
     }                                                                                       \
     noop
+
+#define CURAND_CALL(x)                                      \
+    do {                                                    \
+        if ((x) != CURAND_STATUS_SUCCESS) {                 \
+            printf("Error at %s:%d\n", __FILE__, __LINE__); \
+            return EXIT_FAILURE;                            \
+        }                                                   \
+    } while (0)
 
 #endif  // INC_CG_COMMON_H

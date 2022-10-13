@@ -43,7 +43,7 @@
 
 #include <omp.h>
 
-#include "../../include/baseline/persistent-unified-memory.cuh"
+#include "../../include/baseline/persistent-unified-memory-gather-vector.cuh"
 #include "../../include/common.h"
 
 #include <cooperative_groups.h>
@@ -51,7 +51,7 @@
 
 namespace cg = cooperative_groups;
 
-namespace BaselinePersistentUnifiedMemory {
+namespace BaselinePersistentUnifiedMemoryGatherVector {
 
 #define ENABLE_CPU_DEBUG_CODE 0
 #define THREADS_PER_BLOCK 512
@@ -124,8 +124,9 @@ __device__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale,
     }
 }
 
-__global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, float *Ax, float *p,
-                                          float *r, double *dot_result, int nnz, int N, float tol,
+__global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, float *Ax,
+                                          float *um_p, float *device_p, float *r,
+                                          double *dot_result, int nnz, int N, float tol,
                                           MultiDeviceData multi_device_data, const int iter_max) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
@@ -172,9 +173,9 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         if (k > 1) {
             b = r1 / r0;
-            gpuScaleVectorAndSaxpy(r, p, alpha, b, N, peer_group);
+            gpuScaleVectorAndSaxpy(r, um_p, alpha, b, N, peer_group);
         } else {
-            gpuCopyVector(r, p, N, peer_group);
+            gpuCopyVector(r, um_p, N, peer_group);
         }
 
         peer_group.sync();
@@ -183,7 +184,13 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         // SpMV Start
 
-        gpuSpMV(I, J, val, nnz, N, alpha, p, Ax, peer_group);
+        for (int i = grid.thread_rank(); i < N; i += grid.size()) {
+            device_p[i] = um_p[i];
+        }
+
+        cg::sync(grid);
+
+        gpuSpMV(I, J, val, nnz, N, alpha, device_p, Ax, peer_group);
 
         // SpMV End
 
@@ -194,7 +201,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         }
         peer_group.sync();
 
-        gpuDotProduct(p, Ax, N, cta, peer_group);
+        gpuDotProduct(um_p, Ax, N, cta, peer_group);
 
         cg::sync(grid);
 
@@ -211,7 +218,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         a = r1 / *dot_result;
 
-        gpuSaxpy(p, x, a, N, peer_group);
+        gpuSaxpy(um_p, x, a, N, peer_group);
 
         na = -a;
 
@@ -258,9 +265,9 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     //     if (k > 1) {
     //         b = r1 / r0;
-    //         gpuScaleVectorAndSaxpy(r, p, alpha, b, N, peer_group);
+    //         gpuScaleVectorAndSaxpy(r, um_p, alpha, b, N, peer_group);
     //     } else {
-    //         gpuCopyVector(r, p, N, peer_group);
+    //         gpuCopyVector(r, um_p, N, peer_group);
     //     }
 
     //     peer_group.sync();
@@ -269,7 +276,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     //     a = r1 / *dot_result;
 
-    //     gpuSaxpy(p, x, a, N, peer_group);
+    //     gpuSaxpy(um_p, x, a, N, peer_group);
 
     //     na = -a;
 
@@ -292,7 +299,13 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
     // while (k <= iter_max) {
     //     // SpMV Start
 
-    //     gpuSpMV(I, J, val, nnz, N, alpha, p, Ax, peer_group);
+    //     for (int i = grid.thread_rank(); i < N; i += grid.size()) {
+    //         device_p[i] = um_p[i];
+    //     }
+
+    //     cg::sync(grid);
+
+    //     gpuSpMV(I, J, val, nnz, N, alpha, device_p, Ax, peer_group);
 
     //     k++;
     // }
@@ -306,7 +319,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
     //     }
     //     peer_group.sync();
 
-    //     gpuDotProduct(p, Ax, N, cta, peer_group);
+    //     gpuDotProduct(um_p, Ax, N, cta, peer_group);
 
     //     cg::sync(grid);
 
@@ -338,9 +351,9 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
     //     k++;
     // }
 }
-}  // namespace BaselinePersistentUnifiedMemory
+}  // namespace BaselinePersistentUnifiedMemoryGatherVector
 
-int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
+int BaselinePersistentUnifiedMemoryGatherVector::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
     const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare");
@@ -376,7 +389,10 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     float *x;
     float rhs = 1.0;
     float r1;
-    float *r, *p, *Ax;
+    float *r, *Ax;
+
+    float *um_p;
+    float *device_p;
 
     for (int gpu_idx_i = 0; gpu_idx_i < num_devices; gpu_idx_i++) {
         CUDA_RT_CALL(cudaSetDevice(gpu_idx_i));
@@ -434,8 +450,9 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
 
     // temp memory for ConjugateGradient
     CUDA_RT_CALL(cudaMallocManaged((void **)&r, num_rows * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&p, num_rows * sizeof(float)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(float)));
     CUDA_RT_CALL(cudaMallocManaged((void **)&Ax, num_rows * sizeof(float)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_p, num_rows * sizeof(float)));
 
     // ASSUMPTION: All GPUs are the same and P2P callable
 
@@ -485,14 +502,14 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
                 cudaMemAdvise(x + offset_x, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
-                cudaMemAdvise(p + offset_p, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_p + offset_p, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
 
                 cudaMemAdvise(Ax + offset_Ax, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
                 cudaMemAdvise(r + offset_r, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
-                cudaMemAdvise(p + offset_p, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_p + offset_p, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
                 cudaMemAdvise(x + offset_x, sizeof(float) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
@@ -534,9 +551,19 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     multi_device_data.deviceRank = 0;
 
     void *kernelArgs[] = {
-        (void *)&um_I,     (void *)&um_J,     (void *)&um_val, (void *)&x,
-        (void *)&Ax,       (void *)&p,        (void *)&r,      (void *)&dot_result,
-        (void *)&nnz,      (void *)&num_rows, (void *)&tol,    (void *)&multi_device_data,
+        (void *)&um_I,
+        (void *)&um_J,
+        (void *)&um_val,
+        (void *)&x,
+        (void *)&Ax,
+        (void *)&um_p,
+        (void *)&device_p,
+        (void *)&r,
+        (void *)&dot_result,
+        (void *)&nnz,
+        (void *)&num_rows,
+        (void *)&tol,
+        (void *)&multi_device_data,
         (void *)&iter_max,
     };
 
@@ -590,7 +617,8 @@ int BaselinePersistentUnifiedMemory::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaFree(um_val));
     CUDA_RT_CALL(cudaFree(x));
     CUDA_RT_CALL(cudaFree(r));
-    CUDA_RT_CALL(cudaFree(p));
+    CUDA_RT_CALL(cudaFree(um_p));
+    CUDA_RT_CALL(cudaFree(device_p));
     CUDA_RT_CALL(cudaFree(Ax));
     CUDA_RT_CALL(cudaFree(dot_result));
     free(host_val);
