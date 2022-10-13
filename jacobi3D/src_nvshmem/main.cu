@@ -10,14 +10,16 @@
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
 
 #include "../include/single-stream/multi-threaded-one-block-comm.cuh"
-#include "../include/single-stream/multi-threaded-one-block-warp-comm.cuh"
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
+
+#include "../include/single-stream_nvshmem/multi-threaded-all-block-comm.cuh"
+#include "../include/single-stream_nvshmem/multi-threaded-one-block-warp-comm.cuh"
+#include "../include/single-stream_nvshmem/multi-threaded-one-block-comm.cuh"
 
 #include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-copy-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-copy-overlap-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
-#include "../include/no-compute/multi-threaded-one-block-warp-comm-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-p2p-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
 
@@ -31,11 +33,16 @@ int main(int argc, char *argv[]) {
         make_pair("Baseline Single Threaded Copy", BaselineSingleThreadedCopy::init),
         make_pair("Naive Single stream multi threaded (one thread block communicates)",
                   SSMultiThreadedOneBlockComm::init),
-        make_pair("Naive Single stream multi threaded warp (one thread block communicates)",
-                  SSMultiThreadedOneBlockWarpComm::init),
         make_pair("Naive Single stream multi threaded (two thread blocks communicate)",
                   SSMultiThreadedTwoBlockComm::init),
         make_pair("Naive Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
+        make_pair("NVSHMEM Single stream multi threaded (ALL thread blocks communicate)",
+                  SSMultiThreadedAllBlockCommNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded (one thread block communicate, warp-based)",
+                  SSMultiThreadedOneBlockWarpCommNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded (one thread block communicate, block-based)",
+                  SSMultiThreadedOneBlockCommNvshmem::init),
+
         make_pair("Baseline Multi Threaded Copy (No computation)",
                   BaselineMultiThreadedCopyNoCompute::init),
         make_pair("Baseline Multi Threaded Copy Overlap (No Computation)",
@@ -44,8 +51,6 @@ int main(int argc, char *argv[]) {
                   BaselineMultiThreadedP2PNoCompute::init),
         make_pair("Single stream multi threaded (one thread block communicates; no computation)",
                   SSMultiThreadedOneBlockCommNoCompute::init),
-                  make_pair("Single stream multi threaded warp (one thread block communicates; no computation)",
-                  SSMultiThreadedOneBlockWarpCommNoCompute::init),
         make_pair("Single stream multi threaded (two thread blocks communicate; no computation)",
                   SSMultiThreadedTwoBlockCommNoCompute::init),
         make_pair("Double stream multi threaded with Tiling (no computation)",

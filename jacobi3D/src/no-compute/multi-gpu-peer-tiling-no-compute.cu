@@ -30,7 +30,7 @@ namespace MultiGPUPeerTilingNoCompute
                       volatile int *iteration_done)
     {
         cg::thread_block cta = cg::this_thread_block();
-        cg::grid_group grid = cg::this_grid();
+        cg::grid_group grid = cg::this_grid(); 
 
         /*
         const int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
@@ -374,7 +374,7 @@ int MultiGPUPeerTilingNoCompute::init(int argc, char *argv[])
         int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
         int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
 
-        int total_num_flags = 4 * comm_tile_size_x * comm_tile_size_y;
+        int total_num_flags = 4 * num_comm_tiles_x * num_comm_tiles_y;
 
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (nz - 2);
         if (dev_id < num_ranks_low)
