@@ -7,10 +7,10 @@
 #include <omp.h>
 
 #include <cooperative_groups.h>
-#include <cooperative_groups/memcpy_async.h>
+
 #include <nvshmem.h>
 #include <nvshmemx.h>
-#include "../../include/common.h"
+
 #include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm.cuh"
 
 namespace cg = cooperative_groups;
@@ -19,18 +19,17 @@ namespace SSMultiThreadedOneBlockCommNvshmem {
 
 __global__ void __launch_bounds__(1024, 1)
     jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                  const int nx, const int iter_max, real *halo_buffer_for_top_neighbor,
-                  real *halo_buffer_for_bottom_neighbor, volatile uint64_t *is_done_computing,
-                  const int top, const int bottom) {
+                  const int nx, const int iter_max, real *halo_buffer_of_top_neighbor,
+                  real *halo_buffer_of_bottom_neighbor, uint64_t *is_done_computing, const int top,
+                  const int bottom) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
     int iter = 0;
     int cur_iter_mod = 0;
-    int next_iter_mod = nx * ny;
-    constexpr real neighbour_coeff = real(1.0 / 6.0);
+    int next_iter_mod = 1;
 
-    const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
+    //const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
 
     const int comm_tile_size_x = blockDim.x;
     const int comm_tile_size_y = blockDim.y * blockDim.z;
@@ -52,108 +51,89 @@ __global__ void __launch_bounds__(1024, 1)
     const int base_iz = block_idx_z * blockDim.z + threadIdx.z;
     const int base_iy = block_idx_y * blockDim.y + threadIdx.y;
     const int base_ix = block_idx_x * blockDim.x + threadIdx.x;
-
-    const int block_count_in_transport =
-        nx * ny / thread_count_per_block + (nx * ny % thread_count_per_block != 0);
     while (iter < iter_max) {
         if (blockIdx.x == gridDim.x - 1) {
-            nvshmem_uint64_wait_until_all(is_done_computing, 2, NULL, NVSHMEM_CMP_EQ,
-                                          block_count_in_transport);
-            const int base_idx =
-                threadIdx.z * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-                
-            if (cta.thread_rank == 0) {
-                is_done_computing[0] = 0;
-                is_done_computing[1] = 0;
-            }
+            nvshmem_uint64_wait_until_all(is_done_computing, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
-            int element_idx = -1;
-            int element_block_idx = nx + 1;
-            int iz_begin = iz_start * ny * nx;
-            int iz_begin_next = iz_begin + ny * nx;
-            int iz_finish = (iz_end - 1) * ny * nx;
-            int iz_finish_prev = iz_finish - ny * nx;
+            is_done_computing[0] = 0;
+            is_done_computing[1] = 0;
 
-            for (element_idx = base_idx + nx + 1; element_idx < ny * nx - nx - 1;
-                 element_idx += thread_count_per_block) {
-                real new_val = -1;
+            iz = (base_iz + iz_start) * ny * nx;
+            int iz_below = iz + ny * nx;
 
-                int prev_idx_y = iz_begin + element_idx - nx;
-                int next_idx_y = iz_begin + element_idx + nx;
-
-                int prev_idx_x = element_idx % nx != 0 ? iz_begin + element_idx - 1 : -1;
-                int next_idx_x = element_idx % nx != nx - 1 ? iz_begin + element_idx + 1 : -1;
-
-                if (prev_idx_x > 0 && next_idx_x > 0) {
-                    new_val =
-                        neighbour_coeff * (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] +
-                                           a[prev_idx_y] + a[iz_begin_next + element_idx] +
-                                           halo_buffer_of_top_neighbor[cur_iter_mod + element_idx]);
-
-                    a_new[iz_begin + element_idx] = new_val;
-                }
-
-                cg::sync(cta);
-
-                nvshmemx_float_put_signal_nbi_block(
-                    halo_buffer_of_bottom_neighbor + next_iter_mod + element_block_idx,
-                    a_new + iz_begin + element_block_idx,
-                    min(thread_count_per_block, ny * nx - nx - 1 - element_block_idx),
-                    &is_done_computing[0], 1, NVSHMEM_SIGNAL_ADD, top);
-
-                prev_idx_y = iz_finish + element_idx - nx;
-                next_idx_y = iz_finish + element_idx + nx;
-
-                prev_idx_x = element_idx % nx != 0 ? iz_finish + element_idx - 1 : -1;
-                next_idx_x = element_idx % nx != nx - 1 ? iz_finish + element_idx + 1 : -1;
-
-                if (prev_idx_x > 0 && next_idx_x > 0) {
-                    new_val = neighbour_coeff *
-                              (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] + a[prev_idx_y] +
-                               halo_buffer_of_bottom_neighbor[cur_iter_mod + element_idx] +
-                               a[iz_finish_prev + element_idx]);
-
-                    a_new[iz_finish + element_idx] = new_val;
-                }
-                // this is needed since a block must finish its computation
-                cg::sync(cta);
-
-                nvshmemx_float_put_signal_nbi_block(
-                    halo_buffer_of_top_neighbor + next_iter_mod + element_block_idx,
-                    a_new + iz_begin + element_block_idx,
-                    min(thread_count_per_block, ny * nx - nx - 1 - element_block_idx),
-                    &is_done_computing[1], 1, NVSHMEM_SIGNAL_ADD, bottom);
-
-                element_block_idx += thread_count_per_block;
-            }
-        }
-    }
-    else {
-        for (iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
-             iz += comp_tile_size_z * ny * nx) {
-            for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comp_tile_size_y * nx) {
-                for (ix = (base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x) {
-                    const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
-                                          a[iz + iy + nx + ix] + a[iz + iy - nx + ix] +
-                                          a[iz + ny * nx + iy + ix] + a[iz - ny * nx + iy + ix]) /
-                                         real(6.0);
+            for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx) {
+                int iy_below = iy + nx;
+                int iy_above = iy - nx;
+                for (ix = (base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x) {
+                    const real new_val =
+                        (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
+                         a[iz + iy_above + ix] + a[iz_below + iy + ix] +
+                         halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy * nx + ix]) /
+                        real(6.0);
 
                     a_new[iz + iy + ix] = new_val;
                 }
             }
+            cg::sync(cta);
+            nvshmemx_float_put_signal_nbi_block(
+                halo_buffer_of_top_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
+                ny * nx, &is_done_computing[1], 1, NVSHMEM_SIGNAL_ADD, top);
+
+            iz = (base_iz + iz_end - 1) * ny * nx;
+            int iz_above = iz - ny * nx;
+
+            for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx) {
+                int iy_below = iy + nx;
+                int iy_above = iy - nx;
+
+                for (ix = (base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x) {
+                    const real new_val =
+                        (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
+                         a[iz + iy_above + ix] +
+                         halo_buffer_of_bottom_neighbor[cur_iter_mod * ny * nx + iy * nx + ix] +
+                         a[iz_above + iy * nx + ix]) /
+                        real(6.0);
+
+                    a_new[iz + iy + ix] = new_val;
+                }
+            }
+            cg::sync(cta);
+
+            nvshmemx_float_put_signal_nbi_block(
+                halo_buffer_of_bottom_neighbor + next_iter_mod * ny * nx,
+                a_new + (iz_end - 1) * ny * nx, ny * nx, &is_done_computing[0], 1,
+                NVSHMEM_SIGNAL_ADD, bottom);
+        } else {
+            for (iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
+                 iz += comp_tile_size_z * ny * nx) {
+                int iz_below = iz + ny * nx;
+                int iz_above = iz - ny * nx;
+                for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comp_tile_size_y * nx) {
+                    int iy_below = iy + nx;
+                    int iy_above = iy - nx;
+                    for (ix = (base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x) {
+                        const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
+                                              a[iz + iy_below + ix] + a[iz + iy_above + ix] +
+                                              a[iz_below + iy + ix] + a[iz_above + iy + ix]) /
+                                             real(6.0);
+
+                        a_new[iz + iy + ix] = new_val;
+                    }
+                }
+            }
         }
+
+        real *temp_pointer = a_new;
+        a_new = a;
+        a = temp_pointer;
+
+        iter++;
+
+        next_iter_mod = cur_iter_mod;
+        cur_iter_mod = 1 - cur_iter_mod;
+        nvshmem_quiet();
+        cg::sync(grid);
     }
-
-    real *temp_pointer = a_new;
-    a_new = a;
-    a = temp_pointer;
-
-    iter++;
-
-    next_iter_mod = cur_iter_mod;
-    cur_iter_mod = nx * ny - cur_iter_mod;
-    nvshmem_quiet();
-    cg::sync(grid);
 }
 }  // namespace SSMultiThreadedOneBlockCommNvshmem
 

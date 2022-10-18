@@ -10,12 +10,12 @@
 
 #include <nvshmem.h>
 #include <nvshmemx.h>
-#include "../../include/common.h"
-#include "../../include/single-stream_nvshmem/multi-threaded-all-block-comm.cuh"
+
+#include "../../include/single-stream_nvshmem/multi-threaded-two-block-comm.cuh"
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedAllBlockCommNvshmem {
+namespace SSMultiThreadedTwoBlockCommNvshmem {
 
 __global__ void __launch_bounds__(1024, 1)
     jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
@@ -28,118 +28,98 @@ __global__ void __launch_bounds__(1024, 1)
     int iter = 0;
     int cur_iter_mod = 0;
     int next_iter_mod = 1;
-    constexpr real neighbour_coeff = real(1.0 / 6.0);
 
-    // const int comm_tile_size_x = blockDim.y * blockDim.x;
-    // const int comm_tile_size_y = gridDim.x * blockDim.z;
+    //const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
 
-    // const int comp_tile_size_x = blockDim.x;
-    // const int comp_tile_size_y = blockDim.y;
-    // const int comp_tile_size_z = gridDim.x * blockDim.z;
-
+    const int comm_tile_size_x = blockDim.x;
+    const int comm_tile_size_y = blockDim.y * blockDim.z;
+    const int comp_tile_size_x = blockDim.x;
+    const int comp_tile_size_y = blockDim.y;
+    const int comp_tile_size_z = blockDim.z;
     const int thread_count_per_block = blockDim.x * blockDim.y * blockDim.z;
 
-    // const int base_iy_comm = blockIdx.x * blockDim.z + threadIdx.z;
-    // const int base_ix_comm = threadIdx.y * blockDim.x + threadIdx.x;
+    int iz;
+    int iy;
+    int ix;
+    const int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
+    const int grid_dim_y = (comp_tile_size_y + blockDim.y - 1) / blockDim.y;
 
-    // const int comm_tile_size = gridDim.x * thread_count_per_block;
+    const int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
+    const int block_idx_y = (blockIdx.x % (grid_dim_x * grid_dim_y)) / grid_dim_x;
+    const int block_idx_x = blockIdx.x % grid_dim_x;
 
-    const int base_idx = blockIdx.x * thread_count_per_block +
-                         threadIdx.z * blockDim.x * blockDim.y + threadIdx.y * blockDim.x +
-                         threadIdx.x;
-
-    // const int base_iz_comp = blockIdx.x * blockDim.z + threadIdx.z;
-    // const int base_iy_comp = threadIdx.y;
-    // const int base_ix_comp = threadIdx.x;
-
-    const int block_count_in_transport =
-        nx * ny / thread_count_per_block + (nx * ny % thread_count_per_block != 0);
-
-    // int iz;
-    // int iy;
-    // int ix;
-
+    const int base_iz = block_idx_z * blockDim.z + threadIdx.z;
+    const int base_iy = block_idx_y * blockDim.y + threadIdx.y;
+    const int base_ix = block_idx_x * blockDim.x + threadIdx.x;
     while (iter < iter_max) {
-        /// CHANGE THE FLAG METHOD FROM 2 FLAGS TO 2 * number of tiles in comm (it is a const)
-        // or keep it at 2 flags but count to the num of blocks per layer.
-        nvshmem_uint64_wait_until_all(is_done_computing, 2, NULL, NVSHMEM_CMP_EQ,
-                                      block_count_in_transport);
-        is_done_computing[0] = 0;
-        is_done_computing[1] = 0;
+        if (blockIdx.x == gridDim.x - 1) {
+            nvshmem_uint64_wait_until_all(is_done_computing, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
-        int element_idx = -1;
-        int iz_begin = iz_start * ny * nx;
-        int iz_begin_next = iz_begin + ny * nx;
-        int iz_finish = (iz_end - 1) * ny * nx;
-        int iz_finish_prev = iz_finish - ny * nx;
+            is_done_computing[0] = 0;
+            is_done_computing[1] = 0;
 
-        for (element_idx = base_idx + nx + 1; element_idx < ny * nx - nx - 1;
-             element_idx += gridDim.x * thread_count_per_block) {
-            real new_val = -1;
+            iz = (base_iz + iz_start) * ny * nx;
+            int iz_below = iz + ny * nx;
 
-            int prev_idx_y = element_idx - nx;
-            int next_idx_y = element_idx + nx;
+            for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx) {
+                int iy_below = iy + nx;
+                int iy_above = iy - nx;
+                for (ix = (base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x) {
+                    const real new_val =
+                        (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
+                         a[iz + iy_above + ix] + a[iz_below + iy + ix] +
+                         halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy * nx + ix]) /
+                        real(6.0);
 
-            int prev_idx_x = element_idx % nx != 0 ? element_idx - 1 : -1;
-            int next_idx_x = element_idx % nx != nx - 1 ? element_idx + 1 : -1;
-
-            int element_block_idx = element_idx - (threadIdx.z * blockDim.x * blockDim.y +
-                                                   threadIdx.y * blockDim.x + threadIdx.x);
-            if (prev_idx_x > 0 && next_idx_x > 0) {
-                new_val = neighbour_coeff *
-                               (a[iz_begin + next_idx_x] + a[iz_begin + prev_idx_x] +
-                                a[iz_begin + next_idx_y] + a[iz_begin + prev_idx_y] +
-                                a[iz_begin_next + element_idx] +
-                                halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + element_idx]);
-
-                a_new[iz_begin + element_idx] = new_val;
+                    a_new[iz + iy + ix] = new_val;
+                }
             }
-            // this is needed since a block must finish its computation
+            cg::sync(cta);
+            nvshmemx_float_put_signal_nbi_block(
+                halo_buffer_of_top_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
+                ny * nx, &is_done_computing[1], 1, NVSHMEM_SIGNAL_ADD, top);
+
+            iz = (base_iz + iz_end - 1) * ny * nx;
+            int iz_above = iz - ny * nx;
+
+            for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx) {
+                int iy_below = iy + nx;
+                int iy_above = iy - nx;
+
+                for (ix = (base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x) {
+                    const real new_val =
+                        (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
+                         a[iz + iy_above + ix] +
+                         halo_buffer_of_bottom_neighbor[cur_iter_mod * ny * nx + iy * nx + ix] +
+                         a[iz_above + iy * nx + ix]) /
+                        real(6.0);
+
+                    a_new[iz + iy + ix] = new_val;
+                }
+            }
             cg::sync(cta);
 
             nvshmemx_float_put_signal_nbi_block(
-                halo_buffer_of_bottom_neighbor + (next_iter_mod * ny * nx) + element_block_idx,
-                a_new + iz_begin + element_block_idx,
-                min(thread_count_per_block, ny * nx - nx - 1 - element_block_idx),
-                &is_done_computing[0], 1, NVSHMEM_SIGNAL_ADD, top);
+                halo_buffer_of_bottom_neighbor + next_iter_mod * ny * nx,
+                a_new + (iz_end - 1) * ny * nx, ny * nx, &is_done_computing[0], 1,
+                NVSHMEM_SIGNAL_ADD, bottom);
+        } else {
+            for (iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
+                 iz += comp_tile_size_z * ny * nx) {
+                int iz_below = iz + ny * nx;
+                int iz_above = iz - ny * nx;
+                for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comp_tile_size_y * nx) {
+                    int iy_below = iy + nx;
+                    int iy_above = iy - nx;
+                    for (ix = (base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x) {
+                        const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
+                                              a[iz + iy_below + ix] + a[iz + iy_above + ix] +
+                                              a[iz_below + iy + ix] + a[iz_above + iy + ix]) /
+                                             real(6.0);
 
-            if (prev_idx_x > 0 && next_idx_x > 0) {
-                new_val = neighbour_coeff *
-                          (a[iz_finish + next_idx_x] + a[iz_finish + prev_idx_x] +
-                           a[iz_finish + element_idx + nx] + a[iz_finish + element_idx - nx] +
-                           halo_buffer_of_bottom_neighbor[cur_iter_mod * ny * nx + element_idx] +
-                           a[iz_finish_prev + iy * nx + ix]);
-
-                a_new[iz_finish + element_idx] = new_val;
-            }
-            // this is needed since a block must finish its computation
-            cg::sync(cta);
-
-            nvshmemx_float_put_signal_nbi_block(
-                halo_buffer_of_top_neighbor + next_iter_mod * ny * nx + element_block_idx,
-                a_new + iz_finish + element_block_idx,
-                min(thread_count_per_block, ny * nx - nx - 1 - element_block_idx),
-                &is_done_computing[1], 1, NVSHMEM_SIGNAL_ADD, bottom);
-        }
-
-        for (element_idx = (base_idx + iz_start + 1) * nx * ny + nx + 1;
-             element_idx < (iz_end - 1) * ny * nx - nx - 1;
-             element_idx += gridDim.x * thread_count_per_block) {
-            int prev_idx_z = element_idx - ny * nx;
-            int next_idx_z = element_idx + ny * nx;
-
-            int prev_idx_y = element_idx % ny * nx > nx ? element_idx - nx : -1;
-            int next_idx_y = element_idx % ny * nx < (ny - 1) * nx ? element_idx + nx : -1;
-
-            int prev_idx_x = element_idx % nx > 0 ? element_idx - 1 : -1;
-            int next_idx_x = element_idx % nx < nx - 1 ? element_idx + 1 : -1;
-
-            if (prev_idx_y > 0 && next_idx_y > 0 && prev_idx_x > 0 && next_idx_x > 0) {
-                new_val =
-                    neighbour_coeff * (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] +
-                                       a[prev_idx_y] + a[next_idx_z] + a[prev_idx_z]);
-
-                a_new[element_idx] = new_val;
+                        a_new[iz + iy + ix] = new_val;
+                    }
+                }
             }
         }
 
@@ -151,15 +131,13 @@ __global__ void __launch_bounds__(1024, 1)
 
         next_iter_mod = cur_iter_mod;
         cur_iter_mod = 1 - cur_iter_mod;
-
         nvshmem_quiet();
-
         cg::sync(grid);
     }
 }
-}  // namespace SSMultiThreadedAllBlockCommNvshmem
+}  // namespace SSMultiThreadedTwoBlockCommNvshmem
 
-int SSMultiThreadedAllBlockCommNvshmem::init(int argc, char *argv[]) {
+int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
@@ -170,10 +148,11 @@ int SSMultiThreadedAllBlockCommNvshmem::init(int argc, char *argv[]) {
     real *a_new[MAX_NUM_DEVICES];
     int iz_end[MAX_NUM_DEVICES];
 
-    real *halo_buffer_of_top_neighbor[MAX_NUM_DEVICES];
-    real *halo_buffer_of_bottom_neighbor[MAX_NUM_DEVICES];
+    real *halo_buffer_for_top_neighbor[MAX_NUM_DEVICES];
+    real *halo_buffer_for_bottom_neighbor[MAX_NUM_DEVICES];
 
-    int *is_done_computing[MAX_NUM_DEVICES];
+    int *is_top_done_computing_flags[MAX_NUM_DEVICES];
+    int *is_bottom_done_computing_flags[MAX_NUM_DEVICES];
 
     real *a_ref_h;
     real *a_h;
@@ -277,15 +256,15 @@ int SSMultiThreadedAllBlockCommNvshmem::init(int argc, char *argv[]) {
     int numSms = deviceProp.multiProcessorCount;
 
     constexpr int dim_block_x = 32;
-    constexpr int dim_block_y = 8;
-    constexpr int dim_block_z = 4;
+    constexpr int dim_block_y = 32;
+    constexpr int dim_block_z = 1;
 
     constexpr int comp_tile_size_x = dim_block_x;
     constexpr int comp_tile_size_y = dim_block_y;
 
     constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
     constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
-    int max_thread_blocks_z = numSms / (grid_dim_x * grid_dim_y);
+    int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
     int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
 
     constexpr int comm_tile_size_x = dim_block_x;
@@ -299,7 +278,7 @@ int SSMultiThreadedAllBlockCommNvshmem::init(int argc, char *argv[]) {
     int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
     int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
 
-    int total_num_flags = 2;
+    int total_num_flags = 4 * num_comm_tiles_x * num_comm_tiles_y;
 
     const int top = mype > 0 ? mype - 1 : (num_devices - 1);
     const int bottom = (mype + 1) % num_devices;
@@ -331,8 +310,8 @@ int SSMultiThreadedAllBlockCommNvshmem::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMemset(a[mype], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(a_new[mype], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
 
-    halo_buffer_of_top_neighbor[mype] = (real *)nvshmem_calloc(2 * nx * ny, sizeof(real));
-    halo_buffer_of_top_neighbor[mype] = (real *)nvshmem_calloc(2 * nx * ny, sizeof(real));
+    halo_buffer_for_top_neighbor[mype] = (real *)nvshmem_calloc(2 * nx * ny, sizeof(real));
+    halo_buffer_for_bottom_neighbor[mype] = (real *)nvshmem_calloc(2 * nx * ny, sizeof(real));
 
     // CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
     // CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * ny *
@@ -342,7 +321,8 @@ int SSMultiThreadedAllBlockCommNvshmem::init(int argc, char *argv[]) {
     // sizeof(real))); CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx *
     // ny * sizeof(real)));
 
-    is_done_computing[mype] = (int *)nvshmem_calloc(total_num_flags, sizeof(int));
+    is_top_done_computing_flags[mype] = (int *)nvshmem_calloc(total_num_flags, sizeof(int));
+    is_bottom_done_computing_flags[mype] = (int *)nvshmem_calloc(total_num_flags, sizeof(int));
 
     // CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, total_num_flags *
     // sizeof(int))); CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id,
@@ -379,10 +359,21 @@ int SSMultiThreadedAllBlockCommNvshmem::init(int argc, char *argv[]) {
                           (void *)&iz_end[mype],
                           (void *)&ny,
                           (void *)&nx,
+                          (void *)&comp_tile_size_x,
+                          (void *)&comp_tile_size_y,
+                          (void *)&comp_tile_size_z,
+                          (void *)&comm_tile_size_x,
+                          (void *)&comm_tile_size_y,
+                          (void *)&num_comp_tiles_x,
+                          (void *)&num_comp_tiles_y,
+                          (void *)&num_comp_tiles_z,
+                          (void *)&num_comm_tiles_x,
+                          (void *)&num_comm_tiles_y,
                           (void *)&iter_max,
-                          (void *)&halo_buffer_of_top_neighbor,
-                          (void *)&halo_buffer_of_bottom_neighbor,
-                          (void *)&is_done_computing,
+                          (void *)&halo_buffer_for_top_neighbor,
+                          (void *)&halo_buffer_for_bottom_neighbor,
+                          (void *)&is_top_done_computing_flags,
+                          (void *)&is_bottom_done_computing_flags,
                           (void *)&top,
                           (void *)&bottom};
 
@@ -390,7 +381,7 @@ int SSMultiThreadedAllBlockCommNvshmem::init(int argc, char *argv[]) {
     double start = MPI_Wtime();
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)SSMultiThreadedAllBlockCommNvshmem::jacobi_kernel, dim_grid, dim_block, kernelArgs,
+        (void *)SSMultiThreadedTwoBlockCommNvshmem::jacobi_kernel, dim_grid, dim_block, kernelArgs,
         0, nullptr));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -453,9 +444,10 @@ int SSMultiThreadedAllBlockCommNvshmem::init(int argc, char *argv[]) {
 
     CUDA_RT_CALL(cudaFree(a_new[mype]));
     CUDA_RT_CALL(cudaFree(a[mype]));
-    nvshmem_free(halo_buffer_of_top_neighbor[mype]);
-    nvshmem_free(halo_buffer_of_top_neighbor[mype]);
-    nvshmem_free(is_done_computing[mype]);
+    nvshmem_free(halo_buffer_for_top_neighbor[mype]);
+    nvshmem_free(halo_buffer_for_bottom_neighbor[mype]);
+    nvshmem_free(is_top_done_computing_flags[mype]);
+    nvshmem_free(is_bottom_done_computing_flags[mype]);
 
     if (compare_to_single_gpu && 0 == mype) {
         CUDA_RT_CALL(cudaFreeHost(a_h));

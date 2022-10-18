@@ -13,7 +13,7 @@
 #include "../include/single-stream/multi-threaded-one-block-warp-comm.cuh"
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
 
-#include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
+#include  "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-copy-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-copy-overlap-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
