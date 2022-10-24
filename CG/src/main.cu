@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include "../include/baseline/non-persistent-non-pipelined.cuh"
-#include "../include/baseline/non-persistent-pipelined.cuh"
+#include "../include/baseline/discrete-non-pipelined.cuh"
+#include "../include/baseline/discrete-pipelined.cuh"
 #include "../include/baseline/persistent-non-pipelined.cuh"
 #include "../include/single-stream/pipelined.cuh"
 
@@ -11,8 +11,8 @@ using std::make_pair;
 
 int main(int argc, char *argv[]) {
     const std::array versions{
-        make_pair("Baseline Non-Persistent Non-Pipelined", BaselineNonPersistentNonPipelined::init),
-        make_pair("Baseline Non-Persistent Pipelined", BaselineNonPersistentPipelined::init),
+        make_pair("Baseline Discrete Non-Pipelined", BaselineDiscreteNonPipelined::init),
+        make_pair("Baseline Discrete Pipelined", BaselineDiscretePipelined::init),
         make_pair("Baseline Persistent Non-Pipelined (with Prefetching)",
                   BaselinePersistentNonPipelined::init),
         make_pair("Single Stream Pipelined ", SingleStreamPipelined::init),

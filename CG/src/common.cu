@@ -83,7 +83,7 @@ void report_results(const int num_rows, float *x_ref, float *x, const int num_de
 
 // Single GPU Pipelined Implementation
 
-namespace SingleGPUPipelinedNonPersistent {
+namespace SingleGPUPipelinedDiscrete {
 __device__ double grid_dot_result_delta = 0.0;
 __device__ double grid_dot_result_gamma = 0.0;
 
@@ -455,4 +455,4 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
 
     return (stop - start);
 }
-}  // namespace SingleGPUPipelinedNonPersistent
+}  // namespace SingleGPUPipelinedDiscrete
