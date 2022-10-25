@@ -327,11 +327,11 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-     CUDA_RT_CALL(cudaMalloc(&a , nx * ny * (chunk_size + 2) * sizeof(real)));
-     CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
 
-    //a = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
-    //a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
+    // a = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
+    // a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
 
     CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
@@ -466,8 +466,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
                            MPI_COMM_WORLD));
     result_correct = global_result_correct;
 
-    nvshmem_free(a_new);
-    nvshmem_free(a);
+    CUDA_RT_CALL(cudaFree(a_new));
+    CUDA_RT_CALL(cudaFree(a));
     nvshmem_free(halo_buffer_for_top_neighbor);
     nvshmem_free(halo_buffer_for_bottom_neighbor);
     nvshmem_free(is_done_computing_flags);
