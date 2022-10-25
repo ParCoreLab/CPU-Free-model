@@ -408,7 +408,9 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
             a_h + iz_start_global * ny * nx, a + iz_start * ny * nx,
             std::min(nz - iz_start_global - 2, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
-
+        printf("Hello...");
+        fflush(stdout);printf("Hello...");
+        fflush(stdout);
         for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz)
         {
             for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy)
