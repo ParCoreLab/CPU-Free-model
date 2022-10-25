@@ -20,9 +20,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max, real *halo_buffer_of_top_neighbor,
-                      real *halo_buffer_of_bottom_neighbor, uint64_t *is_done_computing_flags, const int top,
-                      const int bottom)
+                      const int nx, const int iter_max,
+                      // real *halo_buffer_of_top_neighbor,
+                      // real *halo_buffer_of_bottom_neighbor,
+                      uint64_t *is_done_computing_flags, const int top_pe, const int top_iz,
+                      const int bottom_pe, const int bottom_iz)
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
@@ -53,9 +55,10 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                // nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
+                nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
                 iz = iz_start * ny * nx;
+                int iz_above = iz - ny * nx;
                 int iz_below = iz + ny * nx;
 
                 for (iy = (comm_base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx)
@@ -66,18 +69,20 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     {
 
                         a_new[iz + iy + ix] = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
-                                               a[iz + iy_above + ix] + a[iz_below + iy + ix] +
-                                               halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
+                                               a[iz + iy_above + ix] + a[iz_below + iy + ix] + a[iz_above + iy + ix]) /
                                               real(6.0);
                     }
                 }
                 cg::sync(cta);
                 nvshmemx_float_put_signal_nbi_block(
-                    halo_buffer_of_top_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
-                    (ny-1) * nx -1, &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
+                    a_new + top_iz * ny * nx,
+                    // halo_buffer_of_top_neighbor + next_iter_mod * ny * nx,
+                    a_new + iz_start * ny * nx,
+                    (ny - 1) * nx - 1, &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top_pe);
 
                 iz = (iz_end - 1) * ny * nx;
-                int iz_above = iz - ny * nx;
+                iz_below = iz + ny * nx;
+                iz_above = iz - ny * nx;
 
                 for (iy = (comm_base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx)
                 {
@@ -88,17 +93,16 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     {
 
                         a_new[iz + iy + ix] = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
-                                               a[iz + iy_above + ix] + a[iz_below + iy + ix] +
-                                               halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
+                                               a[iz + iy_above + ix] + a[iz_below + iy + ix] + a[iz_above + iy + ix]) /
                                               real(6.0);
                     }
                 }
                 cg::sync(cta);
 
-                nvshmemx_float_put_signal_nbi_block(
-                    halo_buffer_of_bottom_neighbor + next_iter_mod * ny * nx,
-                    a_new + (iz_end - 1) * ny * nx, (ny-1) * nx -1, &(is_done_computing_flags[0]), 1,
-                    NVSHMEM_SIGNAL_ADD, bottom);
+                nvshmemx_float_put_signal_nbi_block(a_new + bottom_iz * ny * nx,
+                    //halo_buffer_of_bottom_neighbor + next_iter_mod * ny * nx,
+                    a_new + (iz_end - 1) * ny * nx, (ny - 1) * nx - 1, &(is_done_computing_flags[0]), 1,
+                    NVSHMEM_SIGNAL_ADD, bottom_pe);
             }
             else
             {
@@ -292,32 +296,35 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     int num_comp_tiles_z =
         (nz / num_devices) / comp_tile_size_z + ((nz / num_devices) % comp_tile_size_z != 0);
 
-    const int top = mype > 0 ? mype - 1 : (num_devices - 1);
-    const int bottom = (mype + 1) % num_devices;
+    const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
+    const int bottom_pe = (mype + 1) % npes;
 
-    if (top != mype)
+    int iz_end_top = (top_pe < num_ranks_low) ? chunk_size_low + 1 : chunk_size_high + 1;
+    int iz_start_bottom = 0;
+
+    if (top_pe != mype)
     {
         int canAccessPeer = 0;
-        CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, top));
+        CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, top_pe));
         if (canAccessPeer)
         {
-            CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
+            CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top_pe, 0));
         }
         else
         {
-            std::cerr << "P2P access required from " << mype << " to " << top << std::endl;
+            std::cerr << "P2P access required from " << mype << " to " << top_pe << std::endl;
         }
-        if (top != bottom)
+        if (top_pe != bottom_pe)
         {
             canAccessPeer = 0;
-            CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, bottom));
+            CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, bottom_pe));
             if (canAccessPeer)
             {
-                CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom, 0));
+                CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom_pe, 0));
             }
             else
             {
-                std::cerr << "P2P access required from " << mype << " to " << bottom << std::endl;
+                std::cerr << "P2P access required from " << mype << " to " << bottom_pe << std::endl;
             }
         }
     }
@@ -384,11 +391,13 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
                           (void *)&ny,
                           (void *)&nx,
                           (void *)&iter_max,
-                          (void *)&halo_buffer_for_top_neighbor,
-                          (void *)&halo_buffer_for_bottom_neighbor,
+                          //(void *)&halo_buffer_for_top_neighbor,
+                          //(void *)&halo_buffer_for_bottom_neighbor,
                           (void *)&is_done_computing_flags,
-                          (void *)&top,
-                          (void *)&bottom};
+                          (void *)&top_pe,
+                          (void *)&iz_end_top,
+                          (void *)&bottom_pe,
+                          (void *)&iz_start_bottom};
 
     nvshmem_barrier_all();
     double start = MPI_Wtime();
