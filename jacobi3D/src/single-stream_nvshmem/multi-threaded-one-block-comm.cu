@@ -64,13 +64,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     int iy_above = iy - nx;
                     for (ix = (comm_base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
                     {
-                        const real new_val =
-                            (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
+                        
+                        a_new[iz + iy + ix] = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
                              a[iz + iy_above + ix] + a[iz_below + iy + ix] +
                              halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
                             real(6.0);
-
-                        a_new[iz + iy + ix] = new_val;
                     }
                 }
                 cg::sync(cta);
@@ -88,14 +86,12 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                     for (ix = (comm_base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
                     {
-                        const real new_val =
-                            (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
-                             a[iz + iy_above + ix] +
-                             halo_buffer_of_bottom_neighbor[cur_iter_mod * ny * nx + iy + ix] +
-                             a[iz_above + iy * nx + ix]) /
-                            real(6.0);
+                        
 
-                        a_new[iz + iy + ix] = new_val;
+                        a_new[iz + iy + ix] = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
+                             a[iz + iy_above + ix] + a[iz_below + iy + ix] +
+                             halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
+                            real(6.0);
                     }
                 }
                 cg::sync(cta);
