@@ -119,7 +119,6 @@ class PeerGroup {
 };
 
 namespace SingleGPUPipelinedDiscrete {
-
 __global__ void initVectors(float *r, float *x, int num_rows);
 
 __global__ void update_a_k(float dot_delta_1, float dot_gamma_1, float b, float *a);
@@ -154,6 +153,33 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
                       bool generate_random_tridiag_matrix, int *um_I, int *um_J, float *um_val,
                       float *host_val, int num_rows, int nnz);
 }  // namespace SingleGPUPipelinedDiscrete
+
+namespace SingleGPUStandardDiscrete {
+__global__ void initVectors(float *r, float *x, int num_rows);
+
+__global__ void r1_div_x(float r1, float r0, float *b);
+
+__global__ void a_minus(float a, float *na);
+
+__global__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
+                        float *inputVecX, float *outputVecY);
+
+__global__ void gpuSaxpy(float *x, float *y, float a, int num_rows);
+
+__global__ void gpuDotProduct(float *vecA, float *vecB, int num_rows);
+
+__global__ void gpuCopyVector(float *srcA, float *destB, int num_rows);
+
+__global__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int num_rows);
+
+__global__ void addLocalDotContribution(double *dot_result);
+
+__global__ void resetLocalDotProduct(double *dot_result);
+
+double run_single_gpu(const int iter_max, char *matrix_path_char,
+                      bool generate_random_tridiag_matrix, int *um_I, int *um_J, float *um_val,
+                      float *host_val, int num_rows, int nnz);
+}  // namespace SingleGPUStandardDiscrete
 
 bool get_arg(char **begin, char **end, const std::string &arg);
 
