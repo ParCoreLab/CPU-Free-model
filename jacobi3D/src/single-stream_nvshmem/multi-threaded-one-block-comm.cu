@@ -441,23 +441,23 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
                 }
             }
         }
-        if (result_correct)
-        {
-            // printf("Num GPUs: %d.\n", num_devices);
-            printf("Execution time: %8.4f s\n", (stop - start));
+    }
+    if (result_correct)
+    {
+        // printf("Num GPUs: %d.\n", num_devices);
+        printf("Execution time: %8.4f s\n", (stop - start));
 
-            if (compare_to_single_gpu)
-            {
-                printf(
-                    "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: "
-                    "%8.4f "
-                    "s, speedup: "
-                    "%8.2f, "
-                    "efficiency: %8.2f \n",
-                    nz, ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
-                    runtime_serial_non_persistent / (stop - start),
-                    runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
-            }
+        if (compare_to_single_gpu)
+        {
+            printf(
+                "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: "
+                "%8.4f "
+                "s, speedup: "
+                "%8.2f, "
+                "efficiency: %8.2f \n",
+                nz, ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
+                runtime_serial_non_persistent / (stop - start),
+                runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
         }
     }
 
