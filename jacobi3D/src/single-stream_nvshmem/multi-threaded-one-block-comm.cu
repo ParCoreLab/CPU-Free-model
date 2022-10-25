@@ -400,7 +400,9 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
         (void *)SSMultiThreadedOneBlockCommNvshmem::jacobi_kernel, dim_grid, dim_block, kernelArgs,
         0, nullptr));
-
+    // Need to swap pointers on CPU if iteration count is odd
+        // Technically, we don't know the iteration number (since we'll be doing
+        // l2-norm) Could write iter to CPU when kernel is done
     if (iter_max % 2 == 1)
     {
         std::swap(a_new[mype], a[mype]);
@@ -409,13 +411,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaGetLastError());
 
-    // Need to swap pointers on CPU if iteration count is odd
-    // Technically, we don't know the iteration number (since we'll be doing
-    // l2-norm) Could write iter to CPU when kernel is done
-    if (iter_max % 2 == 1)
-    {
-        std::swap(a_new[mype], a[mype]);
-    }
+
+  
     nvshmem_barrier_all();
     double stop = MPI_Wtime();
     nvshmem_barrier_all();
