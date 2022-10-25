@@ -358,14 +358,20 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
     initVectors<<<initVectorsGridSize, THREADS_PER_BLOCK, 0, streamOtherOps>>>(um_r, um_x,
                                                                                num_rows);
 
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+
     // ax0 = Ax0
     gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
         um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_x, um_ax0);
+
+    CUDA_RT_CALL(cudaDeviceSynchronize());
 
     // r0 = b0 - s0
     // NOTE: b is a unit vector.
     gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamOtherOps>>>(um_ax0, um_r,
                                                                       float_negative_one, num_rows);
+
+    CUDA_RT_CALL(cudaDeviceSynchronize());
 
     // w0 = Ar0
     gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
@@ -379,10 +385,16 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
         // Two dot products => <r, r> and <r, w>
         resetLocalDotProducts<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
 
+        CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
+
         gpuDotProductsMerged<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize, streamDot>>>(
             um_r, um_r, um_r, um_w, num_rows, sMemSize);
 
+        CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
+
         addLocalDotContributions<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
+
+        CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
 
         // SpMV
         gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamSpMV>>>(
@@ -403,23 +415,29 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        // z_i = q_i + beta_i * z_(i-1)
+        // z_k = q_k + beta_k * z_(k-1)
         gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
             um_q, um_z, float_positive_one, *um_beta, num_rows);
 
-        // s_i = w_i + beta_i * s_(i-1)
+        // s_k = w_k + beta_k * s_(k-1)
         gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
             um_w, um_s, float_positive_one, *um_beta, num_rows);
 
-        // p_i = r_i = beta_i * p_(i-1)
+        // p_k = r_k = beta_k * p_(k-1)
         gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
             um_r, um_p, float_positive_one, *um_beta, num_rows);
+
+        CUDA_RT_CALL(cudaDeviceSynchronize());
 
         // x_(i+1) = x_i + alpha_i * p_i
         gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamSaxpy>>>(um_p, um_x, *um_alpha,
                                                                        num_rows);
 
+        CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
+
         a_minus<<<1, 1, 0, streamSaxpy>>>(*um_alpha, um_negative_alpha);
+
+        CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
 
         // r_(i+1) = r_i - alpha_i * s_i
         gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
