@@ -544,17 +544,24 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
 
         int k = 1;
 
+        syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
+
         while (k <= iter_max) {
             // Two dot products => <r, r> and <r, w>
             resetLocalDotProducts<<<1, 1, 0, streamsDot[gpu_idx]>>>(um_tmp_dot_delta1,
                                                                     um_tmp_dot_gamma1);
 
+            CUDA_RT_CALL(cudaStreamSynchronize(streamsDot[gpu_idx]));
+
             gpuDotProductsMerged<<<dotProductGridSize, THREADS_PER_BLOCK, sMemSize,
                                    streamsDot[gpu_idx]>>>(um_r, um_r, um_r, um_w, num_rows, gpu_idx,
                                                           num_devices, sMemSize);
 
+            CUDA_RT_CALL(cudaStreamSynchronize(streamsDot[gpu_idx]));
+
             addLocalDotContributions<<<1, 1, 0, streamsDot[gpu_idx]>>>(um_tmp_dot_delta1,
                                                                        um_tmp_dot_gamma1);
+            CUDA_RT_CALL(cudaStreamSynchronize(streamsDot[gpu_idx]));
 
             // SpMV
             gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, sMemSize, streamsSpMV[gpu_idx]>>>(
@@ -599,7 +606,11 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
             gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsSaxpy[gpu_idx]>>>(
                 um_p, um_x, *um_alpha, num_rows, gpu_idx, num_devices);
 
+            CUDA_RT_CALL(cudaStreamSynchronize(streamsSaxpy[gpu_idx]));
+
             a_minus<<<1, 1, 0, streamsSaxpy[gpu_idx]>>>(*um_alpha, um_negative_alpha);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(streamsSaxpy[gpu_idx]));
 
             // r_(i+1) = r_i - alpha_i * s_i
             gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsSaxpy[gpu_idx]>>>(
