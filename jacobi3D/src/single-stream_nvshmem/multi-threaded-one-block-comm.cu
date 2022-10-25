@@ -31,29 +31,22 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        // const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
-
         const int comm_tile_size_x = blockDim.x;
         const int comm_tile_size_y = blockDim.y * blockDim.z;
         const int comp_tile_size_x = blockDim.x;
         const int comp_tile_size_y = blockDim.y;
         const int comp_tile_size_z = (gridDim.x - 1) * blockDim.z;
+        
         const int thread_count_per_block = blockDim.x * blockDim.y * blockDim.z;
 
         int iz;
         int iy;
         int ix;
 
-        const int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
-        const int grid_dim_y = (comp_tile_size_y + blockDim.y - 1) / blockDim.y;
+        const int base_iz = blockIdx.x * blockDim.z + threadIdx.z;
+        const int base_iy = threadIdx.y;
+        const int base_ix = threadIdx.x;
 
-        const int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
-        const int block_idx_y = (blockIdx.x % (grid_dim_x * grid_dim_y)) / grid_dim_x;
-        const int block_idx_x = blockIdx.x % grid_dim_x;
-
-        const int base_iz = block_idx_z * blockDim.z + threadIdx.z;
-        const int base_iy = block_idx_y * blockDim.y + threadIdx.y;
-        const int base_ix = block_idx_x * blockDim.x + threadIdx.x;
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
@@ -112,18 +105,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             }
             else
             {
-
-                const int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
-                const int grid_dim_y = (comp_tile_size_y + blockDim.y - 1) / blockDim.y;
-
-                const int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
-                const int block_idx_y = (blockIdx.x % (grid_dim_x * grid_dim_y)) / grid_dim_x;
-                const int block_idx_x = blockIdx.x % grid_dim_x;
-
-                const int base_iz = block_idx_z * blockDim.z + threadIdx.z;
-                const int base_iy = block_idx_y * blockDim.y + threadIdx.y;
-                const int base_ix = block_idx_x * blockDim.x + threadIdx.x;
-
                 for (iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
                      iz += comp_tile_size_z * ny * nx)
                 {
@@ -404,9 +385,9 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
                           (void *)&ny,
                           (void *)&nx,
                           (void *)&iter_max,
-                          (void *)&halo_buffer_for_top_neighbor,
-                          (void *)&halo_buffer_for_bottom_neighbor,
-                          (void *)&is_done_computing_flags,
+                          (void *)&halo_buffer_for_top_neighbor[mype],
+                          (void *)&halo_buffer_for_bottom_neighbor[mype],
+                          (void *)&is_done_computing_flags[mype],
                           (void *)&top,
                           (void *)&bottom};
 
