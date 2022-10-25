@@ -55,7 +55,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             {
                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
-                iz = iz_start * ny * nx;
+                /* iz = iz_start * ny * nx;
                 int iz_below = iz + ny * nx;
 
                 for (iy = (comm_base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx)
@@ -72,7 +72,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                         a_new[iz + iy + ix] = new_val;
                     }
-                }
+                } */
                 cg::sync(cta);
                 nvshmemx_float_put_signal_nbi_block(
                     halo_buffer_of_top_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
