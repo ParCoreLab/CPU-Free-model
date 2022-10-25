@@ -229,7 +229,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 5);
+    long long unsigned int mesh_size_per_rank = nx * ny * 2 + 1;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -327,11 +327,11 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    // CUDA_RT_CALL(cudaMalloc(a + mype, nx * ny * (chunk_size + 2) * sizeof(real)));
-    // CUDA_RT_CALL(cudaMalloc(a_new + mype, nx * ny * (chunk_size + 2) * sizeof(real)));
+     CUDA_RT_CALL(cudaMalloc(&a , nx * ny * (chunk_size + 2) * sizeof(real)));
+     CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
 
-    a = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
-    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
+    //a = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
+    //a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
 
     CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
