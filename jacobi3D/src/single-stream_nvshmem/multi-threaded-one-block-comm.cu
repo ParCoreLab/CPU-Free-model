@@ -402,6 +402,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     bool result_correct = true;
     if (compare_to_single_gpu)
     {
+        printf("Hello...");
+        fflush(stdout);
         CUDA_RT_CALL(cudaMemcpy(
             a_h + iz_start_global * ny * nx, a + iz_start * ny * nx,
             std::min(nz - iz_start_global - 2, chunk_size) * nx * ny * sizeof(real),
