@@ -170,8 +170,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
-    printf("%d\n",num_devices);
-    fflush(stdout);
     int local_rank = -1;
     int local_size = 1;
     {
@@ -264,6 +262,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     int npes = nvshmem_n_pes();
     int mype = nvshmem_my_pe();
 
+    printf("%d,%d,%d,%d\n",num_devices,local_rank,npes,mype);
+    fflush(stdout);
     nvshmem_barrier_all();
 
     bool result_correct = true;
