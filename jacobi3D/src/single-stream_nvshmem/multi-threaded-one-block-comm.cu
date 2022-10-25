@@ -53,6 +53,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
+                nvshmem_quiet();
                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
                 iz = iz_start * ny * nx;
@@ -64,11 +65,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     int iy_above = iy - nx;
                     for (ix = (comm_base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
                     {
-
-                        a_new[iz + iy + ix] = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
-                                               a[iz + iy_above + ix] + a[iz_below + iy + ix] +
-                                               halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
-                                              real(6.0);
+                        const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
+                                              a[iz + iy_above + ix] + a[iz_below + iy + ix] +
+                                              halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
+                                             real(6.0);
+                        a_new[iz + iy + ix] = new_val;
                     }
                 }
                 cg::sync(cta);
@@ -86,11 +87,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                     for (ix = (comm_base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
                     {
-
-                        a_new[iz + iy + ix] = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
-                                               a[iz + iy_above + ix] + a[iz_above + iy + ix] +
-                                               halo_buffer_of_bottom_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
-                                              real(6.0);
+                        const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
+                                              a[iz + iy_above + ix] + a[iz_above + iy + ix] +
+                                              halo_buffer_of_bottom_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
+                                             real(6.0);
+                        a_new[iz + iy + ix] = new_val;
                     }
                 }
                 cg::sync(cta);
@@ -133,7 +134,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            nvshmem_quiet();
+
             cg::sync(grid);
         }
     }
@@ -262,7 +263,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    bool result_correct = true;
+    
     if (compare_to_single_gpu && 0 == mype)
     {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
@@ -414,6 +415,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
     double stop = MPI_Wtime();
     nvshmem_barrier_all();
+    bool result_correct = true;
     if (compare_to_single_gpu)
     {
         CUDA_RT_CALL(cudaMemcpy(
@@ -421,7 +423,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
             std::min((nz - iz_start_global) * ny * nx, chunk_size * nx * ny) * sizeof(real),
             cudaMemcpyDeviceToHost));
 
-        for (int iz = 1; result_correct && (iz < (nz - 1)); ++iz)
+        for (int iz = iz_start_global; result_correct && (iz < iz_end_global); ++iz)
         {
             for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy)
             {
@@ -442,7 +444,11 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
             }
         }
     }
-    if (result_correct)
+    int global_result_correct = 1;
+    MPI_CALL(MPI_Allreduce(&result_correct, &global_result_correct, 1, MPI_INT, MPI_MIN,
+                           MPI_COMM_WORLD));
+    result_correct = global_result_correct;
+    if (global_result_correct)
     {
         // printf("Num GPUs: %d.\n", num_devices);
         printf("Execution time: %8.4f s\n", (stop - start));
