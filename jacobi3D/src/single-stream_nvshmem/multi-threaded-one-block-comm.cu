@@ -263,7 +263,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    
     if (compare_to_single_gpu && 0 == mype)
     {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
@@ -331,31 +330,17 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
 
-    // a = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
-    // a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
-
     CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
 
     halo_buffer_for_top_neighbor = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
     halo_buffer_for_bottom_neighbor = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
 
-    // CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
-    // CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * ny *
-    // sizeof(real)));
-
     CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor, 0, 2 * nx * ny * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor, 0, 2 * nx * ny * sizeof(real)));
 
     is_done_computing_flags = (uint64_t *)nvshmem_malloc(total_num_flags * sizeof(uint64_t));
-    CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor, 0, 2 * nx * ny * sizeof(real)));
-    // CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, total_num_flags *
-    // sizeof(int))); CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id,
-    // total_num_flags * sizeof(int)));
-
-    // CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, total_num_flags *
-    // sizeof(int))); CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0,
-    // total_num_flags * sizeof(int)));
+    CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));
 
     // Calculate local domain boundaries
     int iz_start_global; // My start index in the global array
@@ -401,8 +386,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
         (void *)SSMultiThreadedOneBlockCommNvshmem::jacobi_kernel, dim_grid, dim_block, kernelArgs,
         0, nullptr));
     // Need to swap pointers on CPU if iteration count is odd
-        // Technically, we don't know the iteration number (since we'll be doing
-        // l2-norm) Could write iter to CPU when kernel is done
+    // Technically, we don't know the iteration number (since we'll be doing
+    // l2-norm) Could write iter to CPU when kernel is done
     if (iter_max % 2 == 1)
     {
         std::swap(a_new[mype], a[mype]);
@@ -411,8 +396,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaGetLastError());
 
-
-  
     nvshmem_barrier_all();
     double stop = MPI_Wtime();
     nvshmem_barrier_all();
@@ -421,10 +404,10 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     {
         CUDA_RT_CALL(cudaMemcpy(
             a_h + iz_start_global * ny * nx, a + ny * nx,
-            std::min((nz - iz_start_global) * ny * nx, chunk_size * nx * ny) * sizeof(real),
+            std::min(nz - 2 - iz_start_global, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
 
-        for (int iz = iz_start_global; result_correct && (iz < iz_end_global); ++iz)
+        for (int iz = iz_start_global; result_correct && (iz < iz_end_global - 1); ++iz)
         {
             for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy)
             {
@@ -467,7 +450,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
                 runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
         }
     }
-
 
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));
