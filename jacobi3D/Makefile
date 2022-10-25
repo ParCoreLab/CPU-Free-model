@@ -69,6 +69,9 @@ clean:
 	$(RM) ./jacobi
 	$(RM) -rd ./obj
 
+$(DEPDIR): 
+	@mkdir -p $(DEPDIR)
+
 $(DEPS):
 
 include $(wildcard $(DEPS))
