@@ -295,16 +295,40 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
     {
         CUDA_RT_CALL(cudaSetDevice(local_rank));
     }
-    CUDA_RT_CALL(cudaFree(0));
+
     MPI_Comm mpi_comm;
     nvshmemx_init_attr_t attr;
 
     mpi_comm = MPI_COMM_WORLD;
     attr.mpi_comm = &mpi_comm;
+
+    constexpr int dim_block_x = 32;
+    constexpr int dim_block_y = 32;
+    constexpr int dim_block_z = 1;
+
+    constexpr int comp_tile_size_x = dim_block_x;
+    constexpr int comp_tile_size_y = dim_block_y;
+    constexpr int comp_tile_size_z = dim_block_z;
+
+    constexpr int comm_tile_size_x = dim_block_x;
+    constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
+
+    constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
+    constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
+
+    
+    int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
+    int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
+
+    int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
+    int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
+
+    int total_num_flags = 4 * num_comm_tiles_x * dim_block_y * num_comm_tiles_y;
+
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 2);
+    long long unsigned int mesh_size_per_rank = 2 * nx * ny + total_num_flags;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -362,34 +386,12 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
     int numSms = deviceProp.multiProcessorCount;
 
-    constexpr int dim_block_x = 32;
-    constexpr int dim_block_y = 32;
-    constexpr int dim_block_z = 1;
-
-    constexpr int comp_tile_size_x = dim_block_x;
-    constexpr int comp_tile_size_y = dim_block_y;
-    int comp_tile_size_z;
-
-    constexpr int comm_tile_size_x = dim_block_x;
-    constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
-
-    constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
-    constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
-
-    int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
-
-    comp_tile_size_z = dim_block_z * max_thread_blocks_z;
-
-    int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
-    int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
     int num_comp_tiles_z =
         (nz / num_devices) / comp_tile_size_z + ((nz / num_devices) % comp_tile_size_z != 0);
-
-    int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
-    int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
-
-    int total_num_flags = 4 * num_comm_tiles_x * dim_block_y * num_comm_tiles_y;
-
+    int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+    int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
+    
+    
     const int top = mype > 0 ? mype - 1 : (num_devices - 1);
     const int bottom = (mype + 1) % num_devices;
 
