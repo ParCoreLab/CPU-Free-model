@@ -53,7 +53,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
+                /* nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter); */
 
                 iz = iz_start * ny * nx;
                 int iz_below = iz + ny * nx;
@@ -74,9 +74,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
                 cg::sync(cta);
-                 nvshmemx_float_put_signal_nbi_block(
-                     halo_buffer_of_top_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
-                     ny * nx, &is_done_computing_flags[1], 1, NVSHMEM_SIGNAL_ADD, top);
+                /* nvshmemx_float_put_signal_nbi_block(
+                    halo_buffer_of_top_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
+                    ny * nx, &is_done_computing_flags[1], 1, NVSHMEM_SIGNAL_ADD, top); */
 
                 iz = (iz_end - 1) * ny * nx;
                 int iz_above = iz - ny * nx;
@@ -100,10 +100,10 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
                 cg::sync(cta);
 
-                 nvshmemx_float_put_signal_nbi_block(
+                /* nvshmemx_float_put_signal_nbi_block(
                     halo_buffer_of_bottom_neighbor + next_iter_mod * ny * nx,
                     a_new + (iz_end - 1) * ny * nx, ny * nx, &is_done_computing_flags[0], 1,
-                    NVSHMEM_SIGNAL_ADD, bottom);
+                    NVSHMEM_SIGNAL_ADD, bottom); */
             }
             else
             {
@@ -234,7 +234,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = 2 * nx * ny + 1;
+    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 5);
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -329,8 +329,11 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    CUDA_RT_CALL(cudaMalloc(a + mype, nx * ny * (chunk_size + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMalloc(a_new + mype, nx * ny * (chunk_size + 2) * sizeof(real)));
+    //CUDA_RT_CALL(cudaMalloc(a + mype, nx * ny * (chunk_size + 2) * sizeof(real)));
+    //CUDA_RT_CALL(cudaMalloc(a_new + mype, nx * ny * (chunk_size + 2) * sizeof(real)));
+
+    a[mype] = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
+    a_new[mype] = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
 
     CUDA_RT_CALL(cudaMemset(a[mype], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(a_new[mype], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
@@ -354,8 +357,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     // CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, total_num_flags *
     // sizeof(int))); CUDA_RT_CALL(cudaMemset(is_bottom_done_computing_flags[dev_id], 0,
     // total_num_flags * sizeof(int)));
-    nvshmemx_buffer_register(&a[mype],nx * ny * (chunk_size + 2) * sizeof(real));
-    nvshmemx_buffer_register(&a_new[mype],nx * ny * (chunk_size + 2) * sizeof(real));
+
     // Calculate local domain boundaries
     int iz_start_global; // My start index in the global array
     if (mype < num_ranks_low)
