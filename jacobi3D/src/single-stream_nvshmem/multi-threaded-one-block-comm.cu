@@ -401,6 +401,11 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
         (void *)SSMultiThreadedOneBlockCommNvshmem::jacobi_kernel, dim_grid, dim_block, kernelArgs,
         0, nullptr));
 
+    if (iter_max % 2 == 1)
+    {
+        std::swap(a_new[mype], a[mype]);
+    }
+
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaGetLastError());
 
@@ -411,7 +416,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     {
         std::swap(a_new[mype], a[mype]);
     }
-
     nvshmem_barrier_all();
     double stop = MPI_Wtime();
     nvshmem_barrier_all();
@@ -467,6 +471,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
         }
     }
 
+
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));
     nvshmem_free(halo_buffer_for_top_neighbor);
@@ -481,5 +486,5 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     nvshmem_finalize();
     MPI_CALL(MPI_Finalize());
-    return 0;
+    return (result_correct == 1) ? 0 : 1;
 }
