@@ -31,21 +31,23 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int comm_tile_size_x = blockDim.x;
         const int comm_tile_size_y = blockDim.y * blockDim.z;
+        const int comm_tile_size_x = blockDim.x;
+
+        const int comm_base_iy = threadIdx.z * blockDim.y + threadIdx.y;
+        const int comm_base_ix = threadIdx.x;
+
         const int comp_tile_size_x = blockDim.x;
         const int comp_tile_size_y = blockDim.y;
         const int comp_tile_size_z = (gridDim.x - 1) * blockDim.z;
-
-        const int thread_count_per_block = blockDim.x * blockDim.y * blockDim.z;
+        
+        const int comp_base_iz = blockIdx.x * blockDim.z + threadIdx.z;
+        const int comp_base_iy = threadIdx.y;
+        const int comp_base_ix = threadIdx.x;
 
         int iz;
         int iy;
         int ix;
-
-        const int base_iz = blockIdx.x * blockDim.z + threadIdx.z;
-        const int base_iy = threadIdx.y;
-        const int base_ix = threadIdx.x;
 
         while (iter < iter_max)
         {
@@ -53,14 +55,14 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             {
                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
-                iz = (threadIdx.z + iz_start) * ny * nx;
+                iz = iz_start * ny * nx;
                 int iz_below = iz + ny * nx;
 
-                for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx)
+                for (iy = (comm_base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx)
                 {
                     int iy_below = iy + nx;
                     int iy_above = iy - nx;
-                    for (ix = (base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
+                    for (ix = (comm_base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
                     {
                         const real new_val =
                             (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
@@ -76,15 +78,15 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     halo_buffer_of_top_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
                     ny * nx, &is_done_computing_flags[1], 1, NVSHMEM_SIGNAL_ADD, top);
 
-                iz = (threadIdx.z + iz_end - 1) * ny * nx;
+                iz = (iz_end - 1) * ny * nx;
                 int iz_above = iz - ny * nx;
 
-                for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx)
+                for (iy = (comm_base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx)
                 {
                     int iy_below = iy + nx;
                     int iy_above = iy - nx;
 
-                    for (ix = (base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
+                    for (ix = (comm_base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
                     {
                         const real new_val =
                             (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
@@ -105,17 +107,17 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             }
             else
             {
-                
-                for (iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
+
+                for (iz = (comp_base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
                      iz += comp_tile_size_z * ny * nx)
                 {
                     int iz_below = iz + ny * nx;
                     int iz_above = iz - ny * nx;
-                    for (iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comp_tile_size_y * nx)
+                    for (iy = (comp_base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comp_tile_size_y * nx)
                     {
                         int iy_below = iy + nx;
                         int iy_above = iy - nx;
-                        for (ix = (base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x)
+                        for (ix = (comp_base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x)
                         {
                             const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
                                                   a[iz + iy_below + ix] + a[iz + iy_above + ix] +
