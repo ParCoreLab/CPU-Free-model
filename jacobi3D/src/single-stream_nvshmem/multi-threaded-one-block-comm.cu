@@ -36,7 +36,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         const int comp_tile_size_x = blockDim.x;
         const int comp_tile_size_y = blockDim.y;
         const int comp_tile_size_z = (gridDim.x - 1) * blockDim.z;
-        
+
         const int thread_count_per_block = blockDim.x * blockDim.y * blockDim.z;
 
         int iz;
@@ -170,7 +170,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
-
+    printf("%d\n",num_devices);
+    fflush(stdout);
     int local_rank = -1;
     int local_size = 1;
     {
