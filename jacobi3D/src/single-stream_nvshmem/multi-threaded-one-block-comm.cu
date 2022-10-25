@@ -452,7 +452,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     MPI_CALL(MPI_Allreduce(&result_correct, &global_result_correct, 1, MPI_INT, MPI_MIN,
                            MPI_COMM_WORLD));
     result_correct = global_result_correct;
-    if (!mype && global_result_correct)
+    if (!mype && result_correct)
     {
         // printf("Num GPUs: %d.\n", num_devices);
         printf("Execution time: %8.4f s\n", (stop - start));
