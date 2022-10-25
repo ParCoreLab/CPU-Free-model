@@ -64,11 +64,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     int iy_above = iy - nx;
                     for (ix = (comm_base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
                     {
-                        
+
                         a_new[iz + iy + ix] = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
-                             a[iz + iy_above + ix] + a[iz_below + iy + ix] +
-                             halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
-                            real(6.0);
+                                               a[iz + iy_above + ix] + a[iz_below + iy + ix] +
+                                               halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
+                                              real(6.0);
                     }
                 }
                 cg::sync(cta);
@@ -86,12 +86,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                     for (ix = (comm_base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
                     {
-                        
 
                         a_new[iz + iy + ix] = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
-                             a[iz + iy_above + ix] + a[iz_below + iy + ix] +
-                             halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
-                            real(6.0);
+                                               a[iz + iy_above + ix] + a[iz_below + iy + ix] +
+                                               halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
+                                              real(6.0);
                     }
                 }
                 cg::sync(cta);
@@ -325,8 +324,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    //CUDA_RT_CALL(cudaMalloc(a + mype, nx * ny * (chunk_size + 2) * sizeof(real)));
-    //CUDA_RT_CALL(cudaMalloc(a_new + mype, nx * ny * (chunk_size + 2) * sizeof(real)));
+    // CUDA_RT_CALL(cudaMalloc(a + mype, nx * ny * (chunk_size + 2) * sizeof(real)));
+    // CUDA_RT_CALL(cudaMalloc(a_new + mype, nx * ny * (chunk_size + 2) * sizeof(real)));
 
     a[mype] = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
     a_new[mype] = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
@@ -464,8 +463,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
                            MPI_COMM_WORLD));
     result_correct = global_result_correct;
 
-    CUDA_RT_CALL(cudaFree(a_new[mype]));
-    CUDA_RT_CALL(cudaFree(a[mype]));
+    nvshmem_free(a_new[mype]);
+    nvshmem_free(a[mype]);
     nvshmem_free(halo_buffer_for_top_neighbor[mype]);
     nvshmem_free(halo_buffer_for_bottom_neighbor[mype]);
     nvshmem_free(is_done_computing_flags[mype]);
