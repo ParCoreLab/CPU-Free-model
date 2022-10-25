@@ -67,7 +67,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                         const real new_val =
                             (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
                              a[iz + iy_above + ix] + a[iz_below + iy + ix] +
-                             halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy * nx + ix]) /
+                             halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
                             real(6.0);
 
                         a_new[iz + iy + ix] = new_val;
@@ -91,7 +91,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                         const real new_val =
                             (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
                              a[iz + iy_above + ix] +
-                             halo_buffer_of_bottom_neighbor[cur_iter_mod * ny * nx + iy * nx + ix] +
+                             halo_buffer_of_bottom_neighbor[cur_iter_mod * ny * nx + iy + ix] +
                              a[iz_above + iy * nx + ix]) /
                             real(6.0);
 
