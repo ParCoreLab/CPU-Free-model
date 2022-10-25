@@ -70,7 +70,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                              halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
                             real(6.0);
 
-                        a_new[iz + iy + ix] = new_val;
+                        //a_new[iz + iy + ix] = new_val;
                     }
                 }
                 cg::sync(cta);
@@ -95,7 +95,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                              a[iz_above + iy * nx + ix]) /
                             real(6.0);
 
-                        a_new[iz + iy + ix] = new_val;
+                        //a_new[iz + iy + ix] = new_val;
                     }
                 }
                 cg::sync(cta);
