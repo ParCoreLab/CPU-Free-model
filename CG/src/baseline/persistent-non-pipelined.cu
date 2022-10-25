@@ -130,7 +130,12 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     float float_positive_one = 1.0;
     float float_negative_one = -1.0;
-    float r0 = 0.0, r1, b, a, na;
+
+    float r0 = 0.0;
+    float r1;
+    float b;
+    float a;
+    float na;
 
     for (int i = peer_group.thread_rank(); i < N; i += peer_group.size()) {
         r[i] = 1.0;
@@ -161,12 +166,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     int k = 1;
 
-    // while (r1 > tol * tol && k <= iter_max)
-
-    // Full CG
     while (k <= iter_max) {
-        // Saxpy 1 Start
-
         if (k > 1) {
             b = r1 / r0;
             gpuScaleVectorAndSaxpy(r, p, float_positive_one, b, N, peer_group);
@@ -176,15 +176,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         peer_group.sync();
 
-        // Saxpy 1 End
-
-        // SpMV Start
-
         gpuSpMV(I, J, val, nnz, N, float_positive_one, p, Ax, peer_group);
-
-        // SpMV End
-
-        // Dot Product 1 Start
 
         if (peer_group.thread_rank() == 0) {
             *dot_result = 0.0;
@@ -202,10 +194,6 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
         peer_group.sync();
 
-        // Dot Product 1 End
-
-        // Saxpy 2 Start
-
         a = r1 / *dot_result;
 
         gpuSaxpy(p, x, a, N, peer_group);
@@ -217,10 +205,6 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         r0 = r1;
 
         peer_group.sync();
-
-        // Saxpy 2 End
-
-        // Dot Product 2 Start
 
         if (peer_group.thread_rank() == 0) {
             *dot_result = 0.0;
@@ -238,13 +222,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         }
         peer_group.sync();
 
-        // Dot Product 2 End
-
-        // Saxpy 3 Start
-
         r1 = *dot_result;
-
-        // Saxpy 3 End
 
         k++;
     }
@@ -353,9 +331,13 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(float)));
             CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(float)));
 
-            single_gpu_runtime = SingleGPUPipelinedNonPersistent::run_single_gpu(
+            single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
                 iter_max, matrix_path_char, generate_random_tridiag_matrix, um_I, um_J, um_val,
                 x_ref_host, num_rows, nnz);
+
+            // single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
+            //     iter_max, matrix_path_char, generate_random_tridiag_matrix, um_I, um_J, um_val,
+            //     x_ref_host, num_rows, nnz);
         }
     }
 
