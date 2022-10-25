@@ -403,11 +403,11 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     if (compare_to_single_gpu)
     {
         CUDA_RT_CALL(cudaMemcpy(
-            a_h + iz_start_global * ny * nx, a + ny * nx,
-            std::min(nz - 2 - iz_start_global, chunk_size) * nx * ny * sizeof(real),
+            a_h + iz_start_global * ny * nx, a + iz_start * ny * nx,
+            std::min(nz - iz_start_global - 2, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
 
-        for (int iz = iz_start_global; result_correct && (iz < iz_end_global ); ++iz)
+        for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz)
         {
             for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy)
             {
