@@ -187,16 +187,9 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
             }
             else
             {
-                const int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
-                const int grid_dim_y = (comp_tile_size_y + blockDim.y - 1) / blockDim.y;
-
-                const int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
-                const int block_idx_y = (blockIdx.x % (grid_dim_x * grid_dim_y)) / grid_dim_x;
-                const int block_idx_x = blockIdx.x % grid_dim_x;
-
-                const int base_iz = block_idx_z * blockDim.z + threadIdx.z;
-                const int base_iy = block_idx_y * blockDim.y + threadIdx.y;
-                const int base_ix = block_idx_x * blockDim.x + threadIdx.x;
+                const int base_iz = blockIdx.x * blockDim.z + threadIdx.z;
+                const int base_iy = threadIdx.y;
+                const int base_ix = threadIdx.x;
                 for (int iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
                      iz += comp_tile_size_z * ny * nx)
                 {
@@ -315,7 +308,6 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
     constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
     constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
 
-    
     int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
     int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
 
@@ -389,8 +381,7 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
     int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
     int num_comp_tiles_z =
         (nz / num_devices) / comp_tile_size_z + ((nz / num_devices) % comp_tile_size_z != 0);
-    
-    
+
     const int top = mype > 0 ? mype - 1 : (num_devices - 1);
     const int bottom = (mype + 1) % num_devices;
 
