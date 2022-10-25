@@ -205,7 +205,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[]) {
 
     constexpr int comp_tile_size_x = dim_block_x;
     constexpr int comp_tile_size_y = dim_block_y;
-    constexpr int comp_tile_size_z = dim_block_z;
     
     constexpr int comm_tile_size_x = dim_block_x;
     constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
@@ -278,11 +277,12 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
     int numSms = deviceProp.multiProcessorCount;
 
-    int num_comp_tiles_z =
-        (nz / num_devices) / comp_tile_size_z + ((nz / num_devices) % comp_tile_size_z != 0);
+    
     int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
     int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
-
+    int num_comp_tiles_z =
+        (nz / num_devices) / comp_tile_size_z + ((nz / num_devices) % comp_tile_size_z != 0);
+        
     const int top = mype > 0 ? mype - 1 : (num_devices - 1);
     const int bottom = (mype + 1) % num_devices;
 
