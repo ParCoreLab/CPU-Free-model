@@ -53,7 +53,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                // nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter); 
+                // nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
                 iz = iz_start * ny * nx;
                 int iz_below = iz + ny * nx;
@@ -72,9 +72,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
                 cg::sync(cta);
-                // nvshmemx_float_put_signal_nbi_block(
-                //    halo_buffer_of_top_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
-                //    ny * nx, &is_done_computing_flags[1], 1, NVSHMEM_SIGNAL_ADD, top); 
+                nvshmemx_float_put_signal_nbi_block(
+                    halo_buffer_of_top_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
+                    (ny-1) * nx -1, &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
 
                 iz = (iz_end - 1) * ny * nx;
                 int iz_above = iz - ny * nx;
@@ -95,10 +95,10 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
                 cg::sync(cta);
 
-                // nvshmemx_float_put_signal_nbi_block(
-                //    halo_buffer_of_bottom_neighbor + next_iter_mod * ny * nx,
-                //    a_new + (iz_end - 1) * ny * nx, ny * nx, &is_done_computing_flags[0], 1,
-                //    NVSHMEM_SIGNAL_ADD, bottom); 
+                nvshmemx_float_put_signal_nbi_block(
+                    halo_buffer_of_bottom_neighbor + next_iter_mod * ny * nx,
+                    a_new + (iz_end - 1) * ny * nx, (ny-1) * nx -1, &(is_done_computing_flags[0]), 1,
+                    NVSHMEM_SIGNAL_ADD, bottom);
             }
             else
             {
