@@ -51,9 +51,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
         while (iter < iter_max)
         {
-             if (blockIdx.x == gridDim.x - 1)
+            if (blockIdx.x == gridDim.x - 1)
             {
-                nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
+                // nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
                 iz = iz_start * ny * nx;
                 int iz_below = iz + ny * nx;
@@ -74,9 +74,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
                 cg::sync(cta);
-                nvshmemx_float_put_signal_nbi_block(
+                /*nvshmemx_float_put_signal_nbi_block(
                     halo_buffer_of_top_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
-                    ny * nx, &is_done_computing_flags[1], 1, NVSHMEM_SIGNAL_ADD, top);
+                    ny * nx, &is_done_computing_flags[1], 1, NVSHMEM_SIGNAL_ADD, top);*/
 
                 iz = (iz_end - 1) * ny * nx;
                 int iz_above = iz - ny * nx;
@@ -100,10 +100,10 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
                 cg::sync(cta);
 
-                nvshmemx_float_put_signal_nbi_block(
+                /*nvshmemx_float_put_signal_nbi_block(
                     halo_buffer_of_bottom_neighbor + next_iter_mod * ny * nx,
                    a_new + (iz_end - 1) * ny * nx, ny * nx, &is_done_computing_flags[0], 1,
-                   NVSHMEM_SIGNAL_ADD, bottom); 
+                   NVSHMEM_SIGNAL_ADD, bottom); */
             }
             else
             {
@@ -335,19 +335,18 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaMemset(a[mype], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(a_new[mype], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
 
-    halo_buffer_for_top_neighbor[mype] = (real *)nvshmem_malloc(2 * nx * ny* sizeof(real));
-    halo_buffer_for_bottom_neighbor[mype] = (real *)nvshmem_malloc(2 * nx * ny* sizeof(real));
+    halo_buffer_for_top_neighbor[mype] = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
+    halo_buffer_for_bottom_neighbor[mype] = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
 
     // CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
     // CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * ny *
     // sizeof(real)));
 
-    // CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, 2 * nx * ny *
-    // sizeof(real))); CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx *
-    // ny * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor[mype], 0, 2 * nx * ny * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor[mype], 0, 2 * nx * ny * sizeof(real)));
 
-    is_done_computing_flags[mype] = (uint64_t *)nvshmem_malloc(total_num_flags*sizeof(uint64_t));
-
+    is_done_computing_flags[mype] = (uint64_t *)nvshmem_malloc(total_num_flags * sizeof(uint64_t));
+    CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor[mype], 0, 2 * nx * ny * sizeof(real)));
     // CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, total_num_flags *
     // sizeof(int))); CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id,
     // total_num_flags * sizeof(int)));
