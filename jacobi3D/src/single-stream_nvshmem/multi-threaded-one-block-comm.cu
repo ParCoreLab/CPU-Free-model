@@ -156,7 +156,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     real *halo_buffer_for_top_neighbor[MAX_NUM_DEVICES];
     real *halo_buffer_for_bottom_neighbor[MAX_NUM_DEVICES];
 
-    int *is_done_computing_flags[MAX_NUM_DEVICES];
+    uint64_t *is_done_computing_flags[MAX_NUM_DEVICES];
 
     real *a_ref_h;
     real *a_h;
@@ -262,8 +262,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     int npes = nvshmem_n_pes();
     int mype = nvshmem_my_pe();
 
-    printf("%d,%d,%d,%d\n",num_devices,local_rank,npes,mype);
-    fflush(stdout);
     nvshmem_barrier_all();
 
     bool result_correct = true;
@@ -345,7 +343,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     // sizeof(real))); CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx *
     // ny * sizeof(real)));
 
-    is_done_computing_flags[mype] = (int *)nvshmem_calloc(total_num_flags, sizeof(int));
+    is_done_computing_flags[mype] = (uint64_t *)nvshmem_calloc(total_num_flags, sizeof(uint64_t));
 
     // CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, total_num_flags *
     // sizeof(int))); CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id,
