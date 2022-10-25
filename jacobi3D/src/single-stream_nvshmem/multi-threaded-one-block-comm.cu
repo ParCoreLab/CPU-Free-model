@@ -40,7 +40,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         const int comp_tile_size_x = blockDim.x;
         const int comp_tile_size_y = blockDim.y;
         const int comp_tile_size_z = (gridDim.x - 1) * blockDim.z;
-        
+
         const int comp_base_iz = blockIdx.x * blockDim.z + threadIdx.z;
         const int comp_base_iy = threadIdx.y;
         const int comp_base_ix = threadIdx.x;
@@ -51,7 +51,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
         while (iter < iter_max)
         {
-            if (blockIdx.x == gridDim.x - 1)
+            /* if (blockIdx.x == gridDim.x - 1)
             {
                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
@@ -103,9 +103,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 nvshmemx_float_put_signal_nbi_block(
                     halo_buffer_of_bottom_neighbor + next_iter_mod * ny * nx,
                     a_new + (iz_end - 1) * ny * nx, ny * nx, &is_done_computing_flags[0], 1,
-                    NVSHMEM_SIGNAL_ADD, bottom);
+                    NVSHMEM_SIGNAL_ADD, bottom); 
             }
-            else
+            else*/
             {
 
                 for (iz = (comp_base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
