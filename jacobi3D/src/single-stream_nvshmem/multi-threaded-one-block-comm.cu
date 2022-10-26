@@ -48,13 +48,13 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     {
                         const real first_row_val = (a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
                                                     a[iz_first + iy_above + ix] + a[iz_first_below + iy + ix] +
-                                                    (volatile real)halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]) /
+                                                    halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]) /
                                                    real(6.0);
                         a_new[iz_first + iy + ix] = first_row_val;
                     }
                 }
 
-                nvshmemx_putmem_signal_block(
+                nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_first,
                     ny * nx * sizeof(real), &(is_done_computing_flags[0]), 1, NVSHMEM_SIGNAL_ADD, top);
 
@@ -69,12 +69,12 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     {
                         const real last_row_val = (a[iz_last + iy + ix + 1] + a[iz_last + iy + ix - 1] + a[iz_last + iy_below + ix] +
                                                    a[iz_last + iy_above + ix] + a[iz_last_above + iy + ix] +
-                                                   (volatile real)halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]) /
+                                                   halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]) /
                                                   real(6.0);
                         a_new[iz_last + iy + ix] = last_row_val;
                     }
                 }
-                nvshmemx_putmem_signal_block(
+                nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_last,
                     ny * nx * sizeof(real), &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, bottom);
             }
