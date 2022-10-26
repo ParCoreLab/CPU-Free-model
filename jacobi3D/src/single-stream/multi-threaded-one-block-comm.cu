@@ -40,7 +40,7 @@ namespace SSMultiThreadedOneBlockComm
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int num_flags = 2* num_comm_tiles_x * num_comm_tiles_y;
+        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
 
         while (iter < iter_max)
         {
@@ -89,19 +89,19 @@ namespace SSMultiThreadedOneBlockComm
 
                         if (cta.thread_rank() == 0)
                         {
-                            int next_iter_comm_tile_flag_idx_x = (comm_tile_idx_x);
+                            int next_iter_comm_tile_flag_idx_x = (num_comm_tiles_x+comm_tile_idx_x);
                             int next_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
 
                             remote_am_done_writing_to_top_neighbor[next_iter_comm_tile_flag_idx_y *
-                                                                       2* num_comm_tiles_x +
+                                                                     num_comm_tiles_x +
                                                                    next_iter_comm_tile_flag_idx_x +
                                                                    next_iter_mod * num_flags] =
                                 iter + 1;
 
-                            int cur_iter_comm_tile_flag_idx_x = (comm_tile_idx_x);
+                            int cur_iter_comm_tile_flag_idx_x = (num_comm_tiles_x+comm_tile_idx_x);
                             int cur_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
                             while (local_is_bottom_neighbor_done_writing_to_me
-                                       [cur_iter_comm_tile_flag_idx_y * 2*num_comm_tiles_x +
+                                       [cur_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
                                         cur_iter_comm_tile_flag_idx_x + cur_iter_mod * num_flags] !=
                                    iter)
                             {
