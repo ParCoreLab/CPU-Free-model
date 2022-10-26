@@ -35,7 +35,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                
                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
                 int iz_first = iz_start * ny * nx;
@@ -62,7 +61,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                         a_new[iz_last + iy + ix] = last_row_val;
                     }
                 }
-                cg::sync(cta);
+
 
                 nvshmemx_putmem_signal_block(
                     (void *)(halo_buffer_bottom + next_iter_mod * ny * nx), (void *)(a_new + iz_first),
