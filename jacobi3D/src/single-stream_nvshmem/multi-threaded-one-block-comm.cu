@@ -66,10 +66,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 nvshmemx_putmem_signal_nbi_block(
                     (void *)(halo_buffer_bottom + next_iter_mod * ny * nx), a_new + iz_first,
                     ny * nx * sizeof(real), &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
-                cg::sync(cta);
+
                 nvshmemx_putmem_signal_nbi_block(
                     (void *)(halo_buffer_top + next_iter_mod * ny * nx), a_new + iz_last,
                     ny * nx * sizeof(real), &(is_done_computing_flags[0]), 1, NVSHMEM_SIGNAL_ADD, bottom);
+                nvshmem_quiet();
             }
             else
             {
@@ -103,7 +104,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            nvshmem_quiet();
             cg::sync(grid);
         }
     }
