@@ -149,7 +149,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     real *a;
     real *a_new;
-    int iz_end;
 
     real *halo_buffer_for_top_neighbor;
     real *halo_buffer_for_bottom_neighbor;
@@ -273,10 +272,10 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
 
     int chunk_size;
-    int chunk_size_low = (nz - 2) / num_devices;
+    int chunk_size_low = (nz - 2) / npes;
     int chunk_size_high = chunk_size_low + 1;
 
-    int num_ranks_low = num_devices * chunk_size_low + num_devices - (nz - 2);
+    int num_ranks_low = npes * chunk_size_low + npes - (nz - 2);
     if (mype < num_ranks_low)
         chunk_size = chunk_size_low;
     else
@@ -352,12 +351,18 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
         iz_start_global =
             num_ranks_low * chunk_size_low + (mype - num_ranks_low) * chunk_size_high + 1;
     }
-    int iz_end_global = iz_start_global + chunk_size - 1; // My last index in the global array
+    int iz_end_global = std::min(iz_start_global + chunk_size - 1, nz - 4); // My last index in the global array
 
     int iz_start = 1;
-    iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
+    int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
 
-    initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
+    const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
+    const int bottom_pe = (mype + 1) % npes;
+
+    int iy_end_top = (top_pe < num_ranks_low) ? chunk_size_low + 1 : chunk_size_high + 1;
+    int iy_start_bottom = 0;
+
+    initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(
         a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -401,12 +406,11 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     bool result_correct = true;
     if (compare_to_single_gpu)
     {
-        
+
         CUDA_RT_CALL(cudaMemcpy(
             a_h + iz_start_global * ny * nx, a + iz_start * ny * nx,
             std::min(nz - iz_start_global - 2, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
-
 
         for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz)
         {
