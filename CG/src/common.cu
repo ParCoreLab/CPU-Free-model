@@ -53,9 +53,13 @@ void report_results(const int num_rows, float *x_ref, float *x, const int num_de
                     const bool compare_to_single_gpu) {
     bool result_correct = true;
 
+    int i = 0;
+
     if (compare_to_single_gpu) {
-        for (int i = 0; i < num_rows; i++) {
-            printf("%f %f\n", x[i], x_ref[i]);
+        for (i = 0; result_correct && (i < num_rows); i++) {
+            if (i < 10) {
+                printf("%f %f\n", x[i], x_ref[i]);
+            }
 
             if (std::fabs(x_ref[i] - x[i]) > tol) {
                 fprintf(stderr,
@@ -77,6 +81,7 @@ void report_results(const int num_rows, float *x_ref, float *x, const int num_de
                 single_gpu_runtime, num_devices, (stop - start),
                 single_gpu_runtime / (stop - start),
                 single_gpu_runtime / (num_devices * (stop - start)) * 100);
+            printf("%f %f\n", x[i], x_ref[i]);
         }
     }
 }
@@ -404,7 +409,7 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
 
 double run_single_gpu(const int iter_max, char *matrix_path_char,
                       bool generate_random_tridiag_matrix, int *um_I, int *um_J, float *um_val,
-                      float *const x_ref, int num_rows, int nnz) {
+                      float *x_ref, int num_rows, int nnz) {
     CUDA_RT_CALL(cudaSetDevice(0));
 
     float *um_x;
@@ -460,7 +465,6 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
 
     int sMemSize = 2 * (sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1));
 
-    CUDA_RT_CALL(cudaSetDevice(0));
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, 0);
 
@@ -599,8 +603,8 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        *um_tmp_dot_delta0 = (float)*um_tmp_dot_delta1;
-        *um_tmp_dot_gamma0 = (float)*um_tmp_dot_gamma1;
+        *um_tmp_dot_delta0 = *um_tmp_dot_delta1;
+        *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -675,7 +679,7 @@ __global__ void resetLocalDotProduct(double *dot_result) {
 
 double run_single_gpu(const int iter_max, char *matrix_path_char,
                       bool generate_random_tridiag_matrix, int *um_I, int *um_J, float *um_val,
-                      float *const x_ref, int num_rows, int nnz) {
+                      float *x_ref, int num_rows, int nnz) {
     CUDA_RT_CALL(cudaSetDevice(0));
 
     float *um_x;
@@ -793,7 +797,7 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    *um_tmp_dot_gamma0 = (float)*um_tmp_dot_gamma1;
+    *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -860,8 +864,8 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        *um_tmp_dot_delta0 = (float)*um_tmp_dot_delta1;
-        *um_tmp_dot_gamma0 = (float)*um_tmp_dot_gamma1;
+        *um_tmp_dot_delta0 = *um_tmp_dot_delta1;
+        *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
