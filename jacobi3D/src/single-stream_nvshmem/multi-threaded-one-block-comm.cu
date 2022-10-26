@@ -20,8 +20,8 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max, real *halo_buffer_of_top_neighbor,
-                      real *halo_buffer_of_bottom_neighbor, uint64_t *is_done_computing_flags, const int top,
+                      const int nx, const int iter_max, real *halo_buffer_top,
+                      real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -66,14 +66,14 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     {
                         const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
                                               a[iz + iy_above + ix] + a[iz_below + iy + ix] +
-                                              halo_buffer_of_top_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
+                                              halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]) /
                                              real(6.0);
                         a_new[iz + iy + ix] = new_val;
                     }
                 }
                 cg::sync(cta);
                 nvshmemx_float_put_signal_nbi_block(
-                    halo_buffer_of_bottom_neighbor + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
+                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
                     ny * nx, &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
 
                 iz = (iz_end - 1) * ny * nx;
@@ -88,7 +88,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     {
                         const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
                                               a[iz + iy_above + ix] + a[iz_above + iy + ix] +
-                                              halo_buffer_of_bottom_neighbor[cur_iter_mod * ny * nx + iy + ix]) /
+                                              halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]) /
                                              real(6.0);
                         a_new[iz + iy + ix] = new_val;
                     }
@@ -96,7 +96,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 cg::sync(cta);
 
                 nvshmemx_float_put_signal_nbi_block(
-                    halo_buffer_of_top_neighbor + next_iter_mod * ny * nx,
+                    halo_buffer_top + next_iter_mod * ny * nx,
                     a_new + (iz_end - 1) * ny * nx, ny * nx, &(is_done_computing_flags[0]), 1,
                     NVSHMEM_SIGNAL_ADD, bottom);
                 nvshmem_quiet();
@@ -402,10 +402,9 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     if (compare_to_single_gpu)
     {
         
-        /// BIG PROBLEM HERE SEG FAULT.
         CUDA_RT_CALL(cudaMemcpy(
             a_h + iz_start_global * ny * nx, a + iz_start * ny * nx,
-            std::min(nz - iz_start_global - 2, chunk_size) * nx * ny * sizeof(real),
+            std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
 
 
