@@ -19,7 +19,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 {
 
     __global__ void __launch_bounds__(1024, 1)
-        jacobi_kernel(volatile real *__restrict__ a_new, volatile real *__restrict__ a, const int iz_start, const int iz_end, const int ny,
+        jacobi_kernel( real *__restrict__ a_new,  real *__restrict__ a, const int iz_start, const int iz_end, const int ny,
                       const int nx, const int iter_max, volatile real *halo_buffer_top,
                       volatile real *halo_buffer_bottom,  uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
@@ -95,7 +95,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
             }
 
-            volatile real *temp_pointer = a_new;
+             real *temp_pointer = a_new;
             a_new = a;
             a = temp_pointer;
 
