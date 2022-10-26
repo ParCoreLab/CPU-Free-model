@@ -356,12 +356,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     int iz_start = 1;
     int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
 
-    const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
-    const int bottom_pe = (mype + 1) % npes;
-
-    int iy_end_top = (top_pe < num_ranks_low) ? chunk_size_low + 1 : chunk_size_high + 1;
-    int iy_start_bottom = 0;
-
     initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(
         a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
