@@ -31,88 +31,61 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int comm_tile_size_y = blockDim.y * blockDim.z;
-        const int comm_tile_size_x = blockDim.x;
-
-        const int comm_base_iy = threadIdx.z * blockDim.y + threadIdx.y;
-        const int comm_base_ix = threadIdx.x;
-
-        const int comp_tile_size_x = blockDim.x;
-        const int comp_tile_size_y = blockDim.y;
-        const int comp_tile_size_z = (gridDim.x - 1) * blockDim.z;
-
-        const int comp_base_iz = blockIdx.x * blockDim.z + threadIdx.z;
-        const int comp_base_iy = threadIdx.y;
-        const int comp_base_ix = threadIdx.x;
-
-        int iz;
-        int iy;
-        int ix;
-
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
             {
                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
-                iz = iz_start * ny * nx;
-                int iz_below = iz + ny * nx;
+                int iz_first = iz_start * ny * nx;
+                int iz_first_below = iz_first + ny * nx;
+                int iz_last = (iz_end - 1) * ny * nx;
+                int iz_last_above = iz_last - ny * nx;
 
-                for (iy = (comm_base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx)
+                for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * blockDim.z * nx)
                 {
                     int iy_below = iy + nx;
                     int iy_above = iy - nx;
-                    for (ix = (comm_base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
+                    for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                     {
-                        const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
-                                              a[iz + iy_above + ix] + a[iz_below + iy + ix] +
-                                              halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]) /
-                                             real(6.0);
-                        a_new[iz + iy + ix] = new_val;
+                        const real first_row_val = (a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
+                                                    a[iz_first + iy_above + ix] + a[iz_first_below + iy + ix] +
+                                                    halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]) /
+                                                   real(6.0);
+                        a_new[iz_first + iy + ix] = first_row_val;
+
+                        const real last_row_val = (a[iz_last + iy + ix + 1] + a[iz_last + iy + ix - 1] + a[iz_last + iy_below + ix] +
+                                                   a[iz_last + iy_above + ix] + a[iz_last_above + iy + ix] +
+                                                   halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]) /
+                                                  real(6.0);
+                        a_new[iz_last + iy + ix] = last_row_val;
                     }
                 }
                 cg::sync(cta);
+
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
                     ny * nx * sizeof(real), &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
 
-                iz = (iz_end - 1) * ny * nx;
-                int iz_above = iz - ny * nx;
-
-                for (iy = (comm_base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx)
-                {
-                    int iy_below = iy + nx;
-                    int iy_above = iy - nx;
-
-                    for (ix = (comm_base_ix + 1); ix < (nx - 1); ix += comm_tile_size_x)
-                    {
-                        const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy_below + ix] +
-                                              a[iz + iy_above + ix] + a[iz_above + iy + ix] +
-                                              halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]) /
-                                             real(6.0);
-                        a_new[iz + iy + ix] = new_val;
-                    }
-                }
-                cg::sync(cta);
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_top + next_iter_mod * ny * nx,
-                    a_new + ((iz_end - 1) * ny * nx), ny * nx * sizeof(real), &(is_done_computing_flags[0]), 1,
+                    halo_buffer_top + next_iter_mod * ny * nx, a_new + ((iz_end - 1) * ny * nx),
+                    ny * nx * sizeof(real), &(is_done_computing_flags[0]), 1,
                     NVSHMEM_SIGNAL_ADD, bottom);
 
                 nvshmem_quiet();
             }
             else
             {
-                for (iz = (comp_base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
-                     iz += comp_tile_size_z * ny * nx)
+                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
+                     iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
                     int iz_below = iz + ny * nx;
                     int iz_above = iz - ny * nx;
-                    for (iy = (comp_base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comp_tile_size_y * nx)
+                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
                     {
                         int iy_below = iy + nx;
                         int iy_above = iy - nx;
-                        for (ix = (comp_base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x)
+                        for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                         {
                             const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
                                                   a[iz + iy_below + ix] + a[iz + iy_above + ix] +
