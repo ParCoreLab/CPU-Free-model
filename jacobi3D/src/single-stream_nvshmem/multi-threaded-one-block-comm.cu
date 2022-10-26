@@ -349,7 +349,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
         iz_start_global =
             num_ranks_low * chunk_size_low + (mype - num_ranks_low) * chunk_size_high + 1;
     }
-    int iz_end_global = iz_start_global + chunk_size - 1; // My last index in the global array
+    int iz_end_global = iz_start_global + chunk_size ; // My last index in the global array
 
     int iz_start = 1;
     int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
