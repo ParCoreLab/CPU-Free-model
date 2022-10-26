@@ -72,11 +72,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
                 cg::sync(cta);
-                nvshmemx_float_put_signal_nbi_block(
+                nvshmemx_put32_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
                     ny * nx, &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
 
-                iz = iz_end * ny * nx;
+                iz = (iz_end - 1) * ny * nx;
                 int iz_above = iz - ny * nx;
 
                 for (iy = (comm_base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comm_tile_size_y * nx)
@@ -94,16 +94,16 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
                 cg::sync(cta);
-                nvshmemx_float_put_signal_nbi_block(
+                nvshmemx_put32_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx,
-                    a_new + (iz_end * ny * nx), ny * nx, &(is_done_computing_flags[0]), 1,
+                    a_new + ((iz_end - 1) * ny * nx), ny * nx, &(is_done_computing_flags[0]), 1,
                     NVSHMEM_SIGNAL_ADD, bottom);
                     
                 nvshmem_quiet();
             }
             else
             {
-                for (iz = (comp_base_iz + iz_start + 1) * ny * nx; iz < iz_end  * ny * nx;
+                for (iz = (comp_base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
                      iz += comp_tile_size_z * ny * nx)
                 {
                     int iz_below = iz + ny * nx;
