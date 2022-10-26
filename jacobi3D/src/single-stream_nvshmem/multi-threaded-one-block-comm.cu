@@ -53,7 +53,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                nvshmem_quiet();
+                
                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
                 iz = iz_start * ny * nx;
@@ -100,6 +100,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     halo_buffer_of_top_neighbor + next_iter_mod * ny * nx,
                     a_new + (iz_end - 1) * ny * nx, ny * nx, &(is_done_computing_flags[0]), 1,
                     NVSHMEM_SIGNAL_ADD, bottom);
+                nvshmem_quiet();
             }
             else
             {
