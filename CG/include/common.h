@@ -118,8 +118,50 @@ class PeerGroup {
     }
 };
 
-namespace SingleGPUPipelinedDiscrete {
+// Single GPU kernels
+namespace SingleGPU {
 __global__ void initVectors(float *r, float *x, int num_rows);
+
+__global__ void gpuCopyVector(float *srcA, float *destB, int num_rows);
+
+__global__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
+                        float *inputVecX, float *outputVecY);
+
+__global__ void gpuSaxpy(float *x, float *y, float a, int num_rows);
+
+__global__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int num_rows);
+
+}  // namespace SingleGPU
+
+// Multi GPU kernels
+namespace MultiGPU {
+__global__ void initVectors(float *r, float *x, int num_rows, const int device_rank,
+                            const int num_devices);
+
+__global__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
+                        float *inputVecX, float *outputVecY, const int device_rank,
+                        const int num_devices);
+
+__global__ void gpuSaxpy(float *x, float *y, float a, int num_rows, const int device_rank,
+                         const int num_devices);
+
+__global__ void gpuCopyVector(float *srcA, float *destB, int num_rows, const int device_rank,
+                              const int num_devices);
+
+__global__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int num_rows,
+                                       const int device_rank, const int num_devices);
+
+__device__ unsigned char load_arrived(unsigned char *arrived);
+
+__device__ void store_arrived(unsigned char *arrived, unsigned char val);
+
+__global__ void syncPeers(const int device_rank, const int num_devices,
+                          unsigned char *hostMemoryArrivedList);
+}  // namespace MultiGPU
+
+__global__ void a_minus(float a, float *na);
+
+__global__ void r1_div_x(float r1, float r0, float *b);
 
 __global__ void update_a_k(float dot_delta_1, float dot_gamma_1, float b, float *a);
 
@@ -129,21 +171,11 @@ __global__ void init_a_k(float dot_delta_1, float dot_gamma_1, float *a);
 
 __global__ void init_b_k(float *b);
 
-__global__ void r1_div_x(float r1, float r0, float *b);
+// Multi-GPU Sync Kernel
 
-__global__ void a_minus(float a, float *na);
-
-__global__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
-                        float *inputVecX, float *outputVecY);
-
-__global__ void gpuSaxpy(float *x, float *y, float a, int num_rows);
-
+namespace SingleGPUPipelinedDiscrete {
 __global__ void gpuDotProductsMerged(float *vecA_delta, float *vecB_delta, float *vecA_gamma,
                                      float *vecB_gamma, int num_rows, const int sMemSize);
-
-__global__ void gpuCopyVector(float *srcA, float *destB, int num_rows);
-
-__global__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int num_rows);
 
 __global__ void addLocalDotContributions(double *dot_result_delta, double *dot_result_gamma);
 
@@ -155,22 +187,8 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
 }  // namespace SingleGPUPipelinedDiscrete
 
 namespace SingleGPUStandardDiscrete {
-__global__ void initVectors(float *r, float *x, int num_rows);
-
-__global__ void r1_div_x(float r1, float r0, float *b);
-
-__global__ void a_minus(float a, float *na);
-
-__global__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
-                        float *inputVecX, float *outputVecY);
-
-__global__ void gpuSaxpy(float *x, float *y, float a, int num_rows);
 
 __global__ void gpuDotProduct(float *vecA, float *vecB, int num_rows);
-
-__global__ void gpuCopyVector(float *srcA, float *destB, int num_rows);
-
-__global__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int num_rows);
 
 __global__ void addLocalDotContribution(double *dot_result);
 

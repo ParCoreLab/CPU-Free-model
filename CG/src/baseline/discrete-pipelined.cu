@@ -58,104 +58,6 @@ namespace BaselineDiscretePipelined {
 __device__ double grid_dot_result_delta = 0.0;
 __device__ double grid_dot_result_gamma = 0.0;
 
-__global__ void initVectors(float *r, float *x, int num_rows, const int device_rank,
-                            const int num_devices) {
-    size_t local_grid_size = gridDim.x * blockDim.x;
-    size_t local_grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-
-    size_t global_grid_size = local_grid_size * num_devices;
-    size_t global_grid_rank = device_rank * local_grid_size + local_grid_rank;
-
-    for (size_t i = global_grid_rank; i < num_rows; i += global_grid_size) {
-        r[i] = 1.0;
-        x[i] = 0.0;
-    }
-}
-
-__global__ void update_a_k(float dot_delta_1, float dot_gamma_1, float b, float *a) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (gid == 0) {
-        *a = dot_delta_1 / (dot_gamma_1 - (b / *a) * dot_delta_1);
-    }
-}
-
-__global__ void update_b_k(float dot_delta_1, float dot_delta_0, float *b) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (gid == 0) {
-        *b = dot_delta_1 / dot_delta_0;
-    }
-}
-
-__global__ void init_a_k(float dot_delta_1, float dot_gamma_1, float *a) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (gid == 0) {
-        *a = dot_delta_1 / dot_gamma_1;
-    }
-}
-
-__global__ void init_b_k(float *b) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (gid == 0) {
-        *b = 0.0;
-    }
-}
-
-__global__ void r1_div_x(float r1, float r0, float *b) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (gid == 0) {
-        *b = r1 / r0;
-    }
-}
-
-__global__ void a_minus(float a, float *na) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (gid == 0) {
-        *na = -a;
-    }
-}
-
-__global__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
-                        float *inputVecX, float *outputVecY, const int device_rank,
-                        const int num_devices) {
-    size_t local_grid_size = gridDim.x * blockDim.x;
-    size_t local_grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-
-    size_t global_grid_size = local_grid_size * num_devices;
-    size_t global_grid_rank = device_rank * local_grid_size + local_grid_rank;
-
-    for (size_t i = global_grid_rank; i < num_rows; i += global_grid_size) {
-        int row_elem = I[i];
-        int next_row_elem = I[i + 1];
-        int num_elems_this_row = next_row_elem - row_elem;
-
-        float output = 0.0;
-        for (int j = 0; j < num_elems_this_row; j++) {
-            output += alpha * val[row_elem + j] * inputVecX[J[row_elem + j]];
-        }
-
-        outputVecY[i] = output;
-    }
-}
-
-__global__ void gpuSaxpy(float *x, float *y, float a, int num_rows, const int device_rank,
-                         const int num_devices) {
-    size_t local_grid_size = gridDim.x * blockDim.x;
-    size_t local_grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-
-    size_t global_grid_size = local_grid_size * num_devices;
-    size_t global_grid_rank = device_rank * local_grid_size + local_grid_rank;
-
-    for (size_t i = global_grid_rank; i < num_rows; i += global_grid_size) {
-        y[i] = a * x[i] + y[i];
-    }
-}
-
 // Performs two dot products at the same time
 // Used to perform <r, r> and <r, w> at the same time
 // Can we combined the two atomicAdds somehow?
@@ -212,32 +114,6 @@ __global__ void gpuDotProductsMerged(float *vecA_delta, float *vecB_delta, float
     }
 }
 
-__global__ void gpuCopyVector(float *srcA, float *destB, int num_rows, const int device_rank,
-                              const int num_devices) {
-    size_t local_grid_size = gridDim.x * blockDim.x;
-    size_t local_grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-
-    size_t global_grid_size = local_grid_size * num_devices;
-    size_t global_grid_rank = device_rank * local_grid_size + local_grid_rank;
-
-    for (size_t i = global_grid_rank; i < num_rows; i += global_grid_size) {
-        destB[i] = srcA[i];
-    }
-}
-
-__global__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int num_rows,
-                                       const int device_rank, const int num_devices) {
-    size_t local_grid_size = gridDim.x * blockDim.x;
-    size_t local_grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-
-    size_t global_grid_size = local_grid_size * num_devices;
-    size_t global_grid_rank = device_rank * local_grid_size + local_grid_rank;
-
-    for (size_t i = global_grid_rank; i < num_rows; i += global_grid_size) {
-        y[i] = a * x[i] + scale * y[i];
-    }
-}
-
 __global__ void addLocalDotContributions(double *dot_result_delta, double *dot_result_gamma) {
     int gid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -247,59 +123,6 @@ __global__ void addLocalDotContributions(double *dot_result_delta, double *dot_r
 
         grid_dot_result_delta = 0.0;
         grid_dot_result_gamma = 0.0;
-    }
-}
-
-__device__ unsigned char load_arrived(unsigned char *arrived) {
-#if __CUDA_ARCH__ < 700
-    return *(volatile unsigned char *)arrived;
-#else
-    unsigned int result;
-    asm volatile("ld.acquire.sys.global.u8 %0, [%1];" : "=r"(result) : "l"(arrived) : "memory");
-    return result;
-#endif
-}
-
-__device__ void store_arrived(unsigned char *arrived, unsigned char val) {
-#if __CUDA_ARCH__ < 700
-    *(volatile unsigned char *)arrived = val;
-#else
-    unsigned int reg_val = val;
-    asm volatile("st.release.sys.global.u8 [%1], %0;" ::"r"(reg_val) "l"(arrived) : "memory");
-
-    // Avoids compiler warnings from unused variable val.
-    (void)(reg_val = reg_val);
-#endif
-}
-
-__global__ void syncPeers(const int device_rank, const int num_devices,
-                          unsigned char *hostMemoryArrivedList) {
-    int local_grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-
-    // One thread from each grid participates in the sync.
-    if (local_grid_rank == 0) {
-        if (device_rank == 0) {
-            // Leader grid waits for others to join and then releases them.
-            // Other GPUs can arrive in any order, so the leader have to wait for
-            // all others.
-
-            for (int i = 0; i < num_devices - 1; i++) {
-                while (load_arrived(&hostMemoryArrivedList[i]) == 0)
-                    ;
-            }
-
-            for (int i = 0; i < num_devices - 1; i++) {
-                store_arrived(&hostMemoryArrivedList[i], 0);
-            }
-
-            __threadfence_system();
-        } else {
-            // Other grids note their arrival and wait to be released.
-            store_arrived(&hostMemoryArrivedList[device_rank - 1], 1);
-
-            while (load_arrived(&hostMemoryArrivedList[device_rank - 1]) == 1)
-                ;
-        }
     }
 }
 
@@ -486,16 +309,17 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
     int numBlocksDotProductPerSM = 0;
     int numBlocksScaleVectorAndSaxpyPerSM = 0;
 
-    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksInitVectorsPerSM, gpuSpMV,
-                                                               THREADS_PER_BLOCK, 0));
-    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksSpmvPerSM, gpuSpMV,
-                                                               THREADS_PER_BLOCK, 0));
-    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksSaxpyPerSM, gpuSaxpy,
-                                                               THREADS_PER_BLOCK, 0));
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &numBlocksInitVectorsPerSM, MultiGPU::gpuSpMV, THREADS_PER_BLOCK, 0));
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &numBlocksSpmvPerSM, MultiGPU::gpuSpMV, THREADS_PER_BLOCK, 0));
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &numBlocksSaxpyPerSM, MultiGPU::gpuSaxpy, THREADS_PER_BLOCK, 0));
     CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocksDotProductPerSM, gpuDotProductsMerged, THREADS_PER_BLOCK, 0));
-    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &numBlocksScaleVectorAndSaxpyPerSM, gpuScaleVectorAndSaxpy, THREADS_PER_BLOCK, 0));
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksScaleVectorAndSaxpyPerSM,
+                                                               MultiGPU::gpuScaleVectorAndSaxpy,
+                                                               THREADS_PER_BLOCK, 0));
 
     int initVectorsGridSize = numBlocksInitVectorsPerSM * numSms;
     int spmvGridSize = numBlocksSpmvPerSM * numSms;
@@ -516,13 +340,14 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamCreate(&streamsSaxpy[gpu_idx]));
         CUDA_RT_CALL(cudaStreamCreate(&streamsSpMV[gpu_idx]));
 
-        initVectors<<<initVectorsGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
-            um_r, um_x, num_rows, gpu_idx, num_devices);
+        MultiGPU::
+            initVectors<<<initVectorsGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
+                um_r, um_x, num_rows, gpu_idx, num_devices);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
         // ax0 = Ax0
-        gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
+        MultiGPU::gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
             um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_x, um_ax0, gpu_idx,
             num_devices);
 
@@ -530,13 +355,13 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
 
         // r0 = b0 - ax0
         // NOTE: b is a unit vector.
-        gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
+        MultiGPU::gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
             um_ax0, um_r, float_negative_one, num_rows, gpu_idx, num_devices);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
         // w0 = Ar0
-        gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
+        MultiGPU::gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, streamsOtherOps[gpu_idx]>>>(
             um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_r, um_w, gpu_idx,
             num_devices);
 
@@ -544,7 +369,7 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
 
         int k = 1;
 
-        syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
+        MultiGPU::syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
         while (k <= iter_max) {
             // Two dot products => <r, r> and <r, w>
@@ -564,13 +389,13 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaStreamSynchronize(streamsDot[gpu_idx]));
 
             // SpMV
-            gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, sMemSize, streamsSpMV[gpu_idx]>>>(
+            MultiGPU::gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, sMemSize, streamsSpMV[gpu_idx]>>>(
                 um_I, um_J, um_val, nnz, num_rows, float_positive_one, um_w, um_q, gpu_idx,
                 num_devices);
 
             CUDA_RT_CALL(cudaDeviceSynchronize());
 
-            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
+            MultiGPU::syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
             if (k > 1) {
                 update_b_k<<<1, 1, 0, streamsOtherOps[gpu_idx]>>>((float)*um_tmp_dot_delta1,
@@ -585,25 +410,25 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
 
             CUDA_RT_CALL(cudaDeviceSynchronize());
 
-            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
+            MultiGPU::syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
             // z_i = q_i + beta_i * z_(i-1)
-            gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
-                                     streamsSaxpy[gpu_idx]>>>(
+            MultiGPU::gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
+                                               streamsSaxpy[gpu_idx]>>>(
                 um_q, um_z, float_positive_one, *um_beta, num_rows, gpu_idx, num_devices);
 
             // s_i = w_i + beta_i * s_(i-1)
-            gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
-                                     streamsSaxpy[gpu_idx]>>>(
+            MultiGPU::gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
+                                               streamsSaxpy[gpu_idx]>>>(
                 um_w, um_s, float_positive_one, *um_beta, num_rows, gpu_idx, num_devices);
 
             // p_i = r_i = beta_i * p_(i-1)
-            gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
-                                     streamsSaxpy[gpu_idx]>>>(
+            MultiGPU::gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0,
+                                               streamsSaxpy[gpu_idx]>>>(
                 um_r, um_p, float_positive_one, *um_beta, num_rows, gpu_idx, num_devices);
 
             // x_(i+1) = x_i + alpha_i * p_i
-            gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsSaxpy[gpu_idx]>>>(
+            MultiGPU::gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsSaxpy[gpu_idx]>>>(
                 um_p, um_x, *um_alpha, num_rows, gpu_idx, num_devices);
 
             CUDA_RT_CALL(cudaStreamSynchronize(streamsSaxpy[gpu_idx]));
@@ -613,23 +438,23 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaStreamSynchronize(streamsSaxpy[gpu_idx]));
 
             // r_(i+1) = r_i - alpha_i * s_i
-            gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsSaxpy[gpu_idx]>>>(
+            MultiGPU::gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsSaxpy[gpu_idx]>>>(
                 um_s, um_r, *um_negative_alpha, num_rows, gpu_idx, num_devices);
 
             // w_(i+1) = w_i - alpha_i * z_i
-            gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsSaxpy[gpu_idx]>>>(
+            MultiGPU::gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, streamsSaxpy[gpu_idx]>>>(
                 um_z, um_w, *um_negative_alpha, num_rows, gpu_idx, num_devices);
 
             CUDA_RT_CALL(cudaDeviceSynchronize());
 
-            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
+            MultiGPU::syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
             *um_tmp_dot_delta0 = (float)*um_tmp_dot_delta1;
             *um_tmp_dot_gamma0 = (float)*um_tmp_dot_gamma1;
 
             CUDA_RT_CALL(cudaDeviceSynchronize());
 
-            syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
+            MultiGPU::syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
 #pragma omp barrier
 
