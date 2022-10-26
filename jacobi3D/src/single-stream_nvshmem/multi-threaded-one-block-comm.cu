@@ -20,8 +20,8 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *__restrict__ a_new, real *__restrict__ a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max,  real * __restrict__ halo_buffer_top,
-                       real *__restrict__ halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
+                      const int nx, const int iter_max, real *__restrict__ halo_buffer_top,
+                      real *__restrict__ halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -35,10 +35,8 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                if (cta.thread_rank() == 0) {
-                    nvshmem_quiet();
-                    nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
-                }
+                nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
+
                 cg::sync(cta);
                 int iz_first = iz_start * ny * nx;
                 int iz_first_below = iz_first + ny * nx;
@@ -80,7 +78,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_last,
                     ny * nx * sizeof(real), &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, bottom);
-                
+
                 nvshmem_quiet();
             }
             else
@@ -131,8 +129,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     real *a;
     real *a_new;
 
-     real *halo_buffer_for_top_neighbor;
-     real *halo_buffer_for_bottom_neighbor;
+    real *halo_buffer_for_top_neighbor;
+    real *halo_buffer_for_bottom_neighbor;
 
     uint64_t *is_done_computing_flags;
 
@@ -375,7 +373,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
     double stop = MPI_Wtime();
     nvshmem_barrier_all();
-    bool result_correct = true;
+    bool result_correct = 1;
     if (compare_to_single_gpu)
     {
 
@@ -399,7 +397,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
                                 "(reference)\n",
                                 rank, iz, ny * nx, iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix],
                                 a_ref_h[iz * ny * nx + iy * nx + ix]);
-                        result_correct = false;
+                        result_correct = 0;
                     }
                 }
             }
@@ -408,8 +406,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     int global_result_correct = 1;
     MPI_CALL(MPI_Allreduce(&result_correct, &global_result_correct, 1, MPI_INT, MPI_MIN,
                            MPI_COMM_WORLD));
-    result_correct = global_result_correct;
-    if (!mype && result_correct)
+    
+    if (!mype && global_result_correct)
     {
         // printf("Num GPUs: %d.\n", num_devices);
         printf("Execution time: %8.4f s\n", (stop - start));
