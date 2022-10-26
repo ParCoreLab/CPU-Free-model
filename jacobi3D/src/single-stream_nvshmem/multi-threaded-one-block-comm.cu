@@ -459,7 +459,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     nvshmem_free(halo_buffer_for_bottom_neighbor);
     nvshmem_free(is_done_computing_flags);
 
-    if (compare_to_single_gpu && 0 == mype)
+    if (compare_to_single_gpu)
     {
         CUDA_RT_CALL(cudaFreeHost(a_h));
         CUDA_RT_CALL(cudaFreeHost(a_ref_h));
