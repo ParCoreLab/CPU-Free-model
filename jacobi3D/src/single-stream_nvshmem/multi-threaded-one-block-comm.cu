@@ -72,7 +72,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
                 cg::sync(cta);
-                nvshmemx_float_put_signal_nbi_block(
+                nvshmemx_float_put_signal_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
                     ny * nx, &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
 
@@ -95,10 +95,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
                 cg::sync(cta);
 
-                nvshmemx_float_put_signal_nbi_block(
+                nvshmemx_float_put_signal_block(
                     halo_buffer_top + next_iter_mod * ny * nx,
                     a_new + (iz_end - 1) * ny * nx, ny * nx, &(is_done_computing_flags[0]), 1,
                     NVSHMEM_SIGNAL_ADD, bottom);
+
                 nvshmem_quiet();
             }
             else
@@ -400,7 +401,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     {
 
         CUDA_RT_CALL(cudaMemcpy(
-            a_h + iz_start_global * ny * nx, a + iz_start * ny * nx,
+            a_h + iz_start_global * ny * nx, a + ny * nx,
             std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
 
