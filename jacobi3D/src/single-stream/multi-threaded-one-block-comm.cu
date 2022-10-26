@@ -214,10 +214,6 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[]) {
 
         int numSms = deviceProp.multiProcessorCount*maxActiveBlocksPerSM;
 
-        if (dev_id == 0) {
-            printf("%d\n", maxActiveBlocksPerSM);
-        }
-
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
         constexpr int dim_block_z = 1;
