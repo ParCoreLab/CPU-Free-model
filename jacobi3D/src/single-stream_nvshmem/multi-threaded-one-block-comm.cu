@@ -404,7 +404,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
         
         CUDA_RT_CALL(cudaMemcpy(
             a_h + iz_start_global * ny * nx, a + iz_start * ny * nx,
-            std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
+             chunk_size * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
 
 
