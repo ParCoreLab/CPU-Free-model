@@ -94,10 +94,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
                 cg::sync(cta);
-
                 nvshmemx_float_put_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx,
-                    a_new + (iz_end - 1) * ny * nx, ny * nx, &(is_done_computing_flags[0]), 1,
+                    a_new + ((iz_end - 1) * ny * nx), ny * nx, &(is_done_computing_flags[0]), 1,
                     NVSHMEM_SIGNAL_ADD, bottom);
                     
                 nvshmem_quiet();
@@ -405,7 +404,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
             std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
 
-        for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz)
+        for (int iz = iz_start_global; result_correct && (iz < iz_end_global-1); ++iz)
         {
             for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy)
             {
