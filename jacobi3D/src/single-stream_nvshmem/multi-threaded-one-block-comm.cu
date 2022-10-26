@@ -56,7 +56,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                 nvshmemx_putmem_signal_block(
                     (void *)(halo_buffer_bottom + next_iter_mod * ny * nx), (void *)(a_new + iz_first),
-                    ny * nx * sizeof(real), &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
+                    ny * nx * sizeof(real), &(is_done_computing_flags[0]), 1, NVSHMEM_SIGNAL_ADD, top);
 
                 int iz_last = (iz_end - 1) * ny * nx;
                 int iz_last_above = iz_last - ny * nx;
@@ -76,7 +76,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
                 nvshmemx_putmem_signal_block(
                     (void *)(halo_buffer_top + next_iter_mod * ny * nx), (void *)(a_new + iz_last),
-                    ny * nx * sizeof(real), &(is_done_computing_flags[0]), 1, NVSHMEM_SIGNAL_ADD, bottom);
+                    ny * nx * sizeof(real), &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, bottom);
             }
             else
             {
