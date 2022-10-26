@@ -122,8 +122,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     real *a;
     real *a_new;
 
-    real *halo_buffer_for_top_neighbor;
-    real *halo_buffer_for_bottom_neighbor;
+    volatile real *halo_buffer_for_top_neighbor;
+    volatile real *halo_buffer_for_bottom_neighbor;
 
     uint64_t *is_done_computing_flags;
 
@@ -303,8 +303,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     halo_buffer_for_top_neighbor = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
     halo_buffer_for_bottom_neighbor = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
 
-    CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor, 0, 2 * nx * ny * sizeof(real)));
-    CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor, 0, 2 * nx * ny * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset((void*)halo_buffer_for_top_neighbor, 0, 2 * nx * ny * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset((void*)halo_buffer_for_bottom_neighbor, 0, 2 * nx * ny * sizeof(real)));
 
     is_done_computing_flags = (uint64_t *)nvshmem_malloc(total_num_flags * sizeof(uint64_t));
     CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));
@@ -421,8 +421,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));
-    nvshmem_free(halo_buffer_for_top_neighbor);
-    nvshmem_free(halo_buffer_for_bottom_neighbor);
+    nvshmem_free((void*)halo_buffer_for_top_neighbor);
+    nvshmem_free((void*)halo_buffer_for_bottom_neighbor);
     nvshmem_free(is_done_computing_flags);
 
     if (compare_to_single_gpu)
