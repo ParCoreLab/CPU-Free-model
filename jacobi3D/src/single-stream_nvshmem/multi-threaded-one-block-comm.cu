@@ -64,11 +64,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 cg::sync(cta);
 
                 nvshmemx_putmem_signal_nbi_block(
-                    ((void *)halo_buffer_bottom) + next_iter_mod * ny * nx, a_new + iz_first,
+                    (void*)(halo_buffer_bottom + next_iter_mod * ny * nx), a_new + iz_first,
                     ny * nx * sizeof(real), &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
 
                 nvshmemx_putmem_signal_nbi_block(
-                    ((void *)halo_buffer_top) + next_iter_mod * ny * nx, a_new + iz_last,
+                    (void *)(halo_buffer_top + next_iter_mod * ny * nx), a_new + iz_last,
                     ny * nx * sizeof(real), &(is_done_computing_flags[0]), 1, NVSHMEM_SIGNAL_ADD, bottom);
 
                 nvshmem_quiet();
