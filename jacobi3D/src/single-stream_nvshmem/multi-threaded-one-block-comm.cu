@@ -293,8 +293,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
 
-    int iy_end_top = (top_pe < num_ranks_low) ? chunk_size_low + 1 : chunk_size_high + 1;
-    int iy_start_bottom = 0;
 
     if (top_pe != mype)
     {
