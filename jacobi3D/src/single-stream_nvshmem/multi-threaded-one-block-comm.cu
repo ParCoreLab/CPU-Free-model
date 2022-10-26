@@ -410,9 +410,9 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
             {
                 for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix)
                 {
-                    if (std::fabs(a_h[iz * ny * nx + iy * nx + ix] -
-                                  a_ref_h[iz * ny * nx + iy * nx + ix]) > tol)
-                    {
+                    //if (std::fabs(a_h[iz * ny * nx + iy * nx + ix] -
+                    //              a_ref_h[iz * ny * nx + iy * nx + ix]) > tol)
+                    //{
                         fprintf(stderr,
                                 "ERROR on rank %d: a[%d * %d + %d * %d + %d] = %f does "
                                 "not match %f "
@@ -420,7 +420,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
                                 rank, iz, ny * nx, iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix],
                                 a_ref_h[iz * ny * nx + iy * nx + ix]);
                         // result_correct = false;
-                    }
+                    //}
                 }
             }
         }
