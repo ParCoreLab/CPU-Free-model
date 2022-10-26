@@ -72,9 +72,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
                 cg::sync(cta);
-                nvshmemx_put32_signal_nbi_block(
+                nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
-                    ny * nx, &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
+                    ny * nx * sizeof(real), &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, top);
 
                 iz = (iz_end - 1) * ny * nx;
                 int iz_above = iz - ny * nx;
@@ -94,11 +94,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
                 cg::sync(cta);
-                nvshmemx_put32_signal_nbi_block(
+                nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx,
-                    a_new + ((iz_end - 1) * ny * nx), ny * nx, &(is_done_computing_flags[0]), 1,
+                    a_new + ((iz_end - 1) * ny * nx), ny * nx * sizeof(real), &(is_done_computing_flags[0]), 1,
                     NVSHMEM_SIGNAL_ADD, bottom);
-                    
+
                 nvshmem_quiet();
             }
             else
@@ -293,7 +293,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
 
-
     if (top_pe != mype)
     {
         int canAccessPeer = 0;
@@ -410,17 +409,17 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
             {
                 for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix)
                 {
-                    //if (std::fabs(a_h[iz * ny * nx + iy * nx + ix] -
-                    //              a_ref_h[iz * ny * nx + iy * nx + ix]) > tol)
-                    //{
+                    if (std::fabs(a_h[iz * ny * nx + iy * nx + ix] -
+                                  a_ref_h[iz * ny * nx + iy * nx + ix]) > tol)
+                    {
                         fprintf(stderr,
                                 "ERROR on rank %d: a[%d * %d + %d * %d + %d] = %f does "
                                 "not match %f "
                                 "(reference)\n",
                                 rank, iz, ny * nx, iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix],
                                 a_ref_h[iz * ny * nx + iy * nx + ix]);
-                        // result_correct = false;
-                    //}
+                        result_correct = false;
+                    }
                 }
             }
         }
