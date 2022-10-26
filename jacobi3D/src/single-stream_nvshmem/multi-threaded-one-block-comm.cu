@@ -20,8 +20,8 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *__restrict__ a_new, real *__restrict__ a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max, volatile real *halo_buffer_top,
-                      volatile real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
+                      const int nx, const int iter_max,  real * __restrict__ halo_buffer_top,
+                       real *__restrict__ halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -48,14 +48,14 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     {
                         const real first_row_val = (a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
                                                     a[iz_first + iy_above + ix] + a[iz_first_below + iy + ix] +
-                                                    halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]) /
+                                                    (volatile real)halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]) /
                                                    real(6.0);
                         a_new[iz_first + iy + ix] = first_row_val;
                     }
                 }
 
                 nvshmemx_putmem_signal_block(
-                    (void *)(halo_buffer_bottom + next_iter_mod * ny * nx), (void *)(a_new + iz_first),
+                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_first,
                     ny * nx * sizeof(real), &(is_done_computing_flags[0]), 1, NVSHMEM_SIGNAL_ADD, top);
 
                 int iz_last = (iz_end - 1) * ny * nx;
@@ -69,13 +69,13 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     {
                         const real last_row_val = (a[iz_last + iy + ix + 1] + a[iz_last + iy + ix - 1] + a[iz_last + iy_below + ix] +
                                                    a[iz_last + iy_above + ix] + a[iz_last_above + iy + ix] +
-                                                   halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]) /
+                                                   (volatile real)halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]) /
                                                   real(6.0);
                         a_new[iz_last + iy + ix] = last_row_val;
                     }
                 }
                 nvshmemx_putmem_signal_block(
-                    (void *)(halo_buffer_top + next_iter_mod * ny * nx), (void *)(a_new + iz_last),
+                    halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_last,
                     ny * nx * sizeof(real), &(is_done_computing_flags[1]), 1, NVSHMEM_SIGNAL_ADD, bottom);
             }
             else
@@ -126,8 +126,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     real *a;
     real *a_new;
 
-    volatile real *halo_buffer_for_top_neighbor;
-    volatile real *halo_buffer_for_bottom_neighbor;
+     real *halo_buffer_for_top_neighbor;
+     real *halo_buffer_for_bottom_neighbor;
 
     uint64_t *is_done_computing_flags;
 
