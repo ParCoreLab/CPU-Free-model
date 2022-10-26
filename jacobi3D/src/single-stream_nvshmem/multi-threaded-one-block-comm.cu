@@ -442,9 +442,9 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
                 "s, speedup: "
                 "%8.2f, "
                 "efficiency: %8.2f \n",
-                nz, ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
+                nz, ny, nx, runtime_serial_non_persistent, npes, (stop - start),
                 runtime_serial_non_persistent / (stop - start),
-                runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
+                runtime_serial_non_persistent / (npes * (stop - start)) * 100);
         }
     }
 
