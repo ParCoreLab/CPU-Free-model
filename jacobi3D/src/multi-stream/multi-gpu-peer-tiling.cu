@@ -63,14 +63,13 @@ namespace MultiGPUPeerTiling
                     const int iy_above = iy - nx;
                     for (int ix = (base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x)
                     {
-                        // big bottleneck here
-                        const real new_val = (a[iz + iy + ix + 1] +
+                        
+                        const real new_val = (real(1) / real(6)) *(a[iz + iy + ix + 1] +
                                               a[iz + iy + ix - 1] +
                                               a[iz + iy_below + ix] +
                                               a[iz + iy_above + ix] +
                                               a[iz_below + iy + ix] +
-                                              a[iz_above + iy + ix]) /
-                                             real(6.0);
+                                              a[iz_above + iy + ix]);
 
                         a_new[iz + iy + ix] = new_val;
                     }

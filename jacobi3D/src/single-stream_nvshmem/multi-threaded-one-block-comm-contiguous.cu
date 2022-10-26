@@ -75,12 +75,11 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
                     if (prev_idx_x > 0 && next_idx_x > 0 && element_idx < ny * nx - nx - 1)
                     {
-                        const real new_val =
+                        const real new_val =(real(1) / real(6)) *
 
                             (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] + a[prev_idx_y] +
                              a[iz_begin_next + element_idx] +
-                             halo_buffer_of_top_neighbor[cur_iter + element_idx]) /
-                            real(6.0);
+                             halo_buffer_of_top_neighbor[cur_iter + element_idx]) ;
 
                         a_new[iz_begin + element_idx] = new_val;
                     }

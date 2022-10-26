@@ -67,15 +67,14 @@ __global__ void __launch_bounds__(1024, 1)
                     cg::sync(cta);
 
                     if (iy < ny - 1 && ix < nx - 1) {
-                        const real first_row_val =
+                        const real first_row_val =(real(1) / real(6)) *
                             (a[iz_start * ny * nx + iy * nx + ix + 1] +
                              a[iz_start * ny * nx + iy * nx + ix - 1] +
                              a[iz_start * ny * nx + (iy + 1) * nx + ix] +
                              a[iz_start * ny * nx + (iy - 1) * nx + ix] +
                              a[(iz_start + 1) * ny * nx + iy * nx + ix] +
                              remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +
-                                                                   iy * nx + ix]) /
-                            real(6.0);
+                                                                   iy * nx + ix]) ;
 
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                         local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy * nx + ix] =
@@ -123,15 +122,14 @@ __global__ void __launch_bounds__(1024, 1)
                     cg::sync(cta);
 
                     if (iy < ny - 1 && ix < nx - 1) {
-                        const real last_row_val =
+                        const real last_row_val = (real(1) / real(6)) *
                             (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
                              a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
                              a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
                              a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
                              remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
                                                                       iy * nx + ix] +
-                             a[(iz_end - 2) * ny * nx + iy * nx + ix]) /
-                            real(6.0);
+                             a[(iz_end - 2) * ny * nx + iy * nx + ix]);
 
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                         local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy * nx +
@@ -172,11 +170,10 @@ __global__ void __launch_bounds__(1024, 1)
                     const int iy_below = iy + nx;
                     const int iy_above = iy - nx;
                     for (int ix = base_ix + 1; ix < nx - 1; ix += comp_tile_size_x) {
-                        // big bottleneck here
-                        const real new_val = (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
+                       
+                        const real new_val = (real(1) / real(6)) *(a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
                                               a[iz + iy_below + ix] + a[iz + iy_above + ix] +
-                                              a[iz_below + iy + ix] + a[iz_above + iy + ix]) /
-                                             real(6.0);
+                                              a[iz_below + iy + ix] + a[iz_above + iy + ix]);
 
                         a_new[iz + iy + ix] = new_val;
                     }

@@ -80,12 +80,11 @@ namespace SSMultiThreadedTwoBlockCommContiguousNvshmem
 
                     if (prev_idx_x > 0 && next_idx_x > 0 && element_idx < ny * nx - nx - 1)
                     {
-                        const real new_val =
+                        const real new_val =(real(1) / real(6)) *
 
                             (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] + a[prev_idx_y] +
                              a[iz_begin_next + element_idx] +
-                             halo_buffer_of_top_neighbor[cur_iter_halo_idx_start + element_idx]) /
-                            real(6.0);
+                             halo_buffer_of_top_neighbor[cur_iter_halo_idx_start + element_idx]);
 
                         a_new[iz_begin + element_idx] = new_val;
                     }
@@ -107,12 +106,11 @@ namespace SSMultiThreadedTwoBlockCommContiguousNvshmem
 
                     if (prev_idx_x > 0 && next_idx_x > 0 && element_idx < ny * nx - nx - 1)
                     {
-                        const real new_val =
+                        const real new_val =(real(1) / real(6)) *
 
                             (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] + a[prev_idx_y] +
                              halo_buffer_of_bottom_neighbor[cur_iter_halo_idx_start + element_idx] +
-                             a[iz_finish_prev + element_idx]) /
-                            real(6.0);
+                             a[iz_finish_prev + element_idx]) ;
 
                         a_new[iz_finish + element_idx] = new_val;
                     }
@@ -147,11 +145,10 @@ namespace SSMultiThreadedTwoBlockCommContiguousNvshmem
                     {
                         for (int ix = (base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x)
                         {
-                            const real new_val =
+                            const real new_val =(real(1) / real(6)) *
                                 (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
                                  a[iz + iy + nx + ix] + a[iz + iy - nx + ix] +
-                                 a[iz + ny * nx + iy + ix] + a[iz - ny * nx + iy + ix]) /
-                                real(6.0);
+                                 a[iz + ny * nx + iy + ix] + a[iz - ny * nx + iy + ix]);
 
                             a_new[iz + iy + ix] = new_val;
                         }

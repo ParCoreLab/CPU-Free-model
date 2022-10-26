@@ -49,11 +49,10 @@ __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__rest
     // real local_l2_norm = 0.0;
 
     if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
-        const real new_val =
+        const real new_val =(real(1) / real(6)) *
             (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
              a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
-             a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]) /
-            real(6.0);
+             a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
 
         a_new[iz * ny * nx + iy * nx + ix] = new_val;
 
