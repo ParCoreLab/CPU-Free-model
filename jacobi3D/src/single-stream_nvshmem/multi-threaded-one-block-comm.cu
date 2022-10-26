@@ -53,7 +53,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                
                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
                 iz = iz_start * ny * nx;
@@ -263,7 +262,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    if (compare_to_single_gpu && 0 == mype)
+    if (compare_to_single_gpu)
     {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
         CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));
