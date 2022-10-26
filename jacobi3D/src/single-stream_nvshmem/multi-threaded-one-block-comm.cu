@@ -355,7 +355,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     int iz_end_global = iz_start_global + chunk_size - 1; // My last index in the global array
 
     int iz_start = 1;
-    iz_end = (iz_end_global - iz_start_global ) + iz_start;
+    iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
 
     initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
         a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
@@ -404,7 +404,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
         
         CUDA_RT_CALL(cudaMemcpy(
             a_h + iz_start_global * ny * nx, a + iz_start * ny * nx,
-            std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
+            std::min(nz - iz_start_global - 2, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
 
 
