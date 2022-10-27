@@ -42,10 +42,6 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                int cur_iter_comm_tile_flag_idx_x;
-                int cur_iter_comm_tile_flag_idx_y;
-                int next_iter_comm_tile_flag_idx_x;
-                int next_iter_comm_tile_flag_idx_y;
                 for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++)
                 {
                     int comm_tile_start_y =
@@ -63,8 +59,8 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 
                         if (warp.thread_rank() == 0)
                         {
-                            cur_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
-                            cur_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
+                            int cur_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
+                            int cur_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
                             nvshmem_int_wait_until(
                                 is_top_done_computing_flags + cur_iter_mod * num_flags +
                                     cur_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
@@ -83,16 +79,16 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         // copy per row wise (since its warp sized in x dim)
                         if (iy < ny - 1 && ix < nx - 1)
                         {
-                            real first_row_val =(real(1) / real(6)) *
-                                (a[iz_start * ny * nx + iy * nx + ix + 1] +
-                                 a[iz_start * ny * nx + iy * nx + ix - 1] +
-                                 a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                                 a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                                 a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                                 // remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +iy *
-                                 // nx + ix] +
-                                 //
-                                 halo_buffer_for_top_neighbor[cur_iter_mod * ny * nx + iy * nx + ix]);
+                            const real first_row_val = (real(1) / real(6)) *
+                                                 (a[iz_start * ny * nx + iy * nx + ix + 1] +
+                                                  a[iz_start * ny * nx + iy * nx + ix - 1] +
+                                                  a[iz_start * ny * nx + (iy + 1) * nx + ix] +
+                                                  a[iz_start * ny * nx + (iy - 1) * nx + ix] +
+                                                  a[(iz_start + 1) * ny * nx + iy * nx + ix] +
+                                                  // remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +iy *
+                                                  // nx + ix] +
+                                                  //
+                                                  halo_buffer_for_top_neighbor[cur_iter_mod * ny * nx + iy * nx + ix]);
 
                             a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                             ///????
@@ -109,8 +105,8 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 
                         if (warp.thread_rank() == 0)
                         {
-                            next_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
-                            next_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
+                            int next_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
+                            int next_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
                             nvshmem_int_atomic_inc(
                                 is_top_done_computing_flags + next_iter_mod * num_flags +
                                     next_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
@@ -123,7 +119,8 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                                                                    next_iter_comm_tile_flag_idx_x +
                                                                    next_iter_mod * num_flags] =
                                 iter + 1;*/
-
+                            int cur_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
+                            int cur_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
                             nvshmem_int_wait_until(
                                 is_bottom_done_computing_flags + cur_iter_mod * num_flags +
                                     cur_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
@@ -143,15 +140,15 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         if (iy < ny - 1 && ix < nx - 1)
                         {
                             const real last_row_val = (real(1) / real(6)) *
-                                (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                                 a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                                 a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                                 a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                                 halo_buffer_for_bottom_neighbor[cur_iter_mod * ny * nx + iy * nx +
-                                                                 ix] +
-                                 // remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
-                                 //                                          iy * nx + ix] +
-                                 a[(iz_end - 2) * ny * nx + iy * nx + ix]);
+                                                      (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
+                                                       a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
+                                                       a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
+                                                       a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
+                                                       halo_buffer_for_bottom_neighbor[cur_iter_mod * ny * nx + iy * nx +
+                                                                                       ix] +
+                                                       // remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
+                                                       //                                          iy * nx + ix] +
+                                                       a[(iz_end - 2) * ny * nx + iy * nx + ix]);
 
                             a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                             nvshmemx_float_put_nbi_warp(
@@ -166,8 +163,8 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 
                         if (warp.thread_rank() == 0)
                         {
-                            next_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
-                            next_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
+                            int next_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
+                            int next_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
                             nvshmem_int_atomic_inc(
                                 is_bottom_done_computing_flags + next_iter_mod * num_flags +
                                     next_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
@@ -200,9 +197,9 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         for (int ix = (base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x)
                         {
                             // big bottleneck here
-                            const real new_val = (real(1) / real(6)) *(a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
-                                                  a[iz + iy_below + ix] + a[iz + iy_above + ix] +
-                                                  a[iz_below + iy + ix] + a[iz_above + iy + ix]);
+                            const real new_val = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
+                                                                        a[iz + iy_below + ix] + a[iz + iy_above + ix] +
+                                                                        a[iz_below + iy + ix] + a[iz_above + iy + ix]);
 
                             a_new[iz + iy + ix] = new_val;
                         }

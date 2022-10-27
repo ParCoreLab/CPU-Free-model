@@ -35,27 +35,10 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
+                nvshmem_uint64_wait_until_all(is_done_computing_flags + cur_iter_mod*2, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
                 int iz_first = iz_start * ny * nx;
                 int iz_first_below = iz_first + ny * nx;
-
-                for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * blockDim.z * nx)
-                {
-                    int iy_below = iy + nx;
-                    int iy_above = iy - nx;
-                    for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
-                    {
-                        const real first_row_val = (real(1) / real(6)) *(a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
-                                                    a[iz_first + iy_above + ix] + a[iz_first_below + iy + ix] +
-                                                    halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
-                        a_new[iz_first + iy + ix] = first_row_val;
-                    }
-                }
-
-                nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_first,
-                    ny * nx * sizeof(real), is_done_computing_flags, iter+1, NVSHMEM_SIGNAL_SET, top);
 
                 int iz_last = (iz_end - 1) * ny * nx;
                 int iz_last_above = iz_last - ny * nx;
@@ -66,15 +49,24 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     int iy_above = iy - nx;
                     for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                     {
-                        const real last_row_val = (real(1) / real(6)) *(a[iz_last + iy + ix + 1] + a[iz_last + iy + ix - 1] + a[iz_last + iy_below + ix] +
-                                                   a[iz_last + iy_above + ix] + a[iz_last_above + iy + ix] +
-                                                   halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]);
+                        const real first_row_val = (real(1) / real(6)) * (a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
+                                                                          a[iz_first + iy_above + ix] + a[iz_first_below + iy + ix] +
+                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
+                        a_new[iz_first + iy + ix] = first_row_val;
+
+                        const real last_row_val = (real(1) / real(6)) * (a[iz_last + iy + ix + 1] + a[iz_last + iy + ix - 1] + a[iz_last + iy_below + ix] +
+                                                                         a[iz_last + iy_above + ix] + a[iz_last_above + iy + ix] +
+                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]);
                         a_new[iz_last + iy + ix] = last_row_val;
                     }
                 }
+
+                nvshmemx_putmem_signal_nbi_block(
+                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_first,
+                    ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET, top);
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_last,
-                    ny * nx * sizeof(real), is_done_computing_flags+1, iter+1, NVSHMEM_SIGNAL_SET, bottom);
+                    ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2+ 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
 
                 nvshmem_quiet();
             }
@@ -91,9 +83,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                         int iy_above = iy - nx;
                         for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                         {
-                            const real new_val = (real(1) / real(6)) *(a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
-                                                  a[iz + iy_below + ix] + a[iz + iy_above + ix] +
-                                                  a[iz_below + iy + ix] + a[iz_above + iy + ix]);
+                            const real new_val = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
+                                                                        a[iz + iy_below + ix] + a[iz + iy_above + ix] +
+                                                                        a[iz_below + iy + ix] + a[iz_above + iy + ix]);
 
                             a_new[iz + iy + ix] = new_val;
                         }
@@ -198,7 +190,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
     int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
 
-    int total_num_flags = 2;
+    int total_num_flags = 4;
 
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
@@ -402,7 +394,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     int global_result_correct = 1;
     MPI_CALL(MPI_Allreduce(&result_correct, &global_result_correct, 1, MPI_INT, MPI_MIN,
                            MPI_COMM_WORLD));
-    
+
     if (!mype && global_result_correct)
     {
         // printf("Num GPUs: %d.\n", num_devices);
