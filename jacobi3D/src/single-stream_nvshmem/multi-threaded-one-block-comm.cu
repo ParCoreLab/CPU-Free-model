@@ -173,8 +173,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     attr.mpi_comm = &mpi_comm;
 
     constexpr int dim_block_x = 32;
-    constexpr int dim_block_y = 32;
-    constexpr int dim_block_z = 1;
+    constexpr int dim_block_y = 8;
+    constexpr int dim_block_z = 4;
 
     constexpr int comp_tile_size_x = dim_block_x;
     constexpr int comp_tile_size_y = dim_block_y;
