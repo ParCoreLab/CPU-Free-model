@@ -35,7 +35,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                nvshmemx_barrier_all_block(); /// may be done better
                 if (cta.thread_rank() == 0)
                 {
 
