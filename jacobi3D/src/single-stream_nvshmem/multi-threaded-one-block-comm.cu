@@ -54,7 +54,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
 
-                nvshmemx_putmem_signal_block(
+                nvshmemx_putmem_signal_nbi_block(
                     (real *)&halo_buffer_bottom[next_iter_mod * ny * nx], (real *)&a_new[iz_start * ny * nx],
                     ny * nx * sizeof(real), &is_done_computing_flags[1], iter + 1, NVSHMEM_SIGNAL_SET, top);
 
@@ -76,7 +76,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                     }
                 }
-                nvshmemx_putmem_signal_block(
+                nvshmemx_putmem_signal_nbi_block(
                     (real *)&halo_buffer_top[next_iter_mod * ny * nx], (real *)&a_new[(iz_end - 1) * ny * nx],
                     ny * nx * sizeof(real), is_done_computing_flags, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
             }
