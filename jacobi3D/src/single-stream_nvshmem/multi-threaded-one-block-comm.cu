@@ -51,12 +51,12 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     {
                         const real first_row_val = (real(1) / real(6)) * (a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
                                                                           a[iz_first + iy_above + ix] + a[iz_first_below + iy + ix] +
-                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
+                                                                          halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]);
                         a_new[iz_first + iy + ix] = first_row_val;
 
                         const real last_row_val = (real(1) / real(6)) * (a[iz_last + iy + ix + 1] + a[iz_last + iy + ix - 1] + a[iz_last + iy_below + ix] +
                                                                          a[iz_last + iy_above + ix] + a[iz_last_above + iy + ix] +
-                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]);
+                                                                         halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
                         a_new[iz_last + iy + ix] = last_row_val;
                     }
                 }
