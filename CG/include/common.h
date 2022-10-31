@@ -199,6 +199,20 @@ double run_single_gpu(const int iter_max, char *matrix_path_char,
                       float *host_val, int num_rows, int nnz);
 }  // namespace SingleGPUStandardDiscrete
 
+namespace CPU {
+void cpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha, float *inputVecX,
+             float *outputVecY);
+
+float dotProduct(float *vecA, float *vecB, int size);
+
+void scaleVector(float *vec, float alpha, int size);
+
+void saxpy(float *x, float *y, float a, int size);
+
+void cpuConjugateGrad(int *I, int *J, float *val, float *x, float *Ax, float *p, float *r, int nnz,
+                      int N, float tol);
+}  // namespace CPU
+
 bool get_arg(char **begin, char **end, const std::string &arg);
 
 void genTridiag(int *I, int *J, float *val, int N, int nz);
