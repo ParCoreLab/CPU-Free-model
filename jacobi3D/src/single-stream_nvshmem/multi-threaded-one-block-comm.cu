@@ -289,8 +289,8 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     halo_buffer_for_top_neighbor = (real *)nvshmem_calloc(2 * nx * ny, sizeof(real));
     halo_buffer_for_bottom_neighbor = (real *)nvshmem_calloc(2 * nx * ny, sizeof(real));
 
-    CUDA_RT_CALL(cudaMemset((void *)halo_buffer_for_top_neighbor, 0, nx * ny * sizeof(real)));
-    CUDA_RT_CALL(cudaMemset((void *)halo_buffer_for_bottom_neighbor, 0, nx * ny * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset((void *)halo_buffer_for_top_neighbor, 0, 2 * nx * ny * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset((void *)halo_buffer_for_bottom_neighbor, 0, 2 * nx * ny * sizeof(real)));
 
     is_done_computing_flags = (uint64_t *)nvshmem_calloc(total_num_flags, sizeof(uint64_t));
     CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));
