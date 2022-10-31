@@ -346,7 +346,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     // l2-norm) Could write iter to CPU when kernel is done
     if (iter_max % 2 == 1)
     {
-        std::swap(a_new, a);
+        //std::swap(a_new, a);
     }
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
