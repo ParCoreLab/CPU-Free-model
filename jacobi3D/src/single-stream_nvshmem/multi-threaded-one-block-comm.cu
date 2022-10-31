@@ -64,10 +64,10 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
 
-                nvshmemx_putmem_block(
+                nvshmemx_putmem_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
                     ny * nx * sizeof(real), top);
-                nvshmemx_putmem_block(
+                nvshmemx_putmem_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * ny * nx,
                     ny * nx * sizeof(real), bottom);
                 
