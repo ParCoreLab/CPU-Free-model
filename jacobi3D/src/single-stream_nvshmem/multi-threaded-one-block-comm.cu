@@ -35,10 +35,10 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                
+                nvshmemx_barrier_all_block();
                 if (cta.thread_rank() == 0)
                 {
-                    nvshmemx_barrier_all_block();
+                    
                     nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
                 }
 
