@@ -35,7 +35,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                nvshmem_uint64_wait_until_all(is_done_computing_flags + cur_iter_mod * 2, 2, NULL, NVSHMEM_CMP_EQ, iter);
+                nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
                 int iz_first = iz_start * ny * nx;
                 int iz_first_below = iz_first + ny * nx;
@@ -63,10 +63,10 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_first,
-                    ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET, top);
+                    ny * nx * sizeof(real), is_done_computing_flags , iter + 1, NVSHMEM_SIGNAL_SET, top);
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_last,
-                    ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
+                    ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
 
                 nvshmem_quiet();
             }
@@ -190,12 +190,12 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
     int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
 
-    int total_num_flags = 4;
+    int total_num_flags = 2;
 
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * 2 + 2;
+    long long unsigned int mesh_size_per_rank = nx * ny * 2 + 1;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
