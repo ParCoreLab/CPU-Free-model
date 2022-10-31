@@ -56,7 +56,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                 nvshmemx_putmem_signal_block(
                     (real *)&halo_buffer_bottom[next_iter_mod * ny * nx], (real *)&a_new[iz_start * ny * nx],
-                    ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET, top);
+                    ny * nx * sizeof(real), &is_done_computing_flags[next_iter_mod * 2 + 1], iter + 1, NVSHMEM_SIGNAL_SET, top);
 
                 if (cta.thread_rank() == 0)
                 {
@@ -78,7 +78,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
                 nvshmemx_putmem_signal_block(
                     (real *)&halo_buffer_top[next_iter_mod * ny * nx], (real *)&a_new[(iz_end - 1) * ny * nx],
-                    ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
+                    ny * nx * sizeof(real), &is_done_computing_flags[next_iter_mod * 2], iter + 1, NVSHMEM_SIGNAL_SET, bottom);
             }
             else
             {
