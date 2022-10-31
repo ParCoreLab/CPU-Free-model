@@ -20,8 +20,8 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max, real *halo_buffer_top,
-                      real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
+                      const int nx, const int iter_max, volatile real *halo_buffer_top,
+                      volatile real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -35,7 +35,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                nvshmemx_barrier_all_block();///may be done better
+                nvshmemx_barrier_all_block(); /// may be done better
                 if (cta.thread_rank() == 0)
                 {
 
@@ -67,19 +67,17 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_bottom, a_new + iz_start * ny * nx,
+                    (real*)halo_buffer_bottom, a_new + iz_start * ny * nx,
                     ny * nx * sizeof(real), is_done_computing_flags, iter + 1, NVSHMEM_SIGNAL_SET, top);
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_top, a_new + (iz_end - 1) * ny * nx,
+                    (real*)halo_buffer_top, a_new + (iz_end - 1) * ny * nx,
                     ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
             }
             else
             {
-                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-                     iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
+                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
-                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx;
-                         iy += blockDim.y * nx)
+                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
                     {
                         for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                         {
