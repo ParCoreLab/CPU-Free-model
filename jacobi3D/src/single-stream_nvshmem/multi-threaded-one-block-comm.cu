@@ -35,9 +35,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                if (cta.thread_rank()==0)
+                if (cta.thread_rank() == 0)
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
 
@@ -57,14 +57,13 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                 nvshmemx_putmem_signal_block(
                     (real *)&halo_buffer_bottom[next_iter_mod * ny * nx], (real *)&a_new[iz_start * ny * nx],
-                    ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, top);
+                    ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET, top);
 
-                if (cta.thread_rank()==0)
+                if (cta.thread_rank() == 0)
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags + 1, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod + 1, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
-                
 
                 for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
                 {
@@ -81,8 +80,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
                 nvshmemx_putmem_signal_block(
                     (real *)&halo_buffer_top[next_iter_mod * ny * nx], (real *)&a_new[(iz_end - 1) * ny * nx],
-                    ny * nx * sizeof(real), is_done_computing_flags, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
-
+                    ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
             }
             else
             {
@@ -199,12 +197,12 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
     int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
 
-    int total_num_flags = 2;
+    int total_num_flags = 4;
 
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * 2 + 1;
+    long long unsigned int mesh_size_per_rank = nx * ny * 2 + 2;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
