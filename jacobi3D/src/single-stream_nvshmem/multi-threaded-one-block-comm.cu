@@ -53,7 +53,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                                                                                 a[iz_first + (iy - 1) * nx + ix] + a[iz_first_below + iy * nx + ix] +
                                                                                 halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
 
-                        a_new[iz_last + iy + ix] = (real(1) / real(6)) * (a[iz_last + iy * nx + ix + 1] + a[iz_last + iy * nx + ix - 1] + a[iz_last + (iy + 1) * nx + ix] +
+                        a_new[iz_last + iy * nx + ix] = (real(1) / real(6)) * (a[iz_last + iy * nx + ix + 1] + a[iz_last + iy * nx + ix - 1] + a[iz_last + (iy + 1) * nx + ix] +
                                                                           a[iz_last + (iy - 1) * nx + ix] + a[iz_last_above + iy * nx + ix] +
                                                                           halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix]);
                     }
