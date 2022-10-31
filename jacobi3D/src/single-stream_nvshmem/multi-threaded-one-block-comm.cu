@@ -37,7 +37,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             {
                 if (cta.thread_rank() == 0)
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod, NVSHMEM_CMP_LE, iter);
                 }
                 cg::sync(cta);
                 for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
@@ -60,7 +60,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                 if (cta.thread_rank() == 0)
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod + 1, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod + 1, NVSHMEM_CMP_LE, iter);
                 }
                 cg::sync(cta);
                 for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
