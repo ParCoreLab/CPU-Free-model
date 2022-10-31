@@ -181,9 +181,8 @@ __global__ void addLocalDotContributions(double *dot_result_delta, double *dot_r
 
 __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_result_gamma);
 
-double run_single_gpu(const int iter_max, char *matrix_path_char,
-                      bool generate_random_tridiag_matrix, int *um_I, int *um_J, float *um_val,
-                      float *host_val, int num_rows, int nnz);
+double run_single_gpu(const int iter_max, int *um_I, int *um_J, float *um_val, float *host_val,
+                      int num_rows, int nnz);
 }  // namespace SingleGPUPipelinedDiscrete
 
 namespace SingleGPUStandardDiscrete {
@@ -194,9 +193,8 @@ __global__ void addLocalDotContribution(double *dot_result);
 
 __global__ void resetLocalDotProduct(double *dot_result);
 
-double run_single_gpu(const int iter_max, char *matrix_path_char,
-                      bool generate_random_tridiag_matrix, int *um_I, int *um_J, float *um_val,
-                      float *host_val, int num_rows, int nnz);
+double run_single_gpu(const int iter_max, int *um_I, int *um_J, float *um_val, float *host_val,
+                      int num_rows, int nnz);
 }  // namespace SingleGPUStandardDiscrete
 
 namespace CPU {

@@ -407,9 +407,8 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
     }
 }
 
-double run_single_gpu(const int iter_max, char *matrix_path_char,
-                      bool generate_random_tridiag_matrix, int *um_I, int *um_J, float *um_val,
-                      float *x_ref, int num_rows, int nnz) {
+double run_single_gpu(const int iter_max, int *um_I, int *um_J, float *um_val, float *x_ref,
+                      int num_rows, int nnz) {
     CUDA_RT_CALL(cudaSetDevice(0));
 
     float *um_x;
@@ -677,9 +676,8 @@ __global__ void resetLocalDotProduct(double *dot_result) {
     }
 }
 
-double run_single_gpu(const int iter_max, char *matrix_path_char,
-                      bool generate_random_tridiag_matrix, int *um_I, int *um_J, float *um_val,
-                      float *x_ref, int num_rows, int nnz) {
+double run_single_gpu(const int iter_max, int *um_I, int *um_J, float *um_val, float *x_ref,
+                      int num_rows, int nnz) {
     CUDA_RT_CALL(cudaSetDevice(0));
 
     float *um_x;

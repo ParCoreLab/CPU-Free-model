@@ -394,9 +394,11 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(float)));
             CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(float)));
 
-            single_gpu_runtime = SingleGPUPipelinedNonPersistent::run_single_gpu(
-                iter_max, matrix_path_char, generate_random_tridiag_matrix, um_I, um_J, um_val,
-                x_ref_host, num_rows, nnz);
+            single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
+                iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
+
+            // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
+            //     iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
         }
     }
 

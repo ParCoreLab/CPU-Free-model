@@ -253,9 +253,11 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(float)));
             CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(float)));
 
-            single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
-                iter_max, matrix_path_char, generate_random_tridiag_matrix, um_I, um_J, um_val,
-                x_ref_host, num_rows, nnz);
+            single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
+                iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
+
+            // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
+            //     iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
         }
     }
 
@@ -468,9 +470,11 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
     {
         int gpu_idx = omp_get_thread_num();
 
-        if (compare_to_single_gpu && gpu_idx == 0) {
-            for (int i = 0; i < num_rows; i++) {
-                x_host[i] = um_x[i];
+        if (gpu_idx == 0) {
+            if (compare_to_single_gpu) {
+                for (int i = 0; i < num_rows; i++) {
+                    x_host[i] = um_x[i];
+                }
             }
 
             report_results(num_rows, x_ref_host, x_host, num_devices, single_gpu_runtime, start,
