@@ -38,7 +38,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 if (cta.thread_rank() == 0)
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags, NVSHMEM_CMP_EQ, iter);
-                    nvshmem_signal_wait_until(&is_done_computing_flags[1], NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
 
@@ -53,6 +52,23 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                                                                           a[(iz_start + 1) * ny * nx + iy * nx + ix] +
                                                                           halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
+                    }
+                }
+
+                nvshmemx_putmem_signal_nbi_block(
+                    (real *)&halo_buffer_bottom[next_iter_mod * ny * nx], &a_new[iz_start * ny * nx],
+                    ny * nx * sizeof(real), is_done_computing_flags, iter + 1, NVSHMEM_SIGNAL_SET, top);
+
+                if (cta.thread_rank() == 0)
+                {
+                    nvshmem_signal_wait_until(&is_done_computing_flags[1], NVSHMEM_CMP_EQ, iter);
+                }
+                cg::sync(cta);
+
+                for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
+                {
+                    for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
+                    {
 
                         const real last_row_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
                                                                          a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
@@ -62,10 +78,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                     }
                 }
-
-                nvshmemx_putmem_signal_nbi_block(
-                    (real *)&halo_buffer_bottom[next_iter_mod * ny * nx], &a_new[iz_start * ny * nx],
-                    ny * nx * sizeof(real), is_done_computing_flags, iter + 1, NVSHMEM_SIGNAL_SET, top);
                 nvshmemx_putmem_signal_nbi_block(
                     (real *)&halo_buffer_top[next_iter_mod * ny * nx], &a_new[(iz_end - 1) * ny * nx],
                     ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
@@ -346,7 +358,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     // l2-norm) Could write iter to CPU when kernel is done
     if (iter_max % 2 == 1)
     {
-        //std::swap(a_new, a);
+        std::swap(a_new, a);
     }
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
