@@ -68,7 +68,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_last,
                     ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                 
-                nvshmem_quiet();
+                
                 
             }
             else
@@ -103,6 +103,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
             cg::sync(grid);
+            nvshmem_quiet();
         }
     }
 } // namespace SSMultiThreadedOneBlockCommNvshmem
