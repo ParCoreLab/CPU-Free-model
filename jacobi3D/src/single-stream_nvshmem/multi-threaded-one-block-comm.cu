@@ -43,20 +43,19 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 int iz_last = (iz_end - 1) * ny * nx;
                 int iz_last_above = iz_last - ny * nx;
 
-                for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * blockDim.z * nx)
+                for (int iy = threadIdx.z * blockDim.y + threadIdx.y + 1; iy < ny - 1; iy += blockDim.y * blockDim.z)
                 {
-                    int iy_below = iy + nx;
-                    int iy_above = iy - nx;
-                    for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
+
+                    for (int ix = threadIdx.x + 1; ix < nx - 1; ix += blockDim.x)
                     {
 
-                        a_new[iz_first + iy + ix] = (real(1) / real(6)) * (a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
-                                                                           a[iz_first + iy_above + ix] + a[iz_first_below + iy + ix] +
-                                                                           halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
+                        a_new[iz_first + iy * nx + ix] = (real(1) / real(6)) * (a[iz_first + iy * nx + ix + 1] + a[iz_first + iy * nx + ix - 1] + a[iz_first + (iy + 1) * nx + ix] +
+                                                                                a[iz_first + (iy - 1) * nx + ix] + a[iz_first_below + iy * nx + ix] +
+                                                                                halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
 
-                        a_new[iz_last + iy + ix] = (real(1) / real(6)) * (a[iz_last + iy + ix + 1] + a[iz_last + iy + ix - 1] + a[iz_last + iy_below + ix] +
-                                                                          a[iz_last + iy_above + ix] + a[iz_last_above + iy + ix] +
-                                                                          halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]);
+                        a_new[iz_last + iy + ix] = (real(1) / real(6)) * (a[iz_last + iy * nx + ix + 1] + a[iz_last + iy * nx + ix - 1] + a[iz_last + (iy + 1) * nx + ix] +
+                                                                          a[iz_last + (iy - 1) * nx + ix] + a[iz_last_above + iy * nx + ix] +
+                                                                          halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix]);
                     }
                 }
 
@@ -86,7 +85,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                             a_new[iz + iy + ix] = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
                                                                          a[iz + iy_below + ix] + a[iz + iy_above + ix] +
                                                                          a[iz_below + iy + ix] + a[iz_above + iy + ix]);
-                            
                         }
                     }
                 }
