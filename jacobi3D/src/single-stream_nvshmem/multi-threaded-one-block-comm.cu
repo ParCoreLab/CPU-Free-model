@@ -62,11 +62,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_first,
-                    ny * nx * sizeof(real), is_done_computing_flags , iter + 1, NVSHMEM_SIGNAL_SET, top);
+                    halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_first,
+                    ny * nx * sizeof(real), is_done_computing_flags , iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_last,
-                    ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
+                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_last,
+                    ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, top);
 
                 nvshmem_quiet();
             }
