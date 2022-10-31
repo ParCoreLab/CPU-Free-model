@@ -19,9 +19,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 {
 
     __global__ void __launch_bounds__(1024, 1)
-        jacobi_kernel(real *__restrict__  a_new, real *__restrict__  a, const int iz_start, const int iz_end, const int ny,
+        jacobi_kernel(real *__restrict__ a_new, real *__restrict__ a, const int iz_start, const int iz_end, const int ny,
                       const int nx, const int iter_max, real *__restrict__ const halo_buffer_top,
-                      real *__restrict__ const halo_buffer_bottom, uint64_t * const is_done_computing_flags, const int top,
+                      real *__restrict__ const halo_buffer_bottom, uint64_t *const is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -63,32 +63,27 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_first,
-                    ny * nx * sizeof(real), is_done_computing_flags , iter + 1, NVSHMEM_SIGNAL_SET, top);
+                    ny * nx * sizeof(real), is_done_computing_flags, iter + 1, NVSHMEM_SIGNAL_SET, top);
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_last,
                     ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
-                
+
                 nvshmem_quiet();
-                
             }
             else
             {
-                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
-                     iz += (gridDim.x - 1) * blockDim.z * ny * nx)
+                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+                     iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
-                    int iz_below = iz + ny * nx;
-                    int iz_above = iz - ny * nx;
-                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
+                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx;
+                         iy += blockDim.y * nx)
                     {
-                        int iy_below = iy + nx;
-                        int iy_above = iy - nx;
                         for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                         {
-                            const real new_val = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
-                                                                        a[iz + iy_below + ix] + a[iz + iy_above + ix] +
-                                                                        a[iz_below + iy + ix] + a[iz_above + iy + ix]);
-
-                            a_new[iz + iy + ix] = new_val;
+                            a_new[iz + iy + ix] = (real(1) / real(6)) *
+                                                  (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
+                                                   a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
+                                                   a[iz - ny * nx + iy + ix]);
                         }
                     }
                 }
@@ -103,7 +98,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
             cg::sync(grid);
-            
         }
     }
 } // namespace SSMultiThreadedOneBlockCommNvshmem
