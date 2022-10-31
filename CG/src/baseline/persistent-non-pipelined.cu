@@ -55,14 +55,14 @@ namespace BaselinePersistentNonPipelined {
 
 __device__ double grid_dot_result = 0.0;
 
-__device__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
-                        float *inputVecX, float *outputVecY, const PeerGroup &peer_group) {
+__device__ void gpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha,
+                        real *inputVecX, real *outputVecY, const PeerGroup &peer_group) {
     for (int i = peer_group.thread_rank(); i < num_rows; i += peer_group.size()) {
         int row_elem = I[i];
         int next_row_elem = I[i + 1];
         int num_elems_this_row = next_row_elem - row_elem;
 
-        float output = 0.0;
+        real output = 0.0;
         for (int j = 0; j < num_elems_this_row; j++) {
             output += alpha * val[row_elem + j] * inputVecX[J[row_elem + j]];
         }
@@ -71,13 +71,13 @@ __device__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float
     }
 }
 
-__device__ void gpuSaxpy(float *x, float *y, float a, int size, const PeerGroup &peer_group) {
+__device__ void gpuSaxpy(real *x, real *y, real a, int size, const PeerGroup &peer_group) {
     for (int i = peer_group.thread_rank(); i < size; i += peer_group.size()) {
         y[i] = a * x[i] + y[i];
     }
 }
 
-__device__ void gpuDotProduct(float *vecA, float *vecB, int size, const cg::thread_block &cta,
+__device__ void gpuDotProduct(real *vecA, real *vecB, int size, const cg::thread_block &cta,
                               const PeerGroup &peer_group) {
     extern __shared__ double tmp[];
 
@@ -108,34 +108,34 @@ __device__ void gpuDotProduct(float *vecA, float *vecB, int size, const cg::thre
     }
 }
 
-__device__ void gpuCopyVector(float *srcA, float *destB, int size, const PeerGroup &peer_group) {
+__device__ void gpuCopyVector(real *srcA, real *destB, int size, const PeerGroup &peer_group) {
     for (int i = peer_group.thread_rank(); i < size; i += peer_group.size()) {
         destB[i] = srcA[i];
     }
 }
 
-__device__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int size,
+__device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int size,
                                        const PeerGroup &peer_group) {
     for (int i = peer_group.thread_rank(); i < size; i += peer_group.size()) {
         y[i] = a * x[i] + scale * y[i];
     }
 }
 
-__global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, float *Ax, float *p,
-                                          float *r, double *dot_result, int nnz, int N, float tol,
+__global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *Ax, real *p,
+                                          real *r, double *dot_result, int nnz, int N, real tol,
                                           MultiDeviceData multi_device_data, const int iter_max) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
     PeerGroup peer_group(multi_device_data, grid);
 
-    float float_positive_one = 1.0;
-    float float_negative_one = -1.0;
+    real real_positive_one = 1.0;
+    real real_negative_one = -1.0;
 
-    float r0 = 0.0;
-    float r1;
-    float b;
-    float a;
-    float na;
+    real r0 = 0.0;
+    real r1;
+    real b;
+    real a;
+    real na;
 
     for (int i = peer_group.thread_rank(); i < N; i += peer_group.size()) {
         r[i] = 1.0;
@@ -144,11 +144,11 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     cg::sync(grid);
 
-    gpuSpMV(I, J, val, nnz, N, float_positive_one, x, Ax, peer_group);
+    gpuSpMV(I, J, val, nnz, N, real_positive_one, x, Ax, peer_group);
 
     cg::sync(grid);
 
-    gpuSaxpy(Ax, r, float_negative_one, N, peer_group);
+    gpuSaxpy(Ax, r, real_negative_one, N, peer_group);
 
     cg::sync(grid);
 
@@ -169,14 +169,14 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
     while (k <= iter_max) {
         if (k > 1) {
             b = r1 / r0;
-            gpuScaleVectorAndSaxpy(r, p, float_positive_one, b, N, peer_group);
+            gpuScaleVectorAndSaxpy(r, p, real_positive_one, b, N, peer_group);
         } else {
             gpuCopyVector(r, p, N, peer_group);
         }
 
         peer_group.sync();
 
-        gpuSpMV(I, J, val, nnz, N, float_positive_one, p, Ax, peer_group);
+        gpuSpMV(I, J, val, nnz, N, real_positive_one, p, Ax, peer_group);
 
         if (peer_group.thread_rank() == 0) {
             *dot_result = 0.0;
@@ -256,20 +256,20 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
     int *host_I = NULL;
     int *host_J = NULL;
-    float *host_val = NULL;
-    float *x_host = NULL;
-    float *x_ref_host = NULL;
+    real *host_val = NULL;
+    real *x_host = NULL;
+    real *x_ref_host = NULL;
 
     int *um_I = NULL;
     int *um_J = NULL;
-    float *um_val = NULL;
+    real *um_val = NULL;
 
-    float r1;
+    real r1;
 
-    float *um_x;
-    float *um_r;
-    float *um_p;
-    float *um_s;
+    real *um_x;
+    real *um_r;
+    real *um_p;
+    real *um_s;
 
     for (int gpu_idx_i = 0; gpu_idx_i < num_devices; gpu_idx_i++) {
         CUDA_RT_CALL(cudaSetDevice(gpu_idx_i));
@@ -290,35 +290,35 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
         CUDA_RT_CALL(cudaMallocManaged((void **)&um_I, sizeof(int) * (num_rows + 1)));
         CUDA_RT_CALL(cudaMallocManaged((void **)&um_J, sizeof(int) * nnz));
-        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(float) * nnz));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(real) * nnz));
 
-        host_val = (float *)malloc(sizeof(float) * nnz);
+        host_val = (real *)malloc(sizeof(real) * nnz);
 
         /* Generate a random tridiagonal symmetric matrix in CSR format */
         genTridiag(um_I, um_J, host_val, num_rows, nnz);
 
-        memcpy(um_val, host_val, sizeof(float) * nnz);
+        memcpy(um_val, host_val, sizeof(real) * nnz);
 
     } else {
-        if (loadMMSparseMatrix<float>(matrix_path_char, 'd', true, &num_rows, &num_cols, &nnz,
-                                      &host_val, &host_I, &host_J, true)) {
+        if (loadMMSparseMatrix<real>(matrix_path_char, 'd', true, &num_rows, &num_cols, &nnz,
+                                     &host_val, &host_I, &host_J, true)) {
             exit(EXIT_FAILURE);
         }
 
         CUDA_RT_CALL(cudaMallocManaged((void **)&um_I, sizeof(int) * (num_rows + 1)));
         CUDA_RT_CALL(cudaMallocManaged((void **)&um_J, sizeof(int) * nnz));
-        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(float) * nnz));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(real) * nnz));
 
         memcpy(um_I, host_I, sizeof(int) * (num_rows + 1));
         memcpy(um_J, host_J, sizeof(int) * nnz);
-        memcpy(um_val, host_val, sizeof(float) * nnz);
+        memcpy(um_val, host_val, sizeof(real) * nnz);
     }
 
     CUDA_RT_CALL(cudaMemAdvise(um_I, sizeof(int) * (num_rows + 1), cudaMemAdviseSetReadMostly, 0));
     CUDA_RT_CALL(cudaMemAdvise(um_J, sizeof(int) * nnz, cudaMemAdviseSetReadMostly, 0));
-    CUDA_RT_CALL(cudaMemAdvise(um_val, sizeof(float) * nnz, cudaMemAdviseSetReadMostly, 0));
+    CUDA_RT_CALL(cudaMemAdvise(um_val, sizeof(real) * nnz, cudaMemAdviseSetReadMostly, 0));
 
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(float) * num_rows));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(real) * num_rows));
 
     // Comparing to Single GPU Non-Persistent Non-Pipelined implementation
 #pragma omp parallel num_threads(num_devices)
@@ -328,13 +328,13 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
         if (compare_to_single_gpu && gpu_idx == 0) {
             CUDA_RT_CALL(cudaSetDevice(gpu_idx));
 
-            CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(float)));
-            CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(float)));
+            CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(real)));
+            CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(real)));
 
-            single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
+            single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
                 iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
 
-            // single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
+            // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
             //     iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
         }
     }
@@ -345,9 +345,9 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMemset(dot_result, 0, sizeof(double)));
 
     // temp memory for ConjugateGradient
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(float)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(real)));
 
     // ASSUMPTION: All GPUs are the same and P2P callable
 
@@ -386,27 +386,27 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
         CUDA_RT_CALL(
             cudaMemPrefetchAsync(um_I, sizeof(int) * num_rows, gpu_idx, nStreams[gpu_idx]));
-        CUDA_RT_CALL(cudaMemPrefetchAsync(um_val, sizeof(float) * nnz, gpu_idx, nStreams[gpu_idx]));
-        CUDA_RT_CALL(cudaMemPrefetchAsync(um_J, sizeof(float) * nnz, gpu_idx, nStreams[gpu_idx]));
+        CUDA_RT_CALL(cudaMemPrefetchAsync(um_val, sizeof(real) * nnz, gpu_idx, nStreams[gpu_idx]));
+        CUDA_RT_CALL(cudaMemPrefetchAsync(um_J, sizeof(real) * nnz, gpu_idx, nStreams[gpu_idx]));
 
         if (offset_s <= num_rows) {
             for (int i = 0; i < perGPUIter; i++) {
-                cudaMemAdvise(um_s + offset_s, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_s + offset_s, sizeof(real) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
-                cudaMemAdvise(um_r + offset_r, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_r + offset_r, sizeof(real) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
-                cudaMemAdvise(um_x + offset_x, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_x + offset_x, sizeof(real) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
-                cudaMemAdvise(um_p + offset_p, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_p + offset_p, sizeof(real) * totalThreadsPerGPU,
                               cudaMemAdviseSetPreferredLocation, gpu_idx);
 
-                cudaMemAdvise(um_s + offset_s, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_s + offset_s, sizeof(real) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
-                cudaMemAdvise(um_r + offset_r, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_r + offset_r, sizeof(real) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
-                cudaMemAdvise(um_p + offset_p, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_p + offset_p, sizeof(real) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
-                cudaMemAdvise(um_x + offset_x, sizeof(float) * totalThreadsPerGPU,
+                cudaMemAdvise(um_x + offset_x, sizeof(real) * totalThreadsPerGPU,
                               cudaMemAdviseSetAccessedBy, gpu_idx);
 
                 offset_s += totalThreadsPerGPU * num_devices;
@@ -450,7 +450,7 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
         multi_device_data.deviceRank++;
     }
 
-    CUDA_RT_CALL(cudaMemPrefetchAsync(um_x, sizeof(float) * num_rows, cudaCpuDeviceId));
+    CUDA_RT_CALL(cudaMemPrefetchAsync(um_x, sizeof(real) * num_rows, cudaCpuDeviceId));
     CUDA_RT_CALL(cudaMemPrefetchAsync(dot_result, sizeof(double), cudaCpuDeviceId));
 
     for (int gpu_idx = 0; gpu_idx < num_devices; gpu_idx++) {
@@ -458,7 +458,7 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamSynchronize(nStreams[gpu_idx]));
     }
 
-    r1 = (float)*dot_result;
+    r1 = (real)*dot_result;
 
     double stop = omp_get_wtime();
 

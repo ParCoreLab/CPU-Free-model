@@ -8,8 +8,10 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 
+typedef double real;
+
 constexpr int THREADS_PER_BLOCK = 512;
-constexpr float tol = 1e-5f;
+constexpr real tol = 1e-5f;
 
 namespace cg = cooperative_groups;
 
@@ -28,7 +30,7 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
     return argval;
 }
 
-void report_results(const int num_rows, float *x_ref, float *x, const int num_devices,
+void report_results(const int num_rows, real *x_ref, real *x, const int num_devices,
                     const double single_gpu_runtime, const double start, const double stop,
                     const bool compare_to_single_gpu);
 
@@ -120,35 +122,35 @@ class PeerGroup {
 
 // Single GPU kernels
 namespace SingleGPU {
-__global__ void initVectors(float *r, float *x, int num_rows);
+__global__ void initVectors(real *r, real *x, int num_rows);
 
-__global__ void gpuCopyVector(float *srcA, float *destB, int num_rows);
+__global__ void gpuCopyVector(real *srcA, real *destB, int num_rows);
 
-__global__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
-                        float *inputVecX, float *outputVecY);
+__global__ void gpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha,
+                        real *inputVecX, real *outputVecY);
 
-__global__ void gpuSaxpy(float *x, float *y, float a, int num_rows);
+__global__ void gpuSaxpy(real *x, real *y, real a, int num_rows);
 
-__global__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int num_rows);
+__global__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int num_rows);
 
 }  // namespace SingleGPU
 
 // Multi GPU kernels
 namespace MultiGPU {
-__global__ void initVectors(float *r, float *x, int num_rows, const int device_rank,
+__global__ void initVectors(real *r, real *x, int num_rows, const int device_rank,
                             const int num_devices);
 
-__global__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
-                        float *inputVecX, float *outputVecY, const int device_rank,
+__global__ void gpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha,
+                        real *inputVecX, real *outputVecY, const int device_rank,
                         const int num_devices);
 
-__global__ void gpuSaxpy(float *x, float *y, float a, int num_rows, const int device_rank,
+__global__ void gpuSaxpy(real *x, real *y, real a, int num_rows, const int device_rank,
                          const int num_devices);
 
-__global__ void gpuCopyVector(float *srcA, float *destB, int num_rows, const int device_rank,
+__global__ void gpuCopyVector(real *srcA, real *destB, int num_rows, const int device_rank,
                               const int num_devices);
 
-__global__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int num_rows,
+__global__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int num_rows,
                                        const int device_rank, const int num_devices);
 
 __device__ unsigned char load_arrived(unsigned char *arrived);
@@ -159,61 +161,61 @@ __global__ void syncPeers(const int device_rank, const int num_devices,
                           unsigned char *hostMemoryArrivedList);
 }  // namespace MultiGPU
 
-__global__ void a_minus(float a, float *na);
+__global__ void a_minus(real a, real *na);
 
-__global__ void r1_div_x(float r1, float r0, float *b);
+__global__ void r1_div_x(real r1, real r0, real *b);
 
-__global__ void update_a_k(float dot_delta_1, float dot_gamma_1, float b, float *a);
+__global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a);
 
-__global__ void update_b_k(float dot_delta_1, float dot_delta_0, float *b);
+__global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b);
 
-__global__ void init_a_k(float dot_delta_1, float dot_gamma_1, float *a);
+__global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a);
 
-__global__ void init_b_k(float *b);
+__global__ void init_b_k(real *b);
 
 // Multi-GPU Sync Kernel
 
 namespace SingleGPUPipelinedDiscrete {
-__global__ void gpuDotProductsMerged(float *vecA_delta, float *vecB_delta, float *vecA_gamma,
-                                     float *vecB_gamma, int num_rows, const int sMemSize);
+__global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *vecA_gamma,
+                                     real *vecB_gamma, int num_rows, const int sMemSize);
 
 __global__ void addLocalDotContributions(double *dot_result_delta, double *dot_result_gamma);
 
 __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_result_gamma);
 
-double run_single_gpu(const int iter_max, int *um_I, int *um_J, float *um_val, float *host_val,
+double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *host_val,
                       int num_rows, int nnz);
 }  // namespace SingleGPUPipelinedDiscrete
 
 namespace SingleGPUStandardDiscrete {
 
-__global__ void gpuDotProduct(float *vecA, float *vecB, int num_rows);
+__global__ void gpuDotProduct(real *vecA, real *vecB, int num_rows);
 
 __global__ void addLocalDotContribution(double *dot_result);
 
 __global__ void resetLocalDotProduct(double *dot_result);
 
-double run_single_gpu(const int iter_max, int *um_I, int *um_J, float *um_val, float *host_val,
+double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *host_val,
                       int num_rows, int nnz);
 }  // namespace SingleGPUStandardDiscrete
 
 namespace CPU {
-void cpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha, float *inputVecX,
-             float *outputVecY);
+void cpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha, real *inputVecX,
+             real *outputVecY);
 
-float dotProduct(float *vecA, float *vecB, int size);
+real dotProduct(real *vecA, real *vecB, int size);
 
-void scaleVector(float *vec, float alpha, int size);
+void scaleVector(real *vec, real alpha, int size);
 
-void saxpy(float *x, float *y, float a, int size);
+void saxpy(real *x, real *y, real a, int size);
 
-void cpuConjugateGrad(int *I, int *J, float *val, float *x, float *Ax, float *p, float *r, int nnz,
-                      int N, float tol);
+void cpuConjugateGrad(int *I, int *J, real *val, real *x, real *Ax, real *p, real *r, int nnz,
+                      int N, real tol);
 }  // namespace CPU
 
 bool get_arg(char **begin, char **end, const std::string &arg);
 
-void genTridiag(int *I, int *J, float *val, int N, int nz);
+void genTridiag(int *I, int *J, real *val, int N, int nz);
 
 #define noop
 

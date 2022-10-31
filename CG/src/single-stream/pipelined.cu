@@ -56,8 +56,8 @@ namespace SingleStreamPipelined {
 __device__ double grid_dot_result_delta = 0.0;
 __device__ double grid_dot_result_gamma = 0.0;
 
-__device__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float alpha,
-                        float *inputVecX, float *outputVecY, const int num_allocated_tbs,
+__device__ void gpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha,
+                        real *inputVecX, real *outputVecY, const int num_allocated_tbs,
                         const int device_rank, const int num_devices, const PeerGroup &peer_group) {
     int subgrid_thread_rank = peer_group.calc_subgrid_thread_rank(num_allocated_tbs);
     int subgrid_size = peer_group.calc_subgrid_size(num_allocated_tbs);
@@ -67,7 +67,7 @@ __device__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float
         int next_row_elem = I[i + 1];
         int num_elems_this_row = next_row_elem - row_elem;
 
-        float output = 0.0;
+        real output = 0.0;
         for (int j = 0; j < num_elems_this_row; j++) {
             output += alpha * val[row_elem + j] * inputVecX[J[row_elem + j]];
         }
@@ -76,7 +76,7 @@ __device__ void gpuSpMV(int *I, int *J, float *val, int nnz, int num_rows, float
     }
 }
 
-__device__ void gpuSaxpy(float *x, float *y, float a, int size, const PeerGroup &peer_group) {
+__device__ void gpuSaxpy(real *x, real *y, real a, int size, const PeerGroup &peer_group) {
     for (int i = peer_group.thread_rank(); i < size; i += peer_group.size()) {
         y[i] = a * x[i] + y[i];
     }
@@ -85,8 +85,8 @@ __device__ void gpuSaxpy(float *x, float *y, float a, int size, const PeerGroup 
 // Performs two dot products at the same time
 // Used to perform <r, r> and <r, w> at the same time
 // Can we combined the two atomicAdds somehow?
-__device__ void gpuDotProductsMerged(float *vecA_delta, float *vecB_delta, float *vecA_gamma,
-                                     float *vecB_gamma, int num_rows, const cg::thread_block &cta,
+__device__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *vecA_gamma,
+                                     real *vecB_gamma, int num_rows, const cg::thread_block &cta,
                                      const int num_allocated_tbs, const int device_rank,
                                      const int num_devices, const int sMemSize,
                                      const PeerGroup &peer_group) {
@@ -136,23 +136,23 @@ __device__ void gpuDotProductsMerged(float *vecA_delta, float *vecB_delta, float
     }
 }
 
-__device__ void gpuCopyVector(float *srcA, float *destB, int size, const PeerGroup &peer_group) {
+__device__ void gpuCopyVector(real *srcA, real *destB, int size, const PeerGroup &peer_group) {
     for (int i = peer_group.thread_rank(); i < size; i += peer_group.size()) {
         destB[i] = srcA[i];
     }
 }
 
-__device__ void gpuScaleVectorAndSaxpy(float *x, float *y, float a, float scale, int size,
+__device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int size,
                                        const PeerGroup &peer_group) {
     for (int i = peer_group.thread_rank(); i < size; i += peer_group.size()) {
         y[i] = a * x[i] + scale * y[i];
     }
 }
 
-__global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, float *s, float *p,
-                                          float *r, float *w, float *t, float *u,
+__global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *s, real *p,
+                                          real *r, real *w, real *t, real *u,
                                           double *dot_result_delta, double *dot_result_gamma,
-                                          int nnz, int N, float tol,
+                                          int nnz, int N, real tol,
                                           MultiDeviceData multi_device_data, const int iter_max,
                                           const int num_blocks_for_spmv, const int sMemSize) {
     cg::thread_block cta = cg::this_thread_block();
@@ -163,18 +163,18 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
     const int device_rank = multi_device_data.deviceRank;
     const int num_blocks_for_dot = gridDim.x - num_blocks_for_spmv;
 
-    float float_positive_one = 1.0;
-    float float_negative_one = -1.0;
+    real real_positive_one = 1.0;
+    real real_negative_one = -1.0;
 
-    float tmp_dot_delta_0 = 0.0;
-    float tmp_dot_gamma_0 = 0.0;
+    real tmp_dot_delta_0 = 0.0;
+    real tmp_dot_gamma_0 = 0.0;
 
-    float tmp_dot_delta_1;
-    float tmp_dot_gamma_1;
+    real tmp_dot_delta_1;
+    real tmp_dot_gamma_1;
 
-    float b;
-    float a;
-    float na;
+    real b;
+    real a;
+    real na;
 
     for (int i = peer_group.thread_rank(); i < N; i += peer_group.size()) {
         r[i] = 1.0;
@@ -183,16 +183,16 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
 
     cg::sync(grid);
 
-    gpuSpMV(I, J, val, nnz, N, float_positive_one, x, s, gridDim.x, device_rank, num_devices,
+    gpuSpMV(I, J, val, nnz, N, real_positive_one, x, s, gridDim.x, device_rank, num_devices,
             peer_group);
 
     cg::sync(grid);
 
-    gpuSaxpy(s, r, float_negative_one, N, peer_group);
+    gpuSaxpy(s, r, real_negative_one, N, peer_group);
 
     cg::sync(grid);
 
-    gpuSpMV(I, J, val, nnz, N, float_positive_one, r, w, gridDim.x, device_rank, num_devices,
+    gpuSpMV(I, J, val, nnz, N, real_positive_one, r, w, gridDim.x, device_rank, num_devices,
             peer_group);
 
     cg::sync(grid);
@@ -222,9 +222,9 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         if (k > 1) {
             b = tmp_dot_delta_1 / tmp_dot_delta_0;
 
-            // gpuScaleVectorAndSaxpy(r, p, float_positive_one, b, N, peer_group);
-            // gpuScaleVectorAndSaxpy(w, s, float_positive_one, b, N, peer_group);
-            // gpuScaleVectorAndSaxpy(t, u, float_positive_one, b, N, peer_group);
+            // gpuScaleVectorAndSaxpy(r, p, real_positive_one, b, N, peer_group);
+            // gpuScaleVectorAndSaxpy(w, s, real_positive_one, b, N, peer_group);
+            // gpuScaleVectorAndSaxpy(t, u, real_positive_one, b, N, peer_group);
 
         } else {
             gpuCopyVector(r, p, N, peer_group);
@@ -251,7 +251,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, float *val, float *x, 
         // else => Dot
 
         if (blockIdx.x < num_blocks_for_spmv) {
-            gpuSpMV(I, J, val, nnz, N, float_positive_one, p, s, num_blocks_for_spmv, device_rank,
+            gpuSpMV(I, J, val, nnz, N, real_positive_one, p, s, num_blocks_for_spmv, device_rank,
                     num_devices, peer_group);
         } else {
             cg::coalesced_group dot_active_threads = cg::coalesced_threads();
@@ -322,23 +322,23 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 
     int *host_I = NULL;
     int *host_J = NULL;
-    float *host_val = NULL;
-    float *x_host = NULL;
-    float *x_ref_host = NULL;
+    real *host_val = NULL;
+    real *x_host = NULL;
+    real *x_ref_host = NULL;
 
     int *um_I = NULL;
     int *um_J = NULL;
-    float *um_val = NULL;
+    real *um_val = NULL;
 
-    float *um_r;
-    float *um_p;
-    float *um_s;
-    float *um_x;
-    float *um_w;
-    float *um_u;
-    float *um_t;
+    real *um_r;
+    real *um_p;
+    real *um_s;
+    real *um_x;
+    real *um_w;
+    real *um_u;
+    real *um_t;
 
-    float r1;
+    real r1;
 
     for (int gpu_idx_i = 0; gpu_idx_i < num_devices; gpu_idx_i++) {
         CUDA_RT_CALL(cudaSetDevice(gpu_idx_i));
@@ -359,28 +359,28 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 
         CUDA_RT_CALL(cudaMallocManaged((void **)&um_I, sizeof(int) * (num_rows + 1)));
         CUDA_RT_CALL(cudaMallocManaged((void **)&um_J, sizeof(int) * nnz));
-        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(float) * nnz));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(real) * nnz));
 
-        host_val = (float *)malloc(sizeof(float) * nnz);
+        host_val = (real *)malloc(sizeof(real) * nnz);
 
         /* Generate a random tridiagonal symmetric matrix in CSR format */
         genTridiag(um_I, um_J, host_val, num_rows, nnz);
 
-        memcpy(um_val, host_val, sizeof(float) * nnz);
+        memcpy(um_val, host_val, sizeof(real) * nnz);
 
     } else {
-        if (loadMMSparseMatrix<float>(matrix_path_char, 'd', true, &num_rows, &num_cols, &nnz,
-                                      &host_val, &host_I, &host_J, true)) {
+        if (loadMMSparseMatrix<real>(matrix_path_char, 'd', true, &num_rows, &num_cols, &nnz,
+                                     &host_val, &host_I, &host_J, true)) {
             exit(EXIT_FAILURE);
         }
 
         CUDA_RT_CALL(cudaMallocManaged((void **)&um_I, sizeof(int) * (num_rows + 1)));
         CUDA_RT_CALL(cudaMallocManaged((void **)&um_J, sizeof(int) * nnz));
-        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(float) * nnz));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(real) * nnz));
 
         memcpy(um_I, host_I, sizeof(int) * (num_rows + 1));
         memcpy(um_J, host_J, sizeof(int) * nnz);
-        memcpy(um_val, host_val, sizeof(float) * nnz);
+        memcpy(um_val, host_val, sizeof(real) * nnz);
     }
 
 // Comparing to Single GPU Non-Persistent Non-Pipelined implementation
@@ -391,8 +391,8 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
         if (compare_to_single_gpu && gpu_idx == 0) {
             CUDA_RT_CALL(cudaSetDevice(gpu_idx));
 
-            CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(float)));
-            CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(float)));
+            CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(real)));
+            CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(real)));
 
             single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
                 iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
@@ -402,7 +402,7 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
         }
     }
 
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(float) * num_rows));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(real) * num_rows));
 
     double *um_dot_result_delta;
     double *um_dot_result_gamma;
@@ -414,12 +414,12 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMemset(um_dot_result_gamma, 0, sizeof(double)));
 
     // temp memory for ConjugateGradient
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_w, num_rows * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_u, num_rows * sizeof(float)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_t, num_rows * sizeof(float)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_w, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_u, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_t, num_rows * sizeof(real)));
 
     // ASSUMPTION: All GPUs are the same and P2P callable
 
@@ -512,7 +512,7 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamSynchronize(nStreams[gpu_idx]));
     }
 
-    r1 = (float)um_dot_result_gamma[0];
+    r1 = (real)um_dot_result_gamma[0];
 
     double stop = omp_get_wtime();
 
