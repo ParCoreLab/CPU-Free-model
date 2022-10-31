@@ -19,9 +19,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 {
 
     __global__ void __launch_bounds__(1024, 1)
-        jacobi_kernel(real *__restrict__ a_new, real *__restrict__ a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max, real *__restrict__  halo_buffer_top,
-                      real * __restrict__ halo_buffer_bottom, uint64_t * is_done_computing_flags, const int top,
+        jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
+                      const int nx, const int iter_max, real *halo_buffer_top,
+                      real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -37,36 +37,34 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             {
                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
-                int iz_first = iz_start * ny * nx;
-                int iz_first_below = (iz_start + 1) * ny * nx;
-
-                int iz_last = (iz_end - 1) * ny * nx;
-                int iz_last_above = (iz_end - 2) * ny * nx;
-
-                for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * blockDim.z * nx)
+                for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
                 {
-                    int iy_below = (iy + 1) * nx;
-                    int iy_above = (iy - 1) * nx;
+
                     for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                     {
-                        const real first_row_val = (real(1) / real(6)) * (a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
-                                                                          a[iz_first + iy_above + ix] + a[iz_first_below + iy + ix] +
-                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
-                        a_new[iz_first + iy + ix] = first_row_val;
+                        const real first_row_val = (real(1) / real(6)) * (a[iz_start * ny * nx + iy * nx + ix + 1] +
+                                                                          a[iz_start * ny * nx + iy * nx + ix - 1] +
+                                                                          a[iz_start * ny * nx + (iy + 1) * nx + ix] +
+                                                                          a[iz_start * ny * nx + (iy - 1) * nx + ix] +
+                                                                          a[(iz_start + 1) * ny * nx + iy * nx + ix] +
+                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
+                        a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
 
-                        const real last_row_val = (real(1) / real(6)) * (a[iz_last + iy + ix + 1] + a[iz_last + iy + ix - 1] + a[iz_last + iy_below + ix] +
-                                                                         a[iz_last + iy_above + ix] + a[iz_last_above + iy + ix] +
-                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]);
-                        a_new[iz_last + iy + ix] = last_row_val;
+                        const real last_row_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
+                                                                         a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
+                                                                         a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
+                                                                         a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
+                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix]);
+                        a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                     }
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_first,
-                    ny * nx * sizeof(real), is_done_computing_flags, iter+1, NVSHMEM_SIGNAL_SET, top);
+                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
+                    ny * nx * sizeof(real), is_done_computing_flags, iter + 1, NVSHMEM_SIGNAL_SET, top);
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_last,
-                    ny * nx * sizeof(real), is_done_computing_flags + 1, iter+1, NVSHMEM_SIGNAL_SET, bottom);
+                    halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * ny * nx,
+                    ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
 
                 nvshmem_quiet();
             }
