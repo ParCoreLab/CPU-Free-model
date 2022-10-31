@@ -38,15 +38,15 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 nvshmem_uint64_wait_until_all(is_done_computing_flags, 2, NULL, NVSHMEM_CMP_EQ, iter);
 
                 int iz_first = iz_start * ny * nx;
-                int iz_first_below = iz_first + ny * nx;
+                int iz_first_below = (iz_start + 1) * ny * nx;
 
                 int iz_last = (iz_end - 1) * ny * nx;
-                int iz_last_above = iz_last - ny * nx;
+                int iz_last_above = (iz_end - 2) * ny * nx;
 
                 for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * blockDim.z * nx)
                 {
-                    int iy_below = iy + nx;
-                    int iy_above = iy - nx;
+                    int iy_below = (iy + 1) * nx;
+                    int iy_above = (iy - 1) * nx;
                     for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                     {
                         const real first_row_val = (real(1) / real(6)) * (a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
