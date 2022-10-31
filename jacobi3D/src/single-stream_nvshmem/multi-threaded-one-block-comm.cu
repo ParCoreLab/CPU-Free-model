@@ -19,9 +19,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 {
 
     __global__ void __launch_bounds__(1024, 1)
-        jacobi_kernel(volatile real *a_new, volatile real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max, volatile real *halo_buffer_top,
-                      volatile real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
+        jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
+                      const int nx, const int iter_max, real *halo_buffer_top,
+                      real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -37,6 +37,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             {
                 if (cta.thread_rank() == 0)
                 {
+                    nvshmem_quiet();
                     nvshmem_signal_wait_until(is_done_computing_flags, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
@@ -61,6 +62,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                 if (cta.thread_rank() == 0)
                 {
+                    nvshmem_quiet();
                     nvshmem_signal_wait_until(&is_done_computing_flags[1], NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
@@ -81,11 +83,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 nvshmemx_putmem_signal_nbi_block(
                     (real *)&halo_buffer_top[next_iter_mod * ny * nx], (real *)&a_new[(iz_end - 1) * ny * nx],
                     ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
-                
             }
             else
             {
-                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
+                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+                     iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
                     for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
                     {
@@ -100,7 +102,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
             }
 
-            volatile real *temp_pointer = a_new;
+            real *temp_pointer = a_new;
             a_new = a;
             a = temp_pointer;
 
