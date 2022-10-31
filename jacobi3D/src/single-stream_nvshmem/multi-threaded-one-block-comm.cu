@@ -20,8 +20,8 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *__restrict__ a_new, real *__restrict__ a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max, real *__restrict__ halo_buffer_top,
-                      real *__restrict__ halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
+                      const int nx, const int iter_max, real *__restrict__ const halo_buffer_top,
+                      real *__restrict__ const halo_buffer_bottom, uint64_t *const is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -49,27 +49,25 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     int iy_above = iy - nx;
                     for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                     {
-                        const real first_row_val = (real(1) / real(6)) * (a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
-                                                                          a[iz_first + iy_above + ix] + a[iz_first_below + iy + ix] +
-                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
-                        a_new[iz_first + iy + ix] = first_row_val;
 
-                        const real last_row_val = (real(1) / real(6)) * (a[iz_last + iy + ix + 1] + a[iz_last + iy + ix - 1] + a[iz_last + iy_below + ix] +
-                                                                         a[iz_last + iy_above + ix] + a[iz_last_above + iy + ix] +
-                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]);
-                        a_new[iz_last + iy + ix] = last_row_val;
+                        a_new[iz_first + iy + ix] = (real(1) / real(6)) * (a[iz_first + iy + ix + 1] + a[iz_first + iy + ix - 1] + a[iz_first + iy_below + ix] +
+                                                                           a[iz_first + iy_above + ix] + a[iz_first_below + iy + ix] +
+                                                                           halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
+
+                        a_new[iz_last + iy + ix] = (real(1) / real(6)) * (a[iz_last + iy + ix + 1] + a[iz_last + iy + ix - 1] + a[iz_last + iy_below + ix] +
+                                                                          a[iz_last + iy_above + ix] + a[iz_last_above + iy + ix] +
+                                                                          halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]);
                     }
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_first,
-                    ny * nx * sizeof(real), is_done_computing_flags , iter + 1, NVSHMEM_SIGNAL_SET, top);
+                    ny * nx * sizeof(real), is_done_computing_flags, iter + 1, NVSHMEM_SIGNAL_SET, top);
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + iz_last,
                     ny * nx * sizeof(real), is_done_computing_flags + 1, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
-                cg::sync(cta);
+
                 nvshmem_quiet();
-                cg::sync(cta);
             }
             else
             {
@@ -84,11 +82,11 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                         int iy_above = iy - nx;
                         for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                         {
-                            const real new_val = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
-                                                                        a[iz + iy_below + ix] + a[iz + iy_above + ix] +
-                                                                        a[iz_below + iy + ix] + a[iz_above + iy + ix]);
 
-                            a_new[iz + iy + ix] = new_val;
+                            a_new[iz + iy + ix] = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
+                                                                         a[iz + iy_below + ix] + a[iz + iy_above + ix] +
+                                                                         a[iz_below + iy + ix] + a[iz_above + iy + ix]);
+                            
                         }
                     }
                 }
