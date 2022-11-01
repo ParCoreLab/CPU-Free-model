@@ -43,14 +43,14 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                 const int base_idx = threadIdx.z * blockDim.x * blockDim.y +
                                      threadIdx.y * blockDim.x + threadIdx.x;
 
-                for (int block_idx = 0; block_idx < max_block_count-1; block_idx++)
+                for (int block_idx = 0; block_idx < max_block_count; block_idx++)
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
 
                     int block_start_idx = block_idx * thread_count_per_block + nx + 1;
                     int element_idx = block_start_idx + base_idx;
 
-                    if (element_idx % nx > 0 && element_idx % nx < nx - 1 && element_idx < (ny - 1) * nx - 1)
+                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx - 1)
                     {
                         const real new_val = (real(1) / real(6)) * (a[iz_start * ny * nx + element_idx + 1] +
                                                                     a[iz_start * ny * nx + element_idx - 1] +
@@ -71,7 +71,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
 
-                    if (element_idx % nx > 0 && element_idx % nx < nx - 1 && element_idx < (ny - 1) * nx - 1)
+                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx - 1)
                     {
                         const real new_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + element_idx + 1] +
                                                                     a[(iz_end - 1) * ny * nx + element_idx - 1] +
@@ -340,15 +340,13 @@ int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
         iz_start_global = num_ranks_low * chunk_size_low +
                           (mype - num_ranks_low) * chunk_size_high + 1;
     }
-    int iz_end_global =
-        iz_start_global + chunk_size - 1; // My last index in the global array
+    int iz_end_global = iz_start_global + chunk_size - 1; // My last index in the global array
 
     int iz_start = 1;
     int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
 
-    initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
-        a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2,
-        nz);
+    initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(
+        a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -434,9 +432,9 @@ int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
                        "s, speedup: "
                        "%8.2f, "
                        "efficiency: %8.2f \n",
-                       nz, ny, nx, runtime_serial_non_persistent, num_devices,
+                       nz, ny, nx, runtime_serial_non_persistent, npes,
                        (stop - start), runtime_serial_non_persistent / (stop - start),
-                       runtime_serial_non_persistent / (num_devices * (stop - start)) *
+                       runtime_serial_non_persistent / (npes * (stop - start)) *
                            100);
             }
         }
