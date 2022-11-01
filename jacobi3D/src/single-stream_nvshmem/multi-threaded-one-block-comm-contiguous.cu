@@ -43,7 +43,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                 const int base_idx = threadIdx.z * blockDim.x * blockDim.y +
                                      threadIdx.y * blockDim.x + threadIdx.x;
 
-                for (int block_idx = 0; block_idx < max_block_count; block_idx++)
+                for (int block_idx = 0; block_idx < max_block_count-1; block_idx++)
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
 
