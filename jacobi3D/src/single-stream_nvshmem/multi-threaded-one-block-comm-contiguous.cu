@@ -392,9 +392,10 @@ int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
     bool result_correct = true;
     if (compare_to_single_gpu)
     {
+
         CUDA_RT_CALL(cudaMemcpy(
             a_h + iz_start_global * ny * nx, a + ny * nx,
-            std::min((nz - iz_start_global), chunk_size) * nx * ny * sizeof(real),
+            std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
 
         for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz)
@@ -407,42 +408,39 @@ int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
                                   a_ref_h[iz * ny * nx + iy * nx + ix]) > tol)
                     {
                         fprintf(stderr,
-                                "ERROR on rank %d: a[%d * %d + %d * %d + %d] = "
-                                "%f does "
+                                "ERROR on rank %d: a[%d * %d + %d * %d + %d] = %f does "
                                 "not match %f "
                                 "(reference)\n",
-                                rank, iz, ny * nx, iy, nx, ix,
-                                a_h[iz * ny * nx + iy * nx + ix],
+                                rank, iz, ny * nx, iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix],
                                 a_ref_h[iz * ny * nx + iy * nx + ix]);
-                        // result_correct = false;
+                        result_correct = 0;
                     }
                 }
             }
         }
-        if (result_correct)
-        {
-            // printf("Num GPUs: %d.\n", num_devices);
-            printf("Execution time: %8.4f s\n", (stop - start));
+    }
+    int global_result_correct = 1;
+    MPI_CALL(MPI_Allreduce(&result_correct, &global_result_correct, 1, MPI_INT, MPI_MIN,
+                           MPI_COMM_WORLD));
 
-            if (compare_to_single_gpu)
-            {
-                printf("Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: "
-                       "%8.4f "
-                       "s, speedup: "
-                       "%8.2f, "
-                       "efficiency: %8.2f \n",
-                       nz, ny, nx, runtime_serial_non_persistent, npes,
-                       (stop - start), runtime_serial_non_persistent / (stop - start),
-                       runtime_serial_non_persistent / (npes * (stop - start)) *
-                           100);
-            }
+    if (!mype && global_result_correct)
+    {
+        // printf("Num GPUs: %d.\n", num_devices);
+        printf("Execution time: %8.4f s\n", (stop - start));
+
+        if (compare_to_single_gpu)
+        {
+            printf(
+                "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: "
+                "%8.4f "
+                "s, speedup: "
+                "%8.2f, "
+                "efficiency: %8.2f \n",
+                nz, ny, nx, runtime_serial_non_persistent, npes, (stop - start),
+                runtime_serial_non_persistent / (stop - start),
+                runtime_serial_non_persistent / (npes * (stop - start)) * 100);
         }
     }
-
-    int global_result_correct = 1;
-    MPI_CALL(MPI_Allreduce(&result_correct, &global_result_correct, 1, MPI_INT,
-                           MPI_MIN, MPI_COMM_WORLD));
-    result_correct = global_result_correct;
 
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));
@@ -450,7 +448,7 @@ int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
     nvshmem_free(halo_buffer_for_bottom_neighbor);
     nvshmem_free(is_done_computing_flags);
 
-    if (compare_to_single_gpu && 0 == mype)
+    if (compare_to_single_gpu)
     {
         CUDA_RT_CALL(cudaFreeHost(a_h));
         CUDA_RT_CALL(cudaFreeHost(a_ref_h));
