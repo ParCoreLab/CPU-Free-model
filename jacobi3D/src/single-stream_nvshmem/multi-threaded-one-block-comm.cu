@@ -76,7 +76,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * ny * nx,
                     ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
 
-                nvshmem_quiet();
             }
             else
             {
