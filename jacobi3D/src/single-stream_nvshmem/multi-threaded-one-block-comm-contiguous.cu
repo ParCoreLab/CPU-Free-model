@@ -31,11 +31,9 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
         int iter = 0;
 
-        int cur_iter = 0;
+        int cur_iter_mod = 0;
 
-        int next_iter = nx * ny;
-
-        // const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
+        int next_iter_mod = 1;
 
         const int comp_tile_size_x = blockDim.x;
         const int comp_tile_size_y = blockDim.y;
@@ -43,13 +41,14 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
         const int thread_count_per_block = cta.num_threads();
 
-        const int block_count_in_transport = nx * ny / thread_count_per_block +
-                                             (nx * ny % thread_count_per_block != 0);
+        const int max_block_count = nx * ny / thread_count_per_block +
+                                    (nx * ny % thread_count_per_block != 0);
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                nvshmem_uint64_wait_until_all(is_done_computing_flags, 2 * block_count_in_transport, NULL, NVSHMEM_CMP_EQ,
+
+                nvshmem_uint64_wait_until_all(is_done_computing_flags, 2 * max_block_count, NULL, NVSHMEM_CMP_EQ,
                                               iter);
                 const int base_idx = threadIdx.z * blockDim.x * blockDim.y +
                                      threadIdx.y * blockDim.x + threadIdx.x;
@@ -60,10 +59,12 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                 int iz_finish = (iz_end - 1) * ny * nx;
                 int iz_finish_prev = iz_finish - ny * nx;
 
-                for (int element_block_idx = nx + 1; element_block_idx < ny * nx - nx - 1;
-                     element_block_idx += thread_count_per_block)
+                for (int block_idx = 0; block_idx < max_block_count; block_idx++)
                 {
-                    int element_idx = element_block_idx + base_idx;
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
+
+                    int block_start_idx = block_idx * thread_count_per_block + nx + 1;
+                    int element_idx = block_start_idx + base_idx;
 
                     int prev_idx_y = iz_begin + element_idx - nx;
                     int next_idx_y = iz_begin + element_idx + nx;
@@ -75,22 +76,22 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
                     if (prev_idx_x > 0 && next_idx_x > 0 && element_idx < ny * nx - nx - 1)
                     {
-                        const real new_val =(real(1) / real(6)) *
-
-                            (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] + a[prev_idx_y] +
-                             a[iz_begin_next + element_idx] +
-                             halo_buffer_of_top_neighbor[cur_iter + element_idx]) ;
+                        const real new_val = (real(1) / real(6)) *
+                                             (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] + a[prev_idx_y] +
+                                              a[iz_begin_next + element_idx] +
+                                              halo_buffer_of_top_neighbor[cur_iter_mod * nx * ny + element_idx]);
 
                         a_new[iz_begin + element_idx] = new_val;
                     }
 
-                    cg::sync(cta);
-
                     nvshmemx_float_put_signal_nbi_block(
-                        halo_buffer_of_bottom_neighbor + next_iter + element_block_idx,
-                        a_new + iz_begin + element_block_idx,
-                        min(thread_count_per_block, ny * nx - nx - 1 - element_block_idx),
-                        is_done_computing_flags + element_block_idx, 1, NVSHMEM_SIGNAL_ADD, top);
+                        halo_buffer_of_bottom_neighbor + next_iter_mod * nx * ny + block_start_idx,
+                        a_new + iz_begin + block_start_idx,
+                        min(thread_count_per_block, ny * nx - nx - 1 - block_start_idx),
+                        is_done_computing_flags + next_iter_mod * 2 * max_block_count + max_block_count + block_idx,
+                        iter + 1, NVSHMEM_SIGNAL_SET, top);
+
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
 
                     prev_idx_y = iz_finish + element_idx - nx;
                     next_idx_y = iz_finish + element_idx + nx;
@@ -101,23 +102,19 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
                     if (prev_idx_x > 0 && next_idx_x > 0 && element_idx < ny * nx - nx - 1)
                     {
-                        const real new_val =
-
-                            (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] + a[prev_idx_y] +
-                             halo_buffer_of_bottom_neighbor[cur_iter + element_idx] +
-                             a[iz_finish_prev + element_idx]) /
-                            real(6.0);
+                        const real new_val = (real(1) / real(6)) * (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] + a[prev_idx_y] +
+                                                                    halo_buffer_of_bottom_neighbor[cur_iter_mod * nx * ny + element_idx] +
+                                                                    a[iz_finish_prev + element_idx]);
 
                         a_new[iz_finish + element_idx] = new_val;
                     }
 
-                    cg::sync(cta);
-
                     nvshmemx_float_put_signal_nbi_block(
-                        halo_buffer_of_top_neighbor + next_iter + element_block_idx,
-                        a_new + iz_begin + element_block_idx,
-                        min(thread_count_per_block, ny * nx - nx - 1 - element_block_idx),
-                        is_done_computing_flags + block_count_in_transport + element_block_idx, 1, NVSHMEM_SIGNAL_ADD, bottom);
+                        halo_buffer_of_top_neighbor + next_iter_mod * nx * ny + block_start_idx,
+                        a_new + iz_begin + block_start_idx,
+                        min(thread_count_per_block, ny * nx - nx - 1 - block_start_idx),
+                        is_done_computing_flags + next_iter_mod * 2 * max_block_count + block_idx,
+                        iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                 }
             }
             else
@@ -159,9 +156,9 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
             iter++;
 
-            next_iter = cur_iter;
-            cur_iter = nx * ny - cur_iter;
-            nvshmem_quiet();
+            next_iter_mod = cur_iter_mod;
+            cur_iter_mod = 1 - cur_iter_mod;
+
             cg::sync(grid);
         }
     }
@@ -253,13 +250,13 @@ int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
 
     int num_comm_tiles = (nx * ny) / (comm_tile_size_x * comm_tile_size_y) + ((nx * ny) % (comm_tile_size_x * comm_tile_size_y) != 0);
 
-    int total_num_flags = 2 * num_comm_tiles;
+    int total_num_flags = 4 * num_comm_tiles;
 
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
     long long unsigned int mesh_size_per_rank =
-        2 * nx * ny + num_comm_tiles;
+        2 * nx * ny + 2 * num_comm_tiles;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
