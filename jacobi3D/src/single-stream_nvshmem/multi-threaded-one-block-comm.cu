@@ -45,12 +45,12 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 {
                     for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                     {
-                        const real first_row_val = (real(1) / real(6)) * (real)(a[iz_start * ny * nx + iy * nx + ix + 1] +
-                                                                                a[iz_start * ny * nx + iy * nx + ix - 1] +
-                                                                                a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                                                                                a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                                                                                a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                                                                                halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
+                        const real first_row_val = (real(1) / real(6)) * (a[iz_start * ny * nx + iy * nx + ix + 1] +
+                                                                          a[iz_start * ny * nx + iy * nx + ix - 1] +
+                                                                          a[iz_start * ny * nx + (iy + 1) * nx + ix] +
+                                                                          a[iz_start * ny * nx + (iy - 1) * nx + ix] +
+                                                                          a[(iz_start + 1) * ny * nx + iy * nx + ix] +
+                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                     }
                 }
@@ -70,16 +70,16 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                     {
 
-                        const real last_row_val = (real(1) / real(6)) * (real)(a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                                                                               a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                                                                               a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                                                                               a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                                                                               a[(iz_end - 2) * ny * nx + iy * nx + ix] +
-                                                                               halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix]);
+                        const real last_row_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
+                                                                         a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
+                                                                         a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
+                                                                         a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
+                                                                         a[(iz_end - 2) * ny * nx + iy * nx + ix] +
+                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix]);
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                     }
                 }
-                cg::sync(cta);
+
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * ny * nx,
                     ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
@@ -118,8 +118,8 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
-    const int nx = get_argval<int>(argv, argv + argc, "-nx", 514);
-    const int ny = get_argval<int>(argv, argv + argc, "-ny", 514);
+    const int nx = get_argval<int>(argv, argv + argc, "-nx", 32);
+    const int ny = get_argval<int>(argv, argv + argc, "-ny", 32);
     const int nz = get_argval<int>(argv, argv + argc, "-nz", 6);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
