@@ -66,6 +66,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                                                                          a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
                                                                          a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
                                                                          a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
+                                                                         a[(iz_end - 2) * ny * nx + iy * nx + ix] + 
                                                                          halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix]);
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                     }
