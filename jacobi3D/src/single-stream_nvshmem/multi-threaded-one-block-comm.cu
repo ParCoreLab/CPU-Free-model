@@ -70,12 +70,12 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                     {
 
-                        const real last_row_val = real(1.0/6.0) * (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
+                        const real last_row_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
                                                                          a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
                                                                          a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
                                                                          a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                                                                         a[(iz_end - 2) * ny * nx + iy * nx + ix] +
-                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix]);
+                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix] +
+                                                                         a[(iz_end - 2) * ny * nx + iy * nx + ix]);
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                     }
                 }
