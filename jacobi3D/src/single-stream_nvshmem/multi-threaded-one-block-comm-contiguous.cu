@@ -58,53 +58,43 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                     int block_start_idx = block_idx * thread_count_per_block + nx + 1;
                     int element_idx = block_start_idx + base_idx;
 
-                    int prev_idx_y = iz_begin + element_idx - nx;
-                    int next_idx_y = iz_begin + element_idx + nx;
-
-                    int prev_idx_x =
-                        element_idx % nx != 0 ? iz_begin + element_idx - 1 : -1;
-                    int next_idx_x =
-                        element_idx % nx != nx - 1 ? iz_begin + element_idx + 1 : -1;
-
-                    if (prev_idx_x > 0 && next_idx_x > 0 && element_idx < (ny - 1) * nx - 1)
+                    if (element_idx % nx > 0 && element_idx % nx < nx - 1 && element_idx < (ny - 1) * nx - 1)
                     {
-                        const real new_val = (real(1) / real(6)) *
-                                             (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] + a[prev_idx_y] +
-                                              a[iz_begin_next + element_idx] +
-                                              halo_buffer_of_top_neighbor[cur_iter_mod * nx * ny + element_idx]);
+                        const real new_val = (real(1) / real(6)) * (a[iz_start * ny * nx + element_idx + 1] +
+                                                                    a[iz_start * ny * nx + element_idx - 1] +
+                                                                    a[iz_start * ny * nx + element_idx + nx] +
+                                                                    a[iz_start * ny * nx + element_idx - nx] +
+                                                                    a[(iz_start + 1) * ny * nx + element_idx] +
+                                                                    halo_buffer_of_top_neighbor[cur_iter_mod * nx * ny + element_idx]);
 
-                        a_new[iz_begin + element_idx] = new_val;
+                        a_new[iz_start * ny * nx + element_idx] = new_val;
                     }
 
                     nvshmemx_float_put_signal_nbi_block(
                         halo_buffer_of_bottom_neighbor + next_iter_mod * nx * ny + block_start_idx,
                         a_new + iz_begin + block_start_idx,
-                        min(thread_count_per_block, ny * nx - nx - 1 - block_start_idx),
+                        min(thread_count_per_block, ((ny - 1) * nx - 1) - block_start_idx),
                         is_done_computing_flags + next_iter_mod * 2 * max_block_count + max_block_count + block_idx,
                         iter + 1, NVSHMEM_SIGNAL_SET, top);
 
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
 
-                    prev_idx_y = iz_finish + element_idx - nx;
-                    next_idx_y = iz_finish + element_idx + nx;
-
-                    prev_idx_x = element_idx % nx != 0 ? iz_finish + element_idx - 1 : -1;
-                    next_idx_x =
-                        element_idx % nx != nx - 1 ? iz_finish + element_idx + 1 : -1;
-
-                    if (prev_idx_x > 0 && next_idx_x > 0 && element_idx < (ny - 1) * nx - 1)
+                    if (element_idx % nx > 0 && element_idx % nx < nx - 1 && element_idx < (ny - 1) * nx - 1)
                     {
-                        const real new_val = (real(1) / real(6)) * (a[next_idx_x] + a[prev_idx_x] + a[next_idx_y] + a[prev_idx_y] +
+                        const real new_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + element_idx + 1] +
+                                                                    a[(iz_end - 1) * ny * nx + element_idx - 1] +
+                                                                    a[(iz_end - 1) * ny * nx + element_idx + nx] +
+                                                                    a[(iz_end - 1) * ny * nx + element_idx - nx] +
                                                                     halo_buffer_of_bottom_neighbor[cur_iter_mod * nx * ny + element_idx] +
-                                                                    a[iz_finish_prev + element_idx]);
+                                                                    a[(iz_end - 2) * ny * nx + element_idx]);
 
-                        a_new[iz_finish + element_idx] = new_val;
+                        a_new[(iz_end - 1) * ny * nx + element_idx] = new_val;
                     }
 
                     nvshmemx_float_put_signal_nbi_block(
                         halo_buffer_of_top_neighbor + next_iter_mod * nx * ny + block_start_idx,
                         a_new + iz_begin + block_start_idx,
-                        min(thread_count_per_block, ny * nx - nx - 1 - block_start_idx),
+                        min(thread_count_per_block, ((ny - 1) * nx - 1) - block_start_idx),
                         is_done_computing_flags + next_iter_mod * 2 * max_block_count + block_idx,
                         iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                 }
