@@ -47,10 +47,10 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
 
-                    int block_start_idx = block_idx * thread_count_per_block + nx + 1;
+                    int block_start_idx = block_idx * thread_count_per_block;
                     int element_idx = block_start_idx + base_idx;
 
-                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx <= (ny - 2) * nx + nx - 2 && element_idx >= nx + 1)
+                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx + nx - 1 && element_idx >= nx + 1)
                     {
                         const real new_val = (real(1) / real(6)) * (a[iz_start * ny * nx + element_idx + 1] +
                                                                     a[iz_start * ny * nx + element_idx - 1] +
@@ -65,13 +65,13 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                     nvshmemx_float_put_signal_nbi_block(
                         halo_buffer_of_bottom_neighbor + next_iter_mod * nx * ny + block_start_idx,
                         a_new + iz_start * ny * nx + block_start_idx,
-                        min(thread_count_per_block, ny * nx - nx - 1 - block_start_idx),
+                        min(thread_count_per_block, ny * nx - block_start_idx),
                         is_done_computing_flags + next_iter_mod * 2 * max_block_count + max_block_count + block_idx,
                         iter + 1, NVSHMEM_SIGNAL_SET, top);
 
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
 
-                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx <= (ny - 2) * nx + nx - 2 && element_idx >= nx + 1)
+                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx + nx - 1 && element_idx >= nx + 1)
                     {
                         const real new_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + element_idx + 1] +
                                                                     a[(iz_end - 1) * ny * nx + element_idx - 1] +
@@ -86,7 +86,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                     nvshmemx_float_put_signal_nbi_block(
                         halo_buffer_of_top_neighbor + next_iter_mod * nx * ny + block_start_idx,
                         a_new + (iz_end - 1) * ny * nx + block_start_idx,
-                        min(thread_count_per_block, ny * nx - nx - 1 - block_start_idx),
+                        min(thread_count_per_block, ny * nx - block_start_idx),
                         is_done_computing_flags + next_iter_mod * 2 * max_block_count + block_idx,
                         iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                 }
