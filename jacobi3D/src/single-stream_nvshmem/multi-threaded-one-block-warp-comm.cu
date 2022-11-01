@@ -62,7 +62,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
                                     comm_tile_idx_y * num_comm_tiles_x +
-                                    comm_tile_idx_x * warp.meta_group_size() +
+                                    comm_tile_idx_x  +
                                     warp.meta_group_rank(),
                                 NVSHMEM_CMP_EQ, iter);
                         }
@@ -87,7 +87,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             min(warpSize, nx - comm_tile_start_x) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x +
-                                (num_comm_tiles_x + comm_tile_idx_x) * warp.meta_group_size() + warp.meta_group_rank(),
+                                (num_comm_tiles_x + comm_tile_idx_x)  + warp.meta_group_rank(),
                             iter + 1, NVSHMEM_SIGNAL_SET, top);
 
                         if (warp.thread_rank() == 0)
@@ -95,7 +95,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
                                     comm_tile_idx_y * num_comm_tiles_x +
-                                    (num_comm_tiles_x + comm_tile_idx_x) * warp.meta_group_size() +
+                                    (num_comm_tiles_x + comm_tile_idx_x)  +
                                     warp.meta_group_rank(),
                                 NVSHMEM_CMP_EQ, iter);
                         }
@@ -123,10 +123,10 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             min(warpSize, nx - comm_tile_start_x) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x +
-                                comm_tile_idx_x * warp.meta_group_size() +
+                                comm_tile_idx_x  +
                                 warp.meta_group_rank(),
                             iter + 1, NVSHMEM_SIGNAL_SET, bottom);
-                                        }
+                    }
                 }
             }
             else
@@ -365,7 +365,7 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
 
     CUDA_RT_CALL(cudaMemset((void *)halo_buffer_top, 0, 2 * nx * ny * sizeof(real)));
     CUDA_RT_CALL(cudaMemset((void *)halo_buffer_bottom, 0, 2 * nx * ny * sizeof(real)));
- 
+
     is_done_computing_flags = (uint64_t *)nvshmem_calloc(total_num_flags, sizeof(uint64_t));
     CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));
 
