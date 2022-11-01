@@ -42,17 +42,17 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 {
                     for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                     {
-                        const real first_row_val = (real(1) / real(6)) * (a[iz_start * ny * nx + iy * nx + ix + 1] +
-                                                                          a[iz_start * ny * nx + iy * nx + ix - 1] +
-                                                                          a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                                                                          a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                                                                          a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
+                        const real first_row_val = (real(1) / real(6)) * (real)(a[iz_start * ny * nx + iy * nx + ix + 1] +
+                                                                                a[iz_start * ny * nx + iy * nx + ix - 1] +
+                                                                                a[iz_start * ny * nx + (iy + 1) * nx + ix] +
+                                                                                a[iz_start * ny * nx + (iy - 1) * nx + ix] +
+                                                                                a[(iz_start + 1) * ny * nx + iy * nx + ix] +
+                                                                                halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                     }
                 }
                 nvshmemx_putmem_signal_nbi_block(
-                    (real *)&halo_buffer_bottom[next_iter_mod * ny * nx], (real *)&a_new[iz_start * ny * nx],
+                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
                     ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET, top);
 
                 nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
@@ -72,7 +72,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                    (real *)&halo_buffer_top[next_iter_mod * ny * nx], (real *)&a_new[(iz_end - 1) * ny * nx],
+                    halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * ny * nx,
                     ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
 
                 nvshmem_quiet();
@@ -111,9 +111,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
-    const int nx = get_argval<int>(argv, argv + argc, "-nx", 32);
-    const int ny = get_argval<int>(argv, argv + argc, "-ny", 32);
-    const int nz = get_argval<int>(argv, argv + argc, "-nz", 16);
+    const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
+    const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
+    const int nz = get_argval<int>(argv, argv + argc, "-nz", 5);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
     real *a;
