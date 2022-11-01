@@ -37,7 +37,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             {
                 if (cta.thread_rank() == 0)
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
                 for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
@@ -53,10 +53,12 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                     }
                 }
-
+                nvshmemx_putmem_signal_nbi_block(
+                    (real *)&halo_buffer_bottom[next_iter_mod * ny * nx], (real *)&a_new[iz_start * ny * nx],
+                    ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET, top);
                 if (cta.thread_rank() == 0)
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags + 1, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
                 for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
@@ -72,13 +74,12 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                     }
                 }
-                nvshmemx_putmem_signal_nbi_block(
-                    (real *)&halo_buffer_bottom[next_iter_mod * ny * nx], (real *)&a_new[iz_start * ny * nx],
-                    ny * nx * sizeof(real), &is_done_computing_flags[1], iter + 1, NVSHMEM_SIGNAL_SET, top);
 
                 nvshmemx_putmem_signal_nbi_block(
                     (real *)&halo_buffer_top[next_iter_mod * ny * nx], (real *)&a_new[(iz_end - 1) * ny * nx],
-                    ny * nx * sizeof(real), is_done_computing_flags, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
+                    ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET, bottom);
+
+                nvshmem_quiet();
             }
             else
             {
