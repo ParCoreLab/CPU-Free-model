@@ -43,7 +43,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                 const int base_idx = threadIdx.z * blockDim.x * blockDim.y +
                                      threadIdx.y * blockDim.x + threadIdx.x;
 
-                for (int block_idx = 0; block_idx < max_block_count-1; block_idx++)
+                for (int block_idx = 0; block_idx < max_block_count; block_idx++)
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
 
@@ -65,7 +65,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                     nvshmemx_float_put_signal_nbi_block(
                         halo_buffer_of_bottom_neighbor + next_iter_mod * nx * ny + block_start_idx,
                         a_new + iz_start * ny * nx + block_start_idx,
-                        min(thread_count_per_block, ((ny - 1) * nx - 1) - block_start_idx),
+                        min(thread_count_per_block, ((ny - 1) * nx - 1) - block_start_idx-1),
                         is_done_computing_flags + next_iter_mod * 2 * max_block_count + max_block_count + block_idx,
                         iter + 1, NVSHMEM_SIGNAL_SET, top);
 
@@ -86,7 +86,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                     nvshmemx_float_put_signal_nbi_block(
                         halo_buffer_of_top_neighbor + next_iter_mod * nx * ny + block_start_idx,
                         a_new + (iz_end - 1) * ny * nx + block_start_idx,
-                        min(thread_count_per_block, ((ny - 1) * nx - 1) - block_start_idx),
+                        min(thread_count_per_block, ((ny - 1) * nx - 1) - block_start_idx -1),
                         is_done_computing_flags + next_iter_mod * 2 * max_block_count + block_idx,
                         iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                 }
