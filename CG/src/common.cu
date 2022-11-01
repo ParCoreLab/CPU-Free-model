@@ -58,7 +58,7 @@ void report_results(const int num_rows, real *x_ref, real *x, const int num_devi
     if (compare_to_single_gpu) {
         for (i = 0; result_correct && (i < num_rows); i++) {
             if (i < 10) {
-                printf("%f %f\n", x[i], x_ref[i]);
+                printf("%.20f %.20f\n", x[i], x_ref[i]);
             }
 
             if (std::fabs(x_ref[i] - x[i]) > tol) {
@@ -870,11 +870,27 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
         k++;
     }
 
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+
     double stop = omp_get_wtime();
 
     for (int i = 0; i < num_rows; i++) {
         x_ref[i] = um_x[i];
     }
+
+    CUDA_RT_CALL(cudaFree(um_x));
+    CUDA_RT_CALL(cudaFree(um_r));
+    CUDA_RT_CALL(cudaFree(um_p));
+    CUDA_RT_CALL(cudaFree(um_s));
+    CUDA_RT_CALL(cudaFree(um_ax0));
+
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_delta1));
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma1));
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_delta0));
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma0));
+    CUDA_RT_CALL(cudaFree(um_alpha));
+    CUDA_RT_CALL(cudaFree(um_negative_alpha));
+    CUDA_RT_CALL(cudaFree(um_beta));
 
     return (stop - start);
 }
