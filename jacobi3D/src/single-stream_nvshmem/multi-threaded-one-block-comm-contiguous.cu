@@ -271,7 +271,6 @@ int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    bool result_correct = true;
     if (compare_to_single_gpu && 0 == mype)
     {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
