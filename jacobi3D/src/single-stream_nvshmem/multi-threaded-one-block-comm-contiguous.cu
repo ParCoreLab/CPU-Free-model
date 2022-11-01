@@ -131,9 +131,9 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
-    const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
-    const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
-    const int nz = get_argval<int>(argv, argv + argc, "-nz", 512);
+    const int nx = get_argval<int>(argv, argv + argc, "-nx", 32);
+    const int ny = get_argval<int>(argv, argv + argc, "-ny", 32);
+    const int nz = get_argval<int>(argv, argv + argc, "-nz", 6);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
     real *a;
