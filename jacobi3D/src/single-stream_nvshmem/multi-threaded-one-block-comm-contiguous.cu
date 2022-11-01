@@ -33,20 +33,15 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int thread_count_per_block = cta.num_threads();
-
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
             {
                 const int thread_count_per_block = cta.num_threads();
-                const int max_block_count = nx * ny / thread_count_per_block +
-                                            (nx * ny % thread_count_per_block != 0);
+                const int max_block_count = (nx * ny) / thread_count_per_block +
+                                            ((nx * ny) % thread_count_per_block != 0);
                 const int base_idx = threadIdx.z * blockDim.x * blockDim.y +
                                      threadIdx.y * blockDim.x + threadIdx.x;
-
-                
-                
 
                 for (int block_idx = 0; block_idx < max_block_count; block_idx++)
                 {
