@@ -54,7 +54,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                     }
                 }
-                cg::sync(cta);
+
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx,
                     ny * nx * sizeof(real), is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET, top);
@@ -70,12 +70,12 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                     {
 
-                        const real last_row_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                                                                         a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                                                                         a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                                                                         a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                                                                         a[(iz_end - 2) * ny * nx + iy * nx + ix] +
-                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix]);
+                        const real last_row_val = (real(1) / real(6)) * (real)(a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
+                                                                               a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
+                                                                               a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
+                                                                               a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
+                                                                               a[(iz_end - 2) * ny * nx + iy * nx + ix] +
+                                                                               halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix]);
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                     }
                 }
