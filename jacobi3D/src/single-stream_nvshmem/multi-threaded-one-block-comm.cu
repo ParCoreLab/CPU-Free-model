@@ -113,7 +113,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
-    const int nz = get_argval<int>(argv, argv + argc, "-nz", 2048);
+    const int nz = get_argval<int>(argv, argv + argc, "-nz", 512);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
     real *a;
@@ -349,6 +349,9 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
         (void *)SSMultiThreadedOneBlockCommNvshmem::jacobi_kernel, dim_grid, dim_block, kernelArgs,
         0, nullptr));
+
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaGetLastError());
     // Need to swap pointers on CPU if iteration count is odd
     // Technically, we don't know the iteration number (since we'll be doing
     // l2-norm) Could write iter to CPU when kernel is done
@@ -357,13 +360,13 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
         std::swap(a_new, a);
     }
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
-    CUDA_RT_CALL(cudaGetLastError());
+    nvshmem_barrier_all();
+
+    double stop = MPI_Wtime();
 
     nvshmem_barrier_all();
-    double stop = MPI_Wtime();
-    nvshmem_barrier_all();
-    bool result_correct = 1;
+
+    bool result_correct = true;
     if (compare_to_single_gpu)
     {
 
