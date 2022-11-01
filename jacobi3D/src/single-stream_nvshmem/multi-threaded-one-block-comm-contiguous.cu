@@ -21,8 +21,8 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end,
                       const int ny, const int nx, const int iter_max,
-                      real *halo_buffer_of_top_neighbor,
-                      real *halo_buffer_of_bottom_neighbor,
+                      real *halo_buffer_top,
+                      real *halo_buffer_bottom,
                       uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
@@ -50,43 +50,43 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                     int block_start_idx = block_idx * thread_count_per_block;
                     int element_idx = block_start_idx + base_idx;
 
-                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx + nx - 1 && element_idx >= nx + 1)
+                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx && element_idx >= nx)
                     {
                         const real new_val = (real(1) / real(6)) * (a[iz_start * ny * nx + element_idx + 1] +
                                                                     a[iz_start * ny * nx + element_idx - 1] +
                                                                     a[iz_start * ny * nx + element_idx + nx] +
                                                                     a[iz_start * ny * nx + element_idx - nx] +
                                                                     a[(iz_start + 1) * ny * nx + element_idx] +
-                                                                    halo_buffer_of_top_neighbor[cur_iter_mod * nx * ny + element_idx]);
+                                                                    halo_buffer_top[cur_iter_mod * nx * ny + element_idx]);
 
                         a_new[iz_start * ny * nx + element_idx] = new_val;
                     }
 
-                    nvshmemx_float_put_signal_nbi_block(
-                        halo_buffer_of_bottom_neighbor + next_iter_mod * nx * ny + block_start_idx,
+                    nvshmemx_putmem_signal_nbi_block(
+                        halo_buffer_bottom + next_iter_mod * nx * ny + block_start_idx,
                         a_new + iz_start * ny * nx + block_start_idx,
-                        min(thread_count_per_block, ny * nx - block_start_idx),
+                        min(thread_count_per_block, ny * nx - block_start_idx) * sizeof(real),
                         is_done_computing_flags + next_iter_mod * 2 * max_block_count + max_block_count + block_idx,
                         iter + 1, NVSHMEM_SIGNAL_SET, top);
 
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
 
-                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx + nx - 1 && element_idx >= nx + 1)
+                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx && element_idx > nx)
                     {
                         const real new_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + element_idx + 1] +
                                                                     a[(iz_end - 1) * ny * nx + element_idx - 1] +
                                                                     a[(iz_end - 1) * ny * nx + element_idx + nx] +
                                                                     a[(iz_end - 1) * ny * nx + element_idx - nx] +
-                                                                    halo_buffer_of_bottom_neighbor[cur_iter_mod * nx * ny + element_idx] +
+                                                                    halo_buffer_bottom[cur_iter_mod * nx * ny + element_idx] +
                                                                     a[(iz_end - 2) * ny * nx + element_idx]);
 
                         a_new[(iz_end - 1) * ny * nx + element_idx] = new_val;
                     }
 
-                    nvshmemx_float_put_signal_nbi_block(
-                        halo_buffer_of_top_neighbor + next_iter_mod * nx * ny + block_start_idx,
+                    nvshmemx_putmem_signal_nbi_block(
+                        halo_buffer_top + next_iter_mod * nx * ny + block_start_idx,
                         a_new + (iz_end - 1) * ny * nx + block_start_idx,
-                        min(thread_count_per_block, ny * nx - block_start_idx),
+                        min(thread_count_per_block, ny * nx - block_start_idx) * sizeof(real),
                         is_done_computing_flags + next_iter_mod * 2 * max_block_count + block_idx,
                         iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                 }
@@ -97,8 +97,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                 for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
                      iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
-                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx;
-                         iy += blockDim.y * nx)
+                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
                     {
                         for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                         {
