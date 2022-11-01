@@ -102,12 +102,12 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                     {
                         for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                         {
-                            const real new_val =
-                                (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
-                                 a[iz + iy + nx + ix] + a[iz + iy - nx + ix] +
-                                 a[iz + ny * nx + iy + ix] + a[iz - ny * nx + iy + ix]) /
-                                real(6.0);
-
+                            const real new_val = (real(1) / real(6)) * (a[iz + iy + ix + 1] +
+                                                                        a[iz + iy + ix - 1] +
+                                                                        a[iz + iy + nx + ix] +
+                                                                        a[iz + iy - nx + ix] +
+                                                                        a[iz + ny * nx + iy + ix] +
+                                                                        a[iz - ny * nx + iy + ix]);
                             a_new[iz + iy + ix] = new_val;
                         }
                     }
