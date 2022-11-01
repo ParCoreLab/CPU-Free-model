@@ -36,7 +36,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
+        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size();
 
         while (iter < iter_max)
         {
