@@ -90,7 +90,12 @@ namespace SSMultiThreadedOneBlockComm
                                 [next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y +
                                  comm_tile_idx_y * num_comm_tiles_x +
                                  comm_tile_idx_x] = iter + 1;
+                        }
 
+                        cg::sync(cta);
+
+                        if (cta.thread_rank() == 0)
+                        {
                             while (local_is_bottom_neighbor_done_writing_to_me
                                        [cur_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y +
                                         comm_tile_idx_y * num_comm_tiles_x +
