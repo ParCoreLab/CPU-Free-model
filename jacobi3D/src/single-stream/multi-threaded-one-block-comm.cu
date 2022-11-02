@@ -58,9 +58,9 @@ namespace SSMultiThreadedOneBlockComm
                         if (cta.thread_rank() == 0)
                         {
                             while (local_is_top_neighbor_done_writing_to_me
-                                       [cur_iter_mod * num_flags +
-                                        comm_tile_idx_y * num_comm_tiles_x +
-                                        comm_tile_idx_x] != iter)
+                                       [comm_tile_idx_y * num_comm_tiles_x +
+                                        comm_tile_idx_x +
+                                        cur_iter_mod * num_flags] != iter)
                             {
                             }
                         }
@@ -87,15 +87,14 @@ namespace SSMultiThreadedOneBlockComm
                         if (cta.thread_rank() == 0)
                         {
                             remote_am_done_writing_to_top_neighbor
-                                [next_iter_mod * num_flags + num_comm_tiles_x +
-                                 comm_tile_idx_y * num_comm_tiles_x +
-                                 comm_tile_idx_x] = iter + 1;
-                        
-                            
+                                [comm_tile_idx_y * num_comm_tiles_x +
+                                 comm_tile_idx_x + num_comm_tiles_x * num_comm_tiles_y +
+                                 next_iter_mod * num_flags] = iter + 1;
+
                             while (local_is_bottom_neighbor_done_writing_to_me
-                                       [cur_iter_mod * num_flags + num_comm_tiles_x +
-                                        comm_tile_idx_y * num_comm_tiles_x +
-                                        comm_tile_idx_x] != iter)
+                                       [comm_tile_idx_y * num_comm_tiles_x +
+                                        comm_tile_idx_x + num_comm_tiles_x * num_comm_tiles_y +
+                                        cur_iter_mod * num_flags] != iter)
                             {
                             }
                         }
@@ -123,9 +122,9 @@ namespace SSMultiThreadedOneBlockComm
                         if (cta.thread_rank() == 0)
                         {
                             remote_am_done_writing_to_bottom_neighbor
-                                [next_iter_mod * num_flags +
-                                 comm_tile_idx_y * num_comm_tiles_x +
-                                 comm_tile_idx_x] = iter + 1;
+                                [comm_tile_idx_y * num_comm_tiles_x +
+                                 comm_tile_idx_x +
+                                 next_iter_mod * num_flags] = iter + 1;
                         }
                     }
                 }
