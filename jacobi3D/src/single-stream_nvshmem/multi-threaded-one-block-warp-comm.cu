@@ -66,9 +66,9 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         }
 
                         nvshmemx_putmem_signal_nbi_warp(
-                            halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + ix - threadIdx.x,
-                            a_new + iz_start * ny * nx + iy * nx + ix - threadIdx.x,
-                            max(0,min(32, nx - (ix - threadIdx.x))) * sizeof(real),
+                            halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
+                            a_new + iz_start * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
+                            min(32, nx - 1 - (comm_tile_idx_x * warp.num_threads())) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
@@ -96,9 +96,9 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         }
 
                         nvshmemx_putmem_signal_nbi_warp(
-                            halo_buffer_top + next_iter_mod * ny * nx + iy * nx + ix - threadIdx.x,
-                            a_new + (iz_end - 1) * ny * nx + iy * nx + ix - threadIdx.x,
-                            min(32, nx - (ix - threadIdx.x)) * sizeof(real),
+                            halo_buffer_top + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
+                            a_new + (iz_end - 1) * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
+                            min(32, nx - 1 - (comm_tile_idx_x * warp.num_threads())) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
