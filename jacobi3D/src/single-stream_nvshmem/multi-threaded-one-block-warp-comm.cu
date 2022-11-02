@@ -83,7 +83,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + comm_tile_start_x,
                             a_new + iz_start * ny * nx + iy * nx + comm_tile_start_x,
-                            min(warpSize, nx - comm_tile_start_x) * sizeof(real),
+                            min(32, nx - comm_tile_start_x) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
@@ -111,14 +111,11 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                                                        a[(iz_end - 2) * ny * nx + iy * nx + ix]);
 
                             a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
-
-                            // local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy * nx +
-                            //                                       ix] = last_row_val;
                         }
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_top + next_iter_mod * ny * nx + iy * nx + comm_tile_start_x,
                             a_new + iz_start * ny * nx + iy * nx + comm_tile_start_x,
-                            min(warpSize, nx - comm_tile_start_x) * sizeof(real),
+                            min(32, nx - comm_tile_start_x) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
@@ -142,7 +139,6 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         int iy_above = iy - nx;
                         for (int ix = (base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x)
                         {
-                            // big bottleneck here
                             const real new_val = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
                                                                         a[iz + iy_below + ix] + a[iz + iy_above + ix] +
                                                                         a[iz_below + iy + ix] + a[iz_above + iy + ix]);
