@@ -49,8 +49,6 @@ namespace MultiGPUPeerTiling
         int next_iter_mod = 1;
         int temp_iter_mod = 0;
 
-        
-
         while (iter < iter_max)
         {
             for (int iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx; iz += comp_tile_size_z * ny * nx)
@@ -63,13 +61,13 @@ namespace MultiGPUPeerTiling
                     const int iy_above = iy - nx;
                     for (int ix = (base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x)
                     {
-                        
-                        const real new_val = (real(1) / real(6)) *(a[iz + iy + ix + 1] +
-                                              a[iz + iy + ix - 1] +
-                                              a[iz + iy_below + ix] +
-                                              a[iz + iy_above + ix] +
-                                              a[iz_below + iy + ix] +
-                                              a[iz_above + iy + ix]);
+
+                        const real new_val = (real(1) / real(6)) * (a[iz + iy + ix + 1] +
+                                                                    a[iz + iy + ix - 1] +
+                                                                    a[iz + iy_below + ix] +
+                                                                    a[iz + iy_above + ix] +
+                                                                    a[iz_below + iy + ix] +
+                                                                    a[iz_above + iy + ix]);
 
                         a_new[iz + iy + ix] = new_val;
                     }
@@ -126,7 +124,6 @@ namespace MultiGPUPeerTiling
         int next_iter_mod = 1;
         int temp_iter_mod = 0;
 
-
         while (iter < iter_max)
         {
             while (iteration_done[1] != iter)
@@ -148,12 +145,10 @@ namespace MultiGPUPeerTiling
 
                         if (cta.thread_rank() == 0)
                         {
-                            const int cur_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
-                            const int cur_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
 
-                            while (local_is_top_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
-                                                                            cur_iter_comm_tile_flag_idx_x +
-                                                                            cur_iter_mod * num_flags] != iter)
+                            while (local_is_top_neighbor_done_writing_to_me[cur_iter_mod * num_flags +
+                                                                            comm_tile_idx_y * num_comm_tiles_x +
+                                                                            comm_tile_idx_x] != iter)
                             {
                             }
                         }
@@ -179,12 +174,11 @@ namespace MultiGPUPeerTiling
 
                         if (cta.thread_rank() == 0)
                         {
-                            const int next_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
-                            const int next_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
 
-                            remote_am_done_writing_to_top_neighbor[next_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
-                                                                   next_iter_comm_tile_flag_idx_x +
-                                                                   next_iter_mod * num_flags] = iter + 1;
+                            remote_am_done_writing_to_top_neighbor[next_iter_mod * num_flags +
+                                                                   num_comm_tiles_x * num_comm_tiles_y +
+                                                                   comm_tile_idx_y * num_comm_tiles_x +
+                                                                   comm_tile_idx_x] = iter + 1;
                         }
                     }
                 }
@@ -204,12 +198,12 @@ namespace MultiGPUPeerTiling
 
                         if (cta.thread_rank() == 0)
                         {
-                            const int cur_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
-                            const int cur_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
+
                             while (
-                                local_is_bottom_neighbor_done_writing_to_me[cur_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
-                                                                            cur_iter_comm_tile_flag_idx_x +
-                                                                            cur_iter_mod * num_flags] != iter)
+                                local_is_bottom_neighbor_done_writing_to_me[cur_iter_mod * num_flags +
+                                                                            num_comm_tiles_x * num_comm_tiles_y +
+                                                                            comm_tile_idx_y * num_comm_tiles_x +
+                                                                            comm_tile_idx_x] != iter)
                             {
                             }
                         }
@@ -236,12 +230,10 @@ namespace MultiGPUPeerTiling
 
                         if (cta.thread_rank() == 0)
                         {
-                            const int next_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
-                            const int next_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
 
-                            remote_am_done_writing_to_bottom_neighbor[next_iter_comm_tile_flag_idx_y * num_comm_tiles_x +
-                                                                      next_iter_comm_tile_flag_idx_x +
-                                                                      next_iter_mod * num_flags] = iter + 1;
+                            remote_am_done_writing_to_bottom_neighbor[next_iter_mod * num_flags +
+                                                                      comm_tile_idx_y * num_comm_tiles_x +
+                                                                      comm_tile_idx_x] = iter + 1;
                         }
                     }
                 }
