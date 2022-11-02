@@ -44,16 +44,14 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
             {
                 for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++)
                 {
-                    int comm_tile_start_y =
-                        (comm_tile_idx_y == 0) ? 0 : comm_tile_idx_y * comm_tile_size_y;
+                    int comm_tile_start_y =comm_tile_idx_y * comm_tile_size_y;
 
                     int iy = threadIdx.z * blockDim.y + threadIdx.y + comm_tile_start_y;
 
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x;
                          comm_tile_idx_x++)
                     {
-                        int comm_tile_start_x =
-                            (comm_tile_idx_x == 0) ? 0 : comm_tile_idx_x * comm_tile_size_x;
+                        int comm_tile_start_x =comm_tile_idx_x * comm_tile_size_x;
 
                         int ix = threadIdx.x + comm_tile_start_x;
 
@@ -83,7 +81,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + comm_tile_start_x,
                             a_new + iz_start * ny * nx + iy * nx + comm_tile_start_x,
-                            min(32, nx - comm_tile_start_x) * sizeof(real),
+                            min(32, nx - comm_tile_start_x-1) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
@@ -115,7 +113,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_top + next_iter_mod * ny * nx + iy * nx + comm_tile_start_x,
                             a_new + iz_start * ny * nx + iy * nx + comm_tile_start_x,
-                            min(32, nx - comm_tile_start_x) * sizeof(real),
+                            min(32, nx - comm_tile_start_x-1) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
