@@ -209,8 +209,8 @@ void scaleVector(real *vec, real alpha, int size);
 
 void saxpy(real *x, real *y, real a, int size);
 
-void cpuConjugateGrad(int *I, int *J, real *val, real *x, real *Ax, real *p, real *r, int nnz,
-                      int N, real tol);
+void cpuConjugateGrad(const int iter_max, int *I, int *J, real *val, real *x, real *Ax, real *p,
+                      real *r, int nnz, int num_rows, real tol);
 }  // namespace CPU
 
 bool get_arg(char **begin, char **end, const std::string &arg);

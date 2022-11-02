@@ -678,8 +678,6 @@ __global__ void resetLocalDotProduct(double *dot_result) {
 
 double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *x_ref,
                       int num_rows, int nnz) {
-    CUDA_RT_CALL(cudaSetDevice(0));
-
     real *um_x;
     real *um_r;
     real *um_p;
@@ -806,6 +804,8 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
         SingleGPU::gpuSpMV<<<spmvGridSize, THREADS_PER_BLOCK, 0, 0>>>(
             um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_p, um_s);
 
+        printf("First element of um_s => %.50f\n", um_s[0]);
+
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
         resetLocalDotProduct<<<1, 1, 0, 0>>>(um_tmp_dot_delta1);
@@ -820,15 +820,22 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
+        printf("um_tmp_dot_delta1 => %.50f\n", *um_tmp_dot_delta1);
+        printf("um_tmp_dot_gamma0 => %.50f\n", *um_tmp_dot_gamma0);
+
         r1_div_x<<<1, 1, 0, 0>>>(*um_tmp_dot_gamma0, (real)*um_tmp_dot_delta1, um_alpha);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        printf("um_alpha => %.50f\n", *um_alpha);
 
         // x_(k+1) = x_k + alpha_k * p_k
         SingleGPU::gpuSaxpy<<<saxpyGridSize, THREADS_PER_BLOCK, 0, 0>>>(um_p, um_x, *um_alpha,
                                                                         num_rows);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        printf("First element of um_x => %.50f\n", um_x[0]);
 
         a_minus<<<1, 1, 0, 0>>>(*um_alpha, um_negative_alpha);
 
@@ -839,6 +846,8 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
             um_s, um_r, *um_negative_alpha, num_rows);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        printf("First element of um_r => %.50f\n", um_r[0]);
 
         resetLocalDotProduct<<<1, 1, 0, 0>>>(um_tmp_dot_gamma1);
 
@@ -852,15 +861,21 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
+        printf("um_tmp_dot_gamma1 => %.50f\n", *um_tmp_dot_gamma0);
+
         r1_div_x<<<1, 1, 0, 0>>>((real)*um_tmp_dot_gamma1, *um_tmp_dot_gamma0, um_beta);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        printf("um_beta => %.50f\n", *um_beta);
 
         // p_(k+1) = r_(k+1) = beta_k * p_(k)
         SingleGPU::gpuScaleVectorAndSaxpy<<<scaleVectorAndSaxpyGridSize, THREADS_PER_BLOCK, 0, 0>>>(
             um_r, um_p, real_positive_one, *um_beta, num_rows);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        printf("First element of um_p => %.50f\n", um_p[0]);
 
         *um_tmp_dot_delta0 = *um_tmp_dot_delta1;
         *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;
@@ -934,42 +949,45 @@ void saxpy(real *x, real *y, real a, int size) {
     }
 }
 
-void cpuConjugateGrad(int *I, int *J, real *val, real *x, real *Ax, real *p, real *r, int nnz,
-                      int N, real tol) {
-    int max_iter = 10;
+void cpuConjugateGrad(const int iter_max, int *I, int *J, real *val, real *x, real *Ax, real *p,
+                      real *r, int nnz, int num_rows, real tol) {
+    int max_iter = iter_max;
 
     real alpha = 1.0;
     real alpham1 = -1.0;
-    real r0 = 0.0, b, a, na;
+    real r0 = 0.0;
+    real b;
+    real a;
+    real na;
 
-    cpuSpMV(I, J, val, nnz, N, alpha, x, Ax);
-    saxpy(Ax, r, alpham1, N);
+    cpuSpMV(I, J, val, nnz, num_rows, alpha, x, Ax);
+    saxpy(Ax, r, alpham1, num_rows);
 
-    real r1 = dotProduct(r, r, N);
+    real r1 = dotProduct(r, r, num_rows);
 
     int k = 1;
 
     while (k <= max_iter) {
         if (k > 1) {
             b = r1 / r0;
-            scaleVector(p, b, N);
+            scaleVector(p, b, num_rows);
 
-            saxpy(r, p, alpha, N);
+            saxpy(r, p, alpha, num_rows);
         } else {
-            for (int i = 0; i < N; i++) p[i] = r[i];
+            for (int i = 0; i < num_rows; i++) p[i] = r[i];
         }
 
-        cpuSpMV(I, J, val, nnz, N, alpha, p, Ax);
+        cpuSpMV(I, J, val, nnz, num_rows, alpha, p, Ax);
 
-        real dot = dotProduct(p, Ax, N);
+        real dot = dotProduct(p, Ax, num_rows);
         a = r1 / dot;
 
-        saxpy(p, x, a, N);
+        saxpy(p, x, a, num_rows);
         na = -a;
-        saxpy(Ax, r, na, N);
+        saxpy(Ax, r, na, num_rows);
 
         r0 = r1;
-        r1 = dotProduct(r, r, N);
+        r1 = dotProduct(r, r, num_rows);
 
         k++;
     }
