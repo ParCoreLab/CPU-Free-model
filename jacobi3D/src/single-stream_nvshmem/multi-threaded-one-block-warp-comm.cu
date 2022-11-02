@@ -45,7 +45,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                 for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++)
                 {
                     int comm_tile_start_y =
-                        (comm_tile_idx_y == 0) ? 1 : comm_tile_idx_y * comm_tile_size_y;
+                        (comm_tile_idx_y == 0) ? 0 : comm_tile_idx_y * comm_tile_size_y;
 
                     int iy = threadIdx.z * blockDim.y + threadIdx.y + comm_tile_start_y;
 
@@ -53,7 +53,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                          comm_tile_idx_x++)
                     {
                         int comm_tile_start_x =
-                            (comm_tile_idx_x == 0) ? 1 : comm_tile_idx_x * comm_tile_size_x;
+                            (comm_tile_idx_x == 0) ? 0 : comm_tile_idx_x * comm_tile_size_x;
 
                         int ix = threadIdx.x + comm_tile_start_x;
 
