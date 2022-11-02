@@ -68,7 +68,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         cg::sync(warp);
 
                         // copy per row wise (since its warp sized in x dim)
-                        if (iy < ny - 1 && ix < nx - 1)
+                        if (iy < ny - 1 && ix < nx - 1 && iy > 0 && ix > 0)
                         {
                             const real first_row_val = (real(1) / real(6)) *
                                                        (a[iz_start * ny * nx + iy * nx + ix + 1] +
@@ -100,7 +100,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 
                         cg::sync(warp);
 
-                        if (iy < ny - 1 && ix < nx - 1)
+                        if (iy < ny - 1 && ix < nx - 1 && iy > 0 && ix > 0)
                         {
                             const real last_row_val = (real(1) / real(6)) *
                                                       (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
