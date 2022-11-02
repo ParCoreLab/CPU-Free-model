@@ -40,7 +40,7 @@ namespace SSMultiThreadedOneBlockComm
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int num_flags = num_comm_tiles_x * num_comm_tiles_y;
+        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
 
         while (iter < iter_max)
         {
@@ -87,14 +87,12 @@ namespace SSMultiThreadedOneBlockComm
                         if (cta.thread_rank() == 0)
                         {
                             remote_am_done_writing_to_top_neighbor
-                                [next_iter_mod * num_flags +
-                                  +
+                                [next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y +
                                  comm_tile_idx_y * num_comm_tiles_x +
                                  comm_tile_idx_x] = iter + 1;
 
                             while (local_is_bottom_neighbor_done_writing_to_me
-                                       [cur_iter_mod * num_flags +
-                                        +
+                                       [cur_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y +
                                         comm_tile_idx_y * num_comm_tiles_x +
                                         comm_tile_idx_x] != iter)
                             {
