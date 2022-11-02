@@ -221,15 +221,7 @@ int SSMultiThreadedOneBlockWarpComm::init(int argc, char *argv[])
         cudaDeviceProp deviceProp{};
         int maxActiveBlocksPerSM = 0;
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
-        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocksPerSM, (void *)SSMultiThreadedOneBlockWarpComm::jacobi_kernel, 1024, 0));
-
         int numSms = deviceProp.multiProcessorCount;
-
-        if (dev_id == 0)
-        {
-            printf("%d\n", maxActiveBlocksPerSM);
-        }
 
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
