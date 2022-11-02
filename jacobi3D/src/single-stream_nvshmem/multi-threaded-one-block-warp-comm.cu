@@ -61,9 +61,8 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         {
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
-                                    comm_tile_idx_y * num_comm_tiles_x +
-                                    comm_tile_idx_x  +
-                                    warp.meta_group_rank(),
+                                    comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                    comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                                 NVSHMEM_CMP_EQ, iter);
                         }
                         cg::sync(warp);
@@ -85,18 +84,17 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             halo_buffer_top + next_iter_mod * ny * nx + iy,
                             a_new + iz_start * ny * nx + iy,
                             min(warpSize, nx - comm_tile_start_x) * sizeof(real),
-                            is_done_computing_flags + next_iter_mod * num_flags +
-                                comm_tile_idx_y * num_comm_tiles_x +
-                                (num_comm_tiles_x + comm_tile_idx_x)  + warp.meta_group_rank(),
+                            is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
+                                comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                             iter + 1, NVSHMEM_SIGNAL_SET, top);
 
                         if (warp.thread_rank() == 0)
                         {
                             nvshmem_signal_wait_until(
-                                is_done_computing_flags + cur_iter_mod * num_flags +
-                                    comm_tile_idx_y * num_comm_tiles_x +
-                                    (num_comm_tiles_x + comm_tile_idx_x)  +
-                                    warp.meta_group_rank(),
+                                is_done_computing_flags + cur_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
+                                    comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                    comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                                 NVSHMEM_CMP_EQ, iter);
                         }
 
@@ -122,9 +120,8 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             a_new + iz_start * ny * nx + iy,
                             min(warpSize, nx - comm_tile_start_x) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
-                                comm_tile_idx_y * num_comm_tiles_x +
-                                comm_tile_idx_x  +
-                                warp.meta_group_rank(),
+                                comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                             iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                     }
                 }

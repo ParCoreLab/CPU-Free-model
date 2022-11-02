@@ -41,7 +41,7 @@ namespace SSMultiThreadedOneBlockWarpComm
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y * blockDim.x;
+        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size();
 
         while (iter < iter_max)
         {
@@ -58,8 +58,10 @@ namespace SSMultiThreadedOneBlockWarpComm
                         if (warp.thread_rank() == 0)
                         {
                             while (local_is_top_neighbor_done_writing_to_me
-                                       [cur_iter_mod * num_flags + comm_tile_idx_y * num_comm_tiles_x +
-                                        comm_tile_idx_x + warp.meta_group_rank() * warp.size()] !=
+                                       [cur_iter_mod * num_flags +
+                                        comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                        comm_tile_idx_x * warp.meta_group_size() +
+                                        warp.meta_group_rank()] !=
                                    iter)
                             {
                             }
@@ -87,13 +89,18 @@ namespace SSMultiThreadedOneBlockWarpComm
                         if (warp.thread_rank() == 0)
                         {
                             remote_am_done_writing_to_top_neighbor
-                                [next_iter_mod * num_flags + comm_tile_idx_y * num_comm_tiles_x + num_comm_tiles_x +
-                                 comm_tile_idx_x + warp.meta_group_rank() * warp.size()] = iter + 1;
+                                [next_iter_mod * num_flags +
+                                 num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
+                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                 comm_tile_idx_x * warp.meta_group_size() +
+                                 warp.meta_group_rank()] = iter + 1;
 
                             while (local_is_bottom_neighbor_done_writing_to_me
-                                       [cur_iter_mod * num_flags + comm_tile_idx_y * num_comm_tiles_x + num_comm_tiles_x +
-                                        comm_tile_idx_x + warp.meta_group_rank() * warp.size()] !=
-                                   iter)
+                                       [cur_iter_mod * num_flags +
+                                        num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
+                                        comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                        comm_tile_idx_x * warp.meta_group_size() +
+                                        warp.meta_group_rank()] != iter)
                             {
                             }
                         }
@@ -121,8 +128,10 @@ namespace SSMultiThreadedOneBlockWarpComm
                         if (warp.thread_rank() == 0)
                         {
                             remote_am_done_writing_to_bottom_neighbor
-                                [next_iter_mod * num_flags + comm_tile_idx_y * num_comm_tiles_x +
-                                 comm_tile_idx_x + warp.meta_group_rank() * warp.size()] = iter + 1;
+                                [next_iter_mod * num_flags +
+                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                 comm_tile_idx_x * warp.meta_group_size() +
+                                 warp.meta_group_rank()] = iter + 1;
                         }
                     }
                 }
