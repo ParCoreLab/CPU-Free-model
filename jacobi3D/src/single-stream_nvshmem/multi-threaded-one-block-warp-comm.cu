@@ -51,7 +51,6 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                             NVSHMEM_CMP_EQ, iter);
 
-                        // copy per row wise (since its warp sized in x dim)
                         if (iy < ny - 1 && ix < nx - 1)
                         {
                             const real first_row_val = (real(1) / real(6)) *
@@ -68,7 +67,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             a_new + iz_start * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
-                            min(32, nx - 1 - (comm_tile_idx_x * warp.num_threads())) * sizeof(real),
+                            min(warp.num_threads(),  nx - comm_tile_idx_x*warp.num_threads()) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
@@ -98,7 +97,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_top + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             a_new + (iz_end - 1) * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
-                            min(32, nx - 1 - (comm_tile_idx_x * warp.num_threads())) * sizeof(real),
+                            min(warp.num_threads(), nx - 1 - (comm_tile_idx_x * warp.num_threads())) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
@@ -277,10 +276,10 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
 
     int chunk_size;
-    int chunk_size_low = (nz - 2) / num_devices;
+    int chunk_size_low = (nz - 2) / npes;
     int chunk_size_high = chunk_size_low + 1;
 
-    int num_ranks_low = num_devices * chunk_size_low + num_devices - (nz - 2);
+    int num_ranks_low = npes * chunk_size_low + npes - (nz - 2);
     if (mype < num_ranks_low)
         chunk_size = chunk_size_low;
     else
@@ -293,10 +292,10 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
     int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
     int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
     int num_comp_tiles_z =
-        (nz / num_devices) / comp_tile_size_z + ((nz / num_devices) % comp_tile_size_z != 0);
+        (nz / npes) / comp_tile_size_z + ((nz / npes) % comp_tile_size_z != 0);
 
-    const int top = mype > 0 ? mype - 1 : (num_devices - 1);
-    const int bottom = (mype + 1) % num_devices;
+    const int top = mype > 0 ? mype - 1 : (npes - 1);
+    const int bottom = (mype + 1) % npes;
 
     if (top != mype)
     {
@@ -358,7 +357,7 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
     int iz_start = 1;
     int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
 
-    initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
+    initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(
         a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
