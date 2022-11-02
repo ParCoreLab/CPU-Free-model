@@ -117,6 +117,7 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
+    const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare-cpu");
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
     bool generate_random_tridiag_matrix = matrix_path_str.empty();
@@ -141,8 +142,14 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
     int *host_I = NULL;
     int *host_J = NULL;
     real *host_val = NULL;
-    real *x_host = NULL;
     real *x_ref_host = NULL;
+
+    real *x_ref_single_gpu = NULL;
+
+    real *s_cpu = NULL;
+    real *r_cpu = NULL;
+    real *p_cpu = NULL;
+    real *x_ref_cpu = NULL;
 
     int *um_I = NULL;
     int *um_J = NULL;
@@ -216,17 +223,34 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
     {
         int gpu_idx = omp_get_thread_num();
 
-        if (compare_to_single_gpu && gpu_idx == 0) {
-            CUDA_RT_CALL(cudaSetDevice(gpu_idx));
+        if (gpu_idx == 0) {
+            if (compare_to_single_gpu) {
+                CUDA_RT_CALL(cudaSetDevice(gpu_idx));
 
-            CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(real)));
-            CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(real)));
+                CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
 
-            single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
-                iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
+                single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
+                    iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
 
-            // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
-            //     iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
+                // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
+                //     iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
+            }
+
+            if (compare_to_cpu) {
+                s_cpu = (real *)malloc(sizeof(real) * num_rows);
+                r_cpu = (real *)malloc(sizeof(real) * num_rows);
+                p_cpu = (real *)malloc(sizeof(real) * num_rows);
+                x_ref_cpu = (real *)malloc(sizeof(real) * num_rows);
+
+                for (int i = 0; i < num_rows; i++) {
+                    r_cpu[i] = 1.0;
+                    s_cpu[i] = 0.0;
+                    x_ref_cpu[i] = 0.0;
+                }
+
+                CPU::cpuConjugateGrad(iter_max, host_I, host_J, host_val, x_ref_cpu, s_cpu, p_cpu,
+                                      r_cpu, nnz, num_rows, tol);
+            }
         }
     }
 
@@ -509,17 +533,10 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaSetDevice(gpu_idx));
 
         if (gpu_idx == 0) {
-            if (compare_to_single_gpu) {
-                for (int i = 0; i < num_rows; i++) {
-                    x_host[i] = um_x[i];
-                }
-            }
+            report_results(num_rows, x_ref_single_gpu, x_ref_cpu, um_x, num_devices,
+                           single_gpu_runtime, start, stop, compare_to_single_gpu, compare_to_cpu);
 
-            report_results(num_rows, x_ref_host, x_host, num_devices, single_gpu_runtime, start,
-                           stop, compare_to_single_gpu);
-
-            CUDA_RT_CALL(cudaFreeHost(x_host));
-            CUDA_RT_CALL(cudaFreeHost(x_ref_host));
+            CUDA_RT_CALL(cudaFreeHost(x_ref_single_gpu));
         }
     }
 

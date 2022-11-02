@@ -5,6 +5,8 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 
+#include <iostream>
+
 namespace cg = cooperative_groups;
 
 bool get_arg(char **begin, char **end, const std::string &arg) {
@@ -48,30 +50,46 @@ void genTridiag(int *I, int *J, real *val, int N, int nnz) {
     I[N] = nnz;
 }
 
-void report_results(const int num_rows, real *x_ref, real *x, const int num_devices,
-                    const double single_gpu_runtime, const double start, const double stop,
-                    const bool compare_to_single_gpu) {
-    bool result_correct = true;
+void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu, real *x,
+                    const int num_devices, const double single_gpu_runtime, const double start,
+                    const double stop, const bool compare_to_single_gpu,
+                    const bool compare_to_cpu) {
+    bool result_correct_single_gpu = true;
+    bool result_correct_cpu = true;
 
     int i = 0;
 
     if (compare_to_single_gpu) {
-        for (i = 0; result_correct && (i < num_rows); i++) {
-            if (i < 10) {
-                printf("%.20f %.20f\n", x[i], x_ref[i]);
-            }
+        std::cout << "Comparing correctness against Single GPU" << std::endl;
 
-            if (std::fabs(x_ref[i] - x[i]) > tol) {
+        for (i = 0; result_correct_single_gpu && (i < num_rows); i++) {
+            if (std::fabs(x_ref_single_gpu[i] - x[i]) > tol) {
                 fprintf(stderr,
                         "ERROR: x[%d] = %.8f does not match %.8f "
                         "(reference)\n",
-                        i, x[i], x_ref[i]);
-                result_correct = false;
+                        i, x[i], x_ref_single_gpu[i]);
+
+                result_correct_single_gpu = false;
             }
         }
     }
 
-    if (result_correct) {
+    if (compare_to_cpu) {
+        std::cout << "Comparing correctness against CPU" << std::endl;
+
+        for (i = 0; result_correct_cpu && (i < num_rows); i++) {
+            if (std::fabs(x_ref_cpu[i] - x[i]) > tol) {
+                fprintf(stderr,
+                        "ERROR: x[%d] = %.8f does not match %.8f "
+                        "(reference)\n",
+                        i, x[i], x_ref_cpu[i]);
+
+                result_correct_cpu = false;
+            }
+        }
+    }
+
+    if (result_correct_single_gpu || result_correct_cpu) {
         printf("Execution time: %8.4f s\n", (stop - start));
 
         if (compare_to_single_gpu) {
@@ -81,7 +99,6 @@ void report_results(const int num_rows, real *x_ref, real *x, const int num_devi
                 single_gpu_runtime, num_devices, (stop - start),
                 single_gpu_runtime / (stop - start),
                 single_gpu_runtime / (num_devices * (stop - start)) * 100);
-            printf("%f %f\n", x[i], x_ref[i]);
         }
     }
 }
@@ -738,19 +755,12 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    printf("um_tmp_dot_gamma1 => %.50f\n", *um_tmp_dot_gamma1);
-    printf("um_tmp_dot_gamma0 => %.50f\n", *um_tmp_dot_gamma0);
-
-    printf("End of iteration 0\n");
-
     int k = 1;
 
     while (k <= iter_max) {
         // SpMV
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
             um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_p, um_s);
-
-        printf("First element of um_s => %.50f\n", um_s[0]);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -766,22 +776,15 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        printf("um_tmp_dot_delta1 => %.50f\n", *um_tmp_dot_delta1);
-        printf("um_tmp_dot_gamma0 => %.50f\n", *um_tmp_dot_gamma0);
-
         r1_div_x<<<1, 1, 0, 0>>>(*um_tmp_dot_gamma0, (real)*um_tmp_dot_delta1, um_alpha);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
-
-        printf("um_alpha => %.50f\n", *um_alpha);
 
         // x_(k+1) = x_k + alpha_k * p_k
         SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_p, um_x, *um_alpha,
                                                                     num_rows);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
-
-        printf("First element of um_x => %.50f\n", um_x[0]);
 
         a_minus<<<1, 1, 0, 0>>>(*um_alpha, um_negative_alpha);
 
@@ -792,8 +795,6 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
                                                                     num_rows);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
-
-        printf("First element of um_r => %.50f\n", um_r[0]);
 
         resetLocalDotProduct<<<1, 1, 0, 0>>>(um_tmp_dot_gamma1);
 
@@ -807,21 +808,15 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        printf("um_tmp_dot_gamma1 => %.50f\n", *um_tmp_dot_gamma0);
-
         r1_div_x<<<1, 1, 0, 0>>>((real)*um_tmp_dot_gamma1, *um_tmp_dot_gamma0, um_beta);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
-
-        printf("um_beta => %.50f\n", *um_beta);
 
         // p_(k+1) = r_(k+1) = beta_k * p_(k)
         SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
             um_r, um_p, real_positive_one, *um_beta, num_rows);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
-
-        printf("First element of um_p => %.50f\n", um_p[0]);
 
         *um_tmp_dot_delta0 = *um_tmp_dot_delta1;
         *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;

@@ -169,9 +169,6 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
     while (k <= iter_max) {
         if (k > 1) {
             b = r1 / r0;
-
-            cg::sync(grid);
-
             gpuScaleVectorAndSaxpy(r, p, real_positive_one, b, N, peer_group);
         } else {
             gpuCopyVector(r, p, N, peer_group);
@@ -251,6 +248,7 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
+    const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare-cpu");
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
     bool generate_random_tridiag_matrix = matrix_path_str.empty();
@@ -283,8 +281,13 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
     int *host_I = NULL;
     int *host_J = NULL;
     real *host_val = NULL;
-    real *x_host = NULL;
-    real *x_ref_host = NULL;
+
+    real *x_ref_single_gpu = NULL;
+
+    real *s_cpu = NULL;
+    real *r_cpu = NULL;
+    real *p_cpu = NULL;
+    real *x_ref_cpu = NULL;
 
     int *um_I = NULL;
     int *um_J = NULL;
@@ -354,10 +357,10 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
 #pragma omp barrier
 
-        // CUDA_RT_CALL(
-        //     cudaMemAdvise(um_I, sizeof(int) * (num_rows + 1), cudaMemAdviseSetReadMostly, 0));
-        // CUDA_RT_CALL(cudaMemAdvise(um_J, sizeof(int) * nnz, cudaMemAdviseSetReadMostly, 0));
-        // CUDA_RT_CALL(cudaMemAdvise(um_val, sizeof(real) * nnz, cudaMemAdviseSetReadMostly, 0));
+        CUDA_RT_CALL(
+            cudaMemAdvise(um_I, sizeof(int) * (num_rows + 1), cudaMemAdviseSetReadMostly, 0));
+        CUDA_RT_CALL(cudaMemAdvise(um_J, sizeof(int) * nnz, cudaMemAdviseSetReadMostly, 0));
+        CUDA_RT_CALL(cudaMemAdvise(um_val, sizeof(real) * nnz, cudaMemAdviseSetReadMostly, 0));
 
         CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(real) * num_rows));
 
@@ -366,14 +369,29 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 #pragma omp master
         {
             if (compare_to_single_gpu) {
-                CUDA_RT_CALL(cudaMallocHost(&x_ref_host, num_rows * sizeof(real)));
-                CUDA_RT_CALL(cudaMallocHost(&x_host, num_rows * sizeof(real)));
+                CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
 
                 single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
-                    iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
+                    iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
 
                 // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
                 //     iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
+            }
+
+            if (compare_to_cpu) {
+                s_cpu = (real *)malloc(sizeof(real) * num_rows);
+                r_cpu = (real *)malloc(sizeof(real) * num_rows);
+                p_cpu = (real *)malloc(sizeof(real) * num_rows);
+                x_ref_cpu = (real *)malloc(sizeof(real) * num_rows);
+
+                for (int i = 0; i < num_rows; i++) {
+                    r_cpu[i] = 1.0;
+                    s_cpu[i] = 0.0;
+                    x_ref_cpu[i] = 0.0;
+                }
+
+                CPU::cpuConjugateGrad(iter_max, host_I, host_J, host_val, x_ref_cpu, s_cpu, p_cpu,
+                                      r_cpu, nnz, num_rows, tol);
             }
 
             CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -431,40 +449,40 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
 #pragma omp barrier
 
-        // CUDA_RT_CALL(cudaMemPrefetchAsync(um_I, sizeof(int) * num_rows, gpu_idx, mainStream));
-        // CUDA_RT_CALL(cudaMemPrefetchAsync(um_val, sizeof(real) * nnz, gpu_idx, mainStream));
-        // CUDA_RT_CALL(cudaMemPrefetchAsync(um_J, sizeof(real) * nnz, gpu_idx, mainStream));
+        CUDA_RT_CALL(cudaMemPrefetchAsync(um_I, sizeof(int) * num_rows, gpu_idx, mainStream));
+        CUDA_RT_CALL(cudaMemPrefetchAsync(um_val, sizeof(real) * nnz, gpu_idx, mainStream));
+        CUDA_RT_CALL(cudaMemPrefetchAsync(um_J, sizeof(real) * nnz, gpu_idx, mainStream));
 
-        // if (offset_s <= num_rows) {
-        //     for (int i = 0; i < perGPUIter; i++) {
-        //         cudaMemAdvise(um_s + offset_s, sizeof(real) * totalThreadsPerGPU,
-        //                       cudaMemAdviseSetPreferredLocation, gpu_idx);
-        //         cudaMemAdvise(um_r + offset_r, sizeof(real) * totalThreadsPerGPU,
-        //                       cudaMemAdviseSetPreferredLocation, gpu_idx);
-        //         cudaMemAdvise(um_x + offset_x, sizeof(real) * totalThreadsPerGPU,
-        //                       cudaMemAdviseSetPreferredLocation, gpu_idx);
-        //         cudaMemAdvise(um_p + offset_p, sizeof(real) * totalThreadsPerGPU,
-        //                       cudaMemAdviseSetPreferredLocation, gpu_idx);
+        if (offset_s <= num_rows) {
+            for (int i = 0; i < perGPUIter; i++) {
+                cudaMemAdvise(um_s + offset_s, sizeof(real) * totalThreadsPerGPU,
+                              cudaMemAdviseSetPreferredLocation, gpu_idx);
+                cudaMemAdvise(um_r + offset_r, sizeof(real) * totalThreadsPerGPU,
+                              cudaMemAdviseSetPreferredLocation, gpu_idx);
+                cudaMemAdvise(um_x + offset_x, sizeof(real) * totalThreadsPerGPU,
+                              cudaMemAdviseSetPreferredLocation, gpu_idx);
+                cudaMemAdvise(um_p + offset_p, sizeof(real) * totalThreadsPerGPU,
+                              cudaMemAdviseSetPreferredLocation, gpu_idx);
 
-        //         cudaMemAdvise(um_s + offset_s, sizeof(real) * totalThreadsPerGPU,
-        //                       cudaMemAdviseSetAccessedBy, gpu_idx);
-        //         cudaMemAdvise(um_r + offset_r, sizeof(real) * totalThreadsPerGPU,
-        //                       cudaMemAdviseSetAccessedBy, gpu_idx);
-        //         cudaMemAdvise(um_p + offset_p, sizeof(real) * totalThreadsPerGPU,
-        //                       cudaMemAdviseSetAccessedBy, gpu_idx);
-        //         cudaMemAdvise(um_x + offset_x, sizeof(real) * totalThreadsPerGPU,
-        //                       cudaMemAdviseSetAccessedBy, gpu_idx);
+                cudaMemAdvise(um_s + offset_s, sizeof(real) * totalThreadsPerGPU,
+                              cudaMemAdviseSetAccessedBy, gpu_idx);
+                cudaMemAdvise(um_r + offset_r, sizeof(real) * totalThreadsPerGPU,
+                              cudaMemAdviseSetAccessedBy, gpu_idx);
+                cudaMemAdvise(um_p + offset_p, sizeof(real) * totalThreadsPerGPU,
+                              cudaMemAdviseSetAccessedBy, gpu_idx);
+                cudaMemAdvise(um_x + offset_x, sizeof(real) * totalThreadsPerGPU,
+                              cudaMemAdviseSetAccessedBy, gpu_idx);
 
-        //         offset_s += totalThreadsPerGPU * num_devices;
-        //         offset_r += totalThreadsPerGPU * num_devices;
-        //         offset_p += totalThreadsPerGPU * num_devices;
-        //         offset_x += totalThreadsPerGPU * num_devices;
+                offset_s += totalThreadsPerGPU * num_devices;
+                offset_r += totalThreadsPerGPU * num_devices;
+                offset_p += totalThreadsPerGPU * num_devices;
+                offset_x += totalThreadsPerGPU * num_devices;
 
-        //         if (offset_s >= num_rows) {
-        //             break;
-        //         }
-        //     }
-        // }
+                if (offset_s >= num_rows) {
+                    break;
+                }
+            }
+        }
 
 #pragma omp barrier
 
@@ -488,8 +506,8 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
                                                      dimBlock, kernelArgs, sMemSize, mainStream));
         }
 
-        // CUDA_RT_CALL(cudaMemPrefetchAsync(um_x, sizeof(real) * num_rows, cudaCpuDeviceId));
-        // CUDA_RT_CALL(cudaMemPrefetchAsync(dot_result, sizeof(double), cudaCpuDeviceId));
+        CUDA_RT_CALL(cudaMemPrefetchAsync(um_x, sizeof(real) * num_rows, cudaCpuDeviceId));
+        CUDA_RT_CALL(cudaMemPrefetchAsync(dot_result, sizeof(double), cudaCpuDeviceId));
 
         CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
@@ -506,14 +524,8 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
 #pragma omp master
         {
-            if (compare_to_single_gpu) {
-                for (int i = 0; i < num_rows; i++) {
-                    x_host[i] = um_x[i];
-                }
-            }
-
-            report_results(num_rows, x_ref_host, x_host, num_devices, single_gpu_runtime, start,
-                           stop, compare_to_single_gpu);
+            report_results(num_rows, x_ref_single_gpu, x_ref_cpu, um_x, num_devices,
+                           single_gpu_runtime, start, stop, compare_to_single_gpu, compare_to_cpu);
         }
 
 #pragma omp barrier
@@ -531,8 +543,7 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaFree(dot_result));
             free(host_val);
 
-            CUDA_RT_CALL(cudaFreeHost(x_host));
-            CUDA_RT_CALL(cudaFreeHost(x_ref_host));
+            CUDA_RT_CALL(cudaFreeHost(x_ref_single_gpu));
         }
     }
 
