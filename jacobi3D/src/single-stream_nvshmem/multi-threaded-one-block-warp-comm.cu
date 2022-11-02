@@ -42,18 +42,14 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++)
+               int iy = threadIdx.z * blockDim.y + threadIdx.y + 1;
+                for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y;
+                     comm_tile_idx_y++, iy += comm_tile_size_y)
                 {
-                    int comm_tile_start_y =comm_tile_idx_y * comm_tile_size_y;
-
-                    int iy = threadIdx.z * blockDim.y + threadIdx.y + comm_tile_start_y;
-
+                    int ix = threadIdx.x + 1;
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x;
-                         comm_tile_idx_x++)
+                         comm_tile_idx_x++, ix += comm_tile_size_x)
                     {
-                        int comm_tile_start_x =comm_tile_idx_x * comm_tile_size_x;
-
-                        int ix = threadIdx.x + comm_tile_start_x;
 
                         if (warp.thread_rank() == 0)
                         {
@@ -66,7 +62,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         cg::sync(warp);
 
                         // copy per row wise (since its warp sized in x dim)
-                        if (iy < ny - 1 && ix < nx - 1 && iy > 0 && ix > 0)
+                        if (iy < ny - 1 && ix < nx - 1)
                         {
                             const real first_row_val = (real(1) / real(6)) *
                                                        (a[iz_start * ny * nx + iy * nx + ix + 1] +
@@ -79,9 +75,9 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                         }
                         nvshmemx_putmem_signal_nbi_warp(
-                            halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + comm_tile_start_x,
-                            a_new + iz_start * ny * nx + iy * nx + comm_tile_start_x,
-                            min(32, nx - comm_tile_start_x-1) * sizeof(real),
+                            halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + (ix-threadIdx.x),
+                            a_new + iz_start * ny * nx + iy * nx + (ix-threadIdx.x),
+                            min(32, nx - 1 - (ix-threadIdx.x)) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
@@ -98,7 +94,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 
                         cg::sync(warp);
 
-                        if (iy < ny - 1 && ix < nx - 1 && iy > 0 && ix > 0)
+                        if (iy < ny - 1 && ix < nx - 1 )
                         {
                             const real last_row_val = (real(1) / real(6)) *
                                                       (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
@@ -111,9 +107,9 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                         }
                         nvshmemx_putmem_signal_nbi_warp(
-                            halo_buffer_top + next_iter_mod * ny * nx + iy * nx + comm_tile_start_x,
-                            a_new + iz_start * ny * nx + iy * nx + comm_tile_start_x,
-                            min(32, nx - comm_tile_start_x-1) * sizeof(real),
+                            halo_buffer_top + next_iter_mod * ny * nx + iy * nx + (ix-threadIdx.x),
+                            a_new + iz_start * ny * nx + iy * nx + (ix-threadIdx.x),
+                            min(32, nx - 1 - (ix-threadIdx.x)) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
