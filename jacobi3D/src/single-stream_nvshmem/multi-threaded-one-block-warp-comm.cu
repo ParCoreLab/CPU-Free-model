@@ -51,15 +51,13 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                          comm_tile_idx_x++, ix += comm_tile_size_x)
                     {
 
-                        if (warp.thread_rank() == 0)
-                        {
+                       
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
                                     comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                     comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                                 NVSHMEM_CMP_EQ, iter);
-                        }
-                        cg::sync(warp);
+                        
 
                         // copy per row wise (since its warp sized in x dim)
                         if (iy < ny - 1 && ix < nx - 1)
@@ -83,16 +81,13 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                             iter + 1, NVSHMEM_SIGNAL_SET, top);
 
-                        if (warp.thread_rank() == 0)
-                        {
+                        
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
                                     comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                     comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                                 NVSHMEM_CMP_EQ, iter);
-                        }
-
-                        cg::sync(warp);
+                        
 
                         if (iy < ny - 1 && ix < nx - 1 )
                         {
