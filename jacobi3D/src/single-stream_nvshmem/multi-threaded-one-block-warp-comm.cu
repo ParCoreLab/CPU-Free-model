@@ -42,7 +42,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-               int iy = threadIdx.z * blockDim.y + threadIdx.y + 1;
+                int iy = threadIdx.z * blockDim.y + threadIdx.y + 1;
                 for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y;
                      comm_tile_idx_y++, iy += comm_tile_size_y)
                 {
@@ -51,13 +51,11 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                          comm_tile_idx_x++, ix += comm_tile_size_x)
                     {
 
-                       
-                            nvshmem_signal_wait_until(
-                                is_done_computing_flags + cur_iter_mod * num_flags +
-                                    comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
-                                    comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
-                                NVSHMEM_CMP_EQ, iter);
-                        
+                        nvshmem_signal_wait_until(
+                            is_done_computing_flags + cur_iter_mod * num_flags +
+                                comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
+                            NVSHMEM_CMP_EQ, iter);
 
                         // copy per row wise (since its warp sized in x dim)
                         if (iy < ny - 1 && ix < nx - 1)
@@ -72,24 +70,24 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 
                             a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                         }
-                        nvshmemx_putmem_signal_nbi_warp(
-                            halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + (ix-threadIdx.x),
-                            a_new + iz_start * ny * nx + iy * nx + (ix-threadIdx.x),
-                            min(32, nx - 1 - (ix-threadIdx.x)) * sizeof(real),
-                            is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
-                                comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
-                                comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
-                            iter + 1, NVSHMEM_SIGNAL_SET, top);
-
-                        
-                            nvshmem_signal_wait_until(
-                                is_done_computing_flags + cur_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
+                        if (iy < ny - 1)
+                        {
+                            nvshmemx_putmem_signal_nbi_warp(
+                                halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + (ix - threadIdx.x),
+                                a_new + iz_start * ny * nx + iy * nx + (ix - threadIdx.x),
+                                min(32, nx - 1 - (ix - threadIdx.x)) * sizeof(real),
+                                is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
                                     comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                     comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
-                                NVSHMEM_CMP_EQ, iter);
-                        
+                                iter + 1, NVSHMEM_SIGNAL_SET, top);
+                        }
+                        nvshmem_signal_wait_until(
+                            is_done_computing_flags + cur_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
+                                comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
+                            NVSHMEM_CMP_EQ, iter);
 
-                        if (iy < ny - 1 && ix < nx - 1 )
+                        if (iy < ny - 1 && ix < nx - 1)
                         {
                             const real last_row_val = (real(1) / real(6)) *
                                                       (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
@@ -101,14 +99,17 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 
                             a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                         }
-                        nvshmemx_putmem_signal_nbi_warp(
-                            halo_buffer_top + next_iter_mod * ny * nx + iy * nx + (ix-threadIdx.x),
-                            a_new + iz_start * ny * nx + iy * nx + (ix-threadIdx.x),
-                            min(32, nx - 1 - (ix-threadIdx.x)) * sizeof(real),
-                            is_done_computing_flags + next_iter_mod * num_flags +
-                                comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
-                                comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
-                            iter + 1, NVSHMEM_SIGNAL_SET, bottom);
+                        if (iy < ny - 1)
+                        {
+                            nvshmemx_putmem_signal_nbi_warp(
+                                halo_buffer_top + next_iter_mod * ny * nx + iy * nx + (ix - threadIdx.x),
+                                a_new + iz_start * ny * nx + iy * nx + (ix - threadIdx.x),
+                                min(32, nx - 1 - (ix - threadIdx.x)) * sizeof(real),
+                                is_done_computing_flags + next_iter_mod * num_flags +
+                                    comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                    comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
+                                iter + 1, NVSHMEM_SIGNAL_SET, bottom);
+                        }
                     }
                 }
             }
