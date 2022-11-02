@@ -48,12 +48,10 @@ namespace SSMultiThreadedOneBlockComm
             {
                 int iy =
                     threadIdx.z * blockDim.y + threadIdx.y + 1;
-                for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y;
-                     comm_tile_idx_y++, iy += comm_tile_size_y)
+                for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++, iy += comm_tile_size_y)
                 {
                     int ix = threadIdx.x + 1;
-                    for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x;
-                         comm_tile_idx_x++, ix += comm_tile_size_x)
+                    for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++, ix += comm_tile_size_x)
                     {
                         if (cta.thread_rank() == 0)
                         {
