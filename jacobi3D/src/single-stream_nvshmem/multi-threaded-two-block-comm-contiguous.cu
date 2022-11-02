@@ -4,8 +4,6 @@
 #include <cstdio>
 #include <iostream>
 
-#include <omp.h>
-
 #include "../../include/common.h"
 #include "../../include/single-stream_nvshmem/multi-threaded-two-block-comm-contiguous.cuh"
 #include <cooperative_groups.h>

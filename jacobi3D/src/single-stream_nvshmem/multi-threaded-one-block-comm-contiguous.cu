@@ -4,12 +4,12 @@
 #include <cstdio>
 #include <iostream>
 
-#include <omp.h>
+
 
 #include "../../include/common.h"
 #include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-contiguous.cuh"
 #include <cooperative_groups.h>
-#include <cooperative_groups/memcpy_async.h>
+
 #include <nvshmem.h>
 #include <nvshmemx.h>
 
@@ -50,7 +50,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                     int block_start_idx = block_idx * thread_count_per_block;
                     int element_idx = block_start_idx + base_idx;
 
-                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx && element_idx >= nx)
+                    if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx && element_idx > nx)
                     {
                         const real new_val = (real(1) / real(6)) * (a[iz_start * ny * nx + element_idx + 1] +
                                                                     a[iz_start * ny * nx + element_idx - 1] +

@@ -9,7 +9,7 @@
 
 . ./scripts/modules.sh > /dev/null
 
-MAX_NUM_GPUS=8
+MAX_NUM_GPUS=4
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
 
 declare -A version_name_to_idx_map
@@ -35,9 +35,9 @@ version_name_to_idx_map["Double Stream (No Compute)"]=17
 
 declare -A version_name_to_idx_map_nvshmem
 
-version_name_to_idx_map_nvshmem["Single Stream 1TB Bulk"]=8
-version_name_to_idx_map_nvshmem["Single Stream 1TB Contiguous"]=9
-version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=10
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Bulk"]=8
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=9
+#version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=10
 
 #version_name_to_idx_map_nvshmem["Double Stream 1TB Bulk"]=0
 #version_name_to_idx_map_nvshmem["Double Stream 1TB Contiguous"]=1
@@ -83,6 +83,27 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
 
         for (( i=1; i <= ${NUM_RUNS}; i++ )); do
             execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -nz ${NZ} -niter ${NUM_ITER})
+            echo "${execution_time} on run ${i}"
+        done
+
+        printf "\n"
+    done
+
+    echo "-------------------------------------"
+done
+
+for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
+    echo "Running ${version_name}"; echo ""
+
+    version_idx=${version_name_to_idx_map_nvshmem[$version_name]}
+
+    for (( NP=1; NP <= ${MAX_NUM_GPUS}; NP+=1 )); do
+        
+        echo "Num GPUS: ${NP}"
+        echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
+
+        for (( i=1; i <= ${NUM_RUNS}; i++ )); do
+           execution_time=$(mpirun -np ${NP} ./jacobi -s 1 -v ${version_idx} -nx ${NX} -ny ${NY} -nz  ${NZ} -niter ${NUM_ITER})
             echo "${execution_time} on run ${i}"
         done
 

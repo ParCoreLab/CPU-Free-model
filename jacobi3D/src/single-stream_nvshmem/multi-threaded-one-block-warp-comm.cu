@@ -4,8 +4,6 @@
 #include <cstdio>
 #include <iostream>
 
-#include <omp.h>
-
 #include <cooperative_groups.h>
 
 #include <nvshmem.h>
