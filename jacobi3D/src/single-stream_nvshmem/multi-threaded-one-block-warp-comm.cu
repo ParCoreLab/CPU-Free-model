@@ -81,8 +81,8 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                         }
                         nvshmemx_putmem_signal_nbi_warp(
-                            halo_buffer_bottom + next_iter_mod * ny * nx + iy,
-                            a_new + iz_start * ny * nx + iy,
+                            halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + comm_tile_start_x,
+                            a_new + iz_start * ny * nx + iy * nx + comm_tile_start_x,
                             min(warpSize, nx - comm_tile_start_x) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
@@ -116,8 +116,8 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             //                                       ix] = last_row_val;
                         }
                         nvshmemx_putmem_signal_nbi_warp(
-                            halo_buffer_top + next_iter_mod * ny * nx + iy,
-                            a_new + iz_start * ny * nx + iy,
+                            halo_buffer_top + next_iter_mod * ny * nx + iy * nx + comm_tile_start_x,
+                            a_new + iz_start * ny * nx + iy * nx + comm_tile_start_x,
                             min(warpSize, nx - comm_tile_start_x) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
