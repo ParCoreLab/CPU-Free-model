@@ -16,15 +16,11 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 {
 
     __global__ void __launch_bounds__(1024, 1)
-        jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int comp_tile_size_x, const int comp_tile_size_y,
-                      const int comp_tile_size_z, const int comm_tile_size_x,
-                      const int comm_tile_size_y, const int num_comp_tiles_x,
-                      const int num_comp_tiles_y, const int num_comp_tiles_z,
-                      const int num_comm_tiles_x, const int num_comm_tiles_y, const int iter_max,
+        jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end,
+                      const int ny, const int nx, const int iter_max,
                       real *halo_buffer_top, real *halo_buffer_bottom,
-                      uint64_t *is_done_computing_flags,
-                      const int top, const int bottom)
+                      uint64_t *is_done_computing_flags, const int top,
+                      const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
@@ -34,8 +30,9 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
+        const int num_comm_tiles_x = nx / blockDim.x + (nx % blockDim.x != 0);
+        const int num_comm_tiles_y = ny / (blockDim.y * blockDim.z) + (ny % (blockDim.y * blockDim.z) != 0);
         const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size();
-
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
@@ -71,7 +68,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + ix - threadIdx.x,
                             a_new + iz_start * ny * nx + iy * nx + ix - threadIdx.x,
-                            min(32, nx - (ix - threadIdx.x)-2) * sizeof(real),
+                            min(32, nx - (ix - threadIdx.x) - 2) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
@@ -101,7 +98,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_top + next_iter_mod * ny * nx + iy * nx + ix - threadIdx.x,
                             a_new + iz_start * ny * nx + iy * nx + ix - threadIdx.x,
-                            min(32, nx - (ix - threadIdx.x)-2) * sizeof(real),
+                            min(32, nx - (ix - threadIdx.x) - 2) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
@@ -111,19 +108,16 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
             }
             else
             {
-                const int base_iz = blockIdx.x * blockDim.z + threadIdx.z;
-                const int base_iy = threadIdx.y;
-                const int base_ix = threadIdx.x;
-                for (int iz = (base_iz + iz_start + 1) * ny * nx; iz < (iz_end - 1) * ny * nx;
-                     iz += comp_tile_size_z * ny * nx)
+                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+                     iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
                     int iz_below = iz + ny * nx;
                     int iz_above = iz - ny * nx;
-                    for (int iy = (base_iy + 1) * nx; iy < (ny - 1) * nx; iy += comp_tile_size_y * nx)
+                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
                     {
                         int iy_below = iy + nx;
                         int iy_above = iy - nx;
-                        for (int ix = (base_ix + 1); ix < (nx - 1); ix += comp_tile_size_x)
+                        for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                         {
                             const real new_val = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
                                                                         a[iz + iy_below + ix] + a[iz + iy_above + ix] +
@@ -378,16 +372,6 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
                           (void *)&iz_end,
                           (void *)&ny,
                           (void *)&nx,
-                          (void *)&comp_tile_size_x,
-                          (void *)&comp_tile_size_y,
-                          (void *)&comp_tile_size_z,
-                          (void *)&comm_tile_size_x,
-                          (void *)&comm_tile_size_y,
-                          (void *)&num_comp_tiles_x,
-                          (void *)&num_comp_tiles_y,
-                          (void *)&num_comp_tiles_z,
-                          (void *)&num_comm_tiles_x,
-                          (void *)&num_comm_tiles_y,
                           (void *)&iter_max,
                           (void *)&halo_buffer_top,
                           (void *)&halo_buffer_bottom,
