@@ -24,7 +24,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
-        auto warp = cg::tiled_partition<32>(cta);
+        cg::thread_block_tile<32> warp = cg::tiled_partition<32>(cta);
 
         int iter = 0;
         int cur_iter_mod = 0;
@@ -233,7 +233,7 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = 2 * nx * ny + total_num_flags;
+    long long unsigned int mesh_size_per_rank = 2 * nx * ny + 2 * num_comm_tiles_x * dim_block_y * num_comm_tiles_y;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -339,7 +339,7 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaMemset((void *)halo_buffer_top, 0, 2 * nx * ny * sizeof(real)));
     CUDA_RT_CALL(cudaMemset((void *)halo_buffer_bottom, 0, 2 * nx * ny * sizeof(real)));
 
-    is_done_computing_flags = (uint64_t *)nvshmem_calloc(total_num_flags, sizeof(uint64_t));
+    is_done_computing_flags = (uint64_t *)nvshmem_malloc(total_num_flags * sizeof(uint64_t));
     CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));
 
     // Calculate local domain boundaries
