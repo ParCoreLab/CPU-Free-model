@@ -37,11 +37,11 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                int iy = threadIdx.z * blockDim.y + threadIdx.y + 1;
+                int iy = threadIdx.z * blockDim.y + threadIdx.y;
                 for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y;
                      comm_tile_idx_y++, iy += blockDim.y * blockDim.z)
                 {
-                    int ix = threadIdx.x + 1;
+                    int ix = threadIdx.x;
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x;
                          comm_tile_idx_x++, ix += blockDim.x)
                     {
@@ -52,7 +52,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             NVSHMEM_CMP_EQ, iter);
 
                         // copy per row wise (since its warp sized in x dim)
-                        if (iy < ny - 1 && ix < nx - 1)
+                        if (iy < ny - 1 && ix < nx - 1 && iy > 0 && ix > 0)
                         {
                             const real first_row_val = (real(1) / real(6)) *
                                                        (a[iz_start * ny * nx + iy * nx + ix + 1] +
@@ -68,7 +68,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + ix - threadIdx.x,
                             a_new + iz_start * ny * nx + iy * nx + ix - threadIdx.x,
-                            min(32, nx - (ix - threadIdx.x)-1) * sizeof(real),
+                            max(0, min(32, nx - (ix - threadIdx.x))) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
@@ -82,7 +82,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                             NVSHMEM_CMP_EQ, iter);
 
-                        if (iy < ny - 1 && ix < nx - 1)
+                        if (iy < ny - 1 && ix < nx - 1 && iy > 0 && ix > 0)
                         {
                             const real last_row_val = (real(1) / real(6)) *
                                                       (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
@@ -98,7 +98,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_top + next_iter_mod * ny * nx + iy * nx + ix - threadIdx.x,
                             a_new + (iz_end - 1) * ny * nx + iy * nx + ix - threadIdx.x,
-                            min(32, nx - (ix - threadIdx.x)-1) * sizeof(real),
+                            min(32, nx - (ix - threadIdx.x)) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
