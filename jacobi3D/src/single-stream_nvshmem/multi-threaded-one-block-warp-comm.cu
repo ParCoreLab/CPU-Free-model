@@ -24,7 +24,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
-        cg::thread_block_tile<32> warp = cg::tiled_partition<32>(cta);
+        auto warp = cg::tiled_partition<32>(cta);
 
         int iter = 0;
         int cur_iter_mod = 0;
