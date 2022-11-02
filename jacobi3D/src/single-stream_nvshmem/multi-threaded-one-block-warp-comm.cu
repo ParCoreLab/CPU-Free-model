@@ -97,7 +97,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                         nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_top + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             a_new + (iz_end - 1) * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
-                            min(warp.num_threads(), nx - 1 - (comm_tile_idx_x * warp.num_threads())) * sizeof(real),
+                            min(warp.num_threads(), nx - comm_tile_idx_x * warp.num_threads()) * sizeof(real),
                             is_done_computing_flags + next_iter_mod * num_flags +
                                 comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
