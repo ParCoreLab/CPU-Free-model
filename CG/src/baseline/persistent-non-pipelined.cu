@@ -382,7 +382,8 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
                 s_cpu = (real *)malloc(sizeof(real) * num_rows);
                 r_cpu = (real *)malloc(sizeof(real) * num_rows);
                 p_cpu = (real *)malloc(sizeof(real) * num_rows);
-                x_ref_cpu = (real *)malloc(sizeof(real) * num_rows);
+
+                CUDA_RT_CALL(cudaMallocHost(&x_ref_cpu, num_rows * sizeof(real)));
 
                 for (int i = 0; i < num_rows; i++) {
                     r_cpu[i] = 1.0;
