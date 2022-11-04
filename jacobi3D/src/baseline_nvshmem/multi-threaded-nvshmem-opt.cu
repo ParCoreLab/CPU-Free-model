@@ -244,7 +244,7 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
     int iz_start_bottom = 0;
 
     // Set diriclet boundary conditions on left and right boundary
-    initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
+    initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(
         a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
