@@ -40,9 +40,9 @@ int main(int argc, char *argv[]) {
         make_pair("Baseline Multi Threaded P2P", BaselineMultiThreadedP2P::init),
         make_pair("Baseline Single Threaded Copy", BaselineSingleThreadedCopy::init),
 
-        make_pair("Baseline Multi Threaded P2P", BaselineMultiThreadedNvshmem::init),
-        make_pair("Baseline Single Threaded Copy", BaselineMultiThreadedNvshmemOpt::init),
-        
+        make_pair("Baseline Multi Threaded NVSHMEM", BaselineMultiThreadedNvshmem::init),
+        make_pair("Baseline Single Threaded NVSHMEM Optimized", BaselineMultiThreadedNvshmemOpt::init),
+
         make_pair("Naive Single stream multi threaded (one thread block communicates)",
                   SSMultiThreadedOneBlockComm::init),
         make_pair("Naive Single stream multi threaded warp (one thread block communicates)",
