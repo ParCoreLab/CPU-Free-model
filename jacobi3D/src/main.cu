@@ -1,27 +1,27 @@
 #include <iostream>
-
-#include "../include/baseline/multi-threaded-copy-overlap.cuh"
 #include "../include/baseline/multi-threaded-copy.cuh"
+#include "../include/baseline/multi-threaded-copy-overlap.cuh"
 #include "../include/baseline/multi-threaded-p2p.cuh"
 #include "../include/baseline/single-threaded-copy.cuh"
 
-#include "../include/common.h"
+#include "../include/baseline_nvshmem/multi-threaded-nvshmem.cuh"
+#include "../include/baseline_nvshmem/multi-threaded-nvshmem-opt.cuh"
 
-//#include "../include/multi-stream_nvshmem/multi-gpu-peer-tiling.cuh"
+#include "../include/single-stream/multi-threaded-one-block-comm.cuh"
+#include "../include/single-stream/multi-threaded-one-block-warp-comm.cuh"
+#include "../include/single-stream/multi-threaded-two-block-comm.cuh"
+
 
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-contiguous.cuh"
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-comm.cuh"
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-warp-comm.cuh"
-
 //#include "../include/single-stream_nvshmem/multi-threaded-two-block-comm-contiguous.cuh"
 //#include "../include/single-stream_nvshmem/multi-threaded-two-block-comm.cuh"
 //#include "../include/single-stream_nvshmem/multi-threaded-two-block-warp-comm.cuh"
 
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
+//#include "../include/multi-stream_nvshmem/multi-gpu-peer-tiling.cuh"
 
-#include "../include/single-stream/multi-threaded-one-block-comm.cuh"
-#include "../include/single-stream/multi-threaded-one-block-warp-comm.cuh"
-#include "../include/single-stream/multi-threaded-two-block-comm.cuh"
 
 #include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-copy-no-compute.cuh"
