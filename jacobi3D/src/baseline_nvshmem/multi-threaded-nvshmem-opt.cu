@@ -170,8 +170,6 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
     {
         char symmetric_heap_size_str[100];
         sprintf(symmetric_heap_size_str, "%llu", required_symmetric_heap_size);
-        if (!rank)
-            printf("Setting environment variable NVSHMEM_SYMMETRIC_SIZE = %llu\n", required_symmetric_heap_size);
         setenv("NVSHMEM_SYMMETRIC_SIZE", symmetric_heap_size_str, 1);
     }
     nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr);
@@ -255,11 +253,6 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
 
     nvshmemx_barrier_all_on_stream(compute_stream);
     CUDA_RT_CALL(cudaDeviceSynchronize());
-
-    if (!mype)
-    {
-        printf("Jacobi relaxation: %d iterations on %d x %d x %d mesh\n", iter_max, nz, ny, nx);
-    }
 
     constexpr int dim_block_x = 1024;
     constexpr int dim_block_y = 1;
