@@ -94,6 +94,11 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
     echo "-------------------------------------"
 done
 
+. ~/spack/share/spack/setup-env.sh
+spack load nvshmem@2.7.0-6
+export LD_LIBRARY_PATH=/home/dsagbili17/spack/opt/spack/linux-ubuntu20.04-zen2/gcc-11.1.0/nvshmem-2.7.0-6-egeda2rqruuglrdlv6xwqhn67uwwuhg6/lib:/home/dsagbili17/spack/opt/spack/linux-ubuntu20.04-zen2/gcc-11.1.0/ucx-1.13.1-wb7hgb22ogmnsla3xc6ktndo47ofclr5/lib:/usr/local/lib64:/usr/local/lib:/usr/lib:/usr/lib64
+
+
 for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
     echo "Running ${version_name}"; echo ""
 
