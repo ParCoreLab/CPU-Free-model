@@ -7,37 +7,37 @@
 #SBATCH --time=06:00:00
 #SBATCH --output=sbatch_output_%j.log
 
-. ./scripts/modules.sh > /dev/null
+#. ./scripts/modules.sh > /dev/null
 
 MAX_NUM_GPUS=4
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
 
 declare -A version_name_to_idx_map
 
-version_name_to_idx_map["Baseline Copy"]=0
-version_name_to_idx_map["Baseline Copy Overlap"]=1
-version_name_to_idx_map["Baseline P2P"]=2
-version_name_to_idx_map["Baseline Single Copy"]=3
+#version_name_to_idx_map["Baseline Copy"]=0
+#version_name_to_idx_map["Baseline Copy Overlap"]=1
+#version_name_to_idx_map["Baseline P2P"]=2
+#version_name_to_idx_map["Baseline Single Copy"]=3
 
 version_name_to_idx_map["Single Stream 1TB"]=4
 version_name_to_idx_map["Single Stream 1TB Warp"]=5
-version_name_to_idx_map["Single Stream 2TB"]=6
-version_name_to_idx_map["Double Stream"]=7
+#version_name_to_idx_map["Single Stream 2TB"]=6
+#version_name_to_idx_map["Double Stream"]=7
 
-version_name_to_idx_map["Baseline Copy (No compute)"]=11
-version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=12
-version_name_to_idx_map["Baseline P2P (No Compute)"]=13
+#version_name_to_idx_map["Baseline Copy (No compute)"]=11
+#version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=12
+#version_name_to_idx_map["Baseline P2P (No Compute)"]=13
 
-version_name_to_idx_map["Single Stream 1TB (No Compute)"]=14
-version_name_to_idx_map["Single Stream 1TB Warp (No Compute)"]=15
-version_name_to_idx_map["Single Stream 2TB (No Compute)"]=16
-version_name_to_idx_map["Double Stream (No Compute)"]=17
+#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=14
+#version_name_to_idx_map["Single Stream 1TB Warp (No Compute)"]=15
+#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=16
+#version_name_to_idx_map["Double Stream (No Compute)"]=17
 
 declare -A version_name_to_idx_map_nvshmem
 
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Bulk"]=8
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=9
-#version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=10
+version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=10
 
 #version_name_to_idx_map_nvshmem["Double Stream 1TB Bulk"]=0
 #version_name_to_idx_map_nvshmem["Double Stream 1TB Contiguous"]=1

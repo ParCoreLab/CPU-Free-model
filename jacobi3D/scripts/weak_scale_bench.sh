@@ -20,7 +20,7 @@ declare -A version_name_to_idx_map
 #version_name_to_idx_map["Baseline Single Copy"]=3
 
 version_name_to_idx_map["Single Stream 1TB"]=4
-#version_name_to_idx_map["Single Stream 1TB Warp"]=5
+version_name_to_idx_map["Single Stream 1TB Warp"]=5
 #version_name_to_idx_map["Single Stream 2TB"]=6
 #version_name_to_idx_map["Double Stream"]=7
 
@@ -37,7 +37,7 @@ declare -A version_name_to_idx_map_nvshmem
 
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Bulk"]=8
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=9
-#version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=10
+version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=10
 
 #version_name_to_idx_map_nvshmem["Double Stream 1TB Bulk"]=0
 #version_name_to_idx_map_nvshmem["Double Stream 1TB Contiguous"]=1
