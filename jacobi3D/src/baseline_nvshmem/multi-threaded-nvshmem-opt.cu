@@ -79,12 +79,12 @@ namespace BaselineMultiThreadedNvshmemOpt
         if ((block_iz <= iz_start) && (iz_start < block_iz + blockDim.z))
         {
             nvshmemx_float_put_nbi_block(a_new + top_iz * nx * ny + block_iy * nx + block_ix, a_new + iz_start * nx * ny + block_iy * nx + block_ix,
-                                         min(blockDim.y * nx * blockDim.x, nx * (ny - 1) - 1 - (block_iy * nx + block_ix)), top_pe);
+                                         min(blockDim.y * blockDim.x, nx * (ny - 1) - 1 - (block_iy * nx + block_ix)), top_pe);
         }
         if ((block_iz < iz_end) && (iz_end <= block_iz + blockDim.z))
         {
             nvshmemx_float_put_nbi_block(a_new + bottom_iz * nx + block_ix, a_new + (iz_end - 1) * nx + block_ix,
-                                         min(blockDim.y * nx * blockDim.x, nx * (ny - 1) - 1 - (block_iy * nx + block_ix)), bottom_pe);
+                                         min(blockDim.y * blockDim.x, nx * (ny - 1) - 1 - (block_iy * nx + block_ix)), bottom_pe);
         }
     }
 
