@@ -78,13 +78,13 @@ namespace BaselineMultiThreadedNvshmemOpt
 
         if ((block_iz <= iz_start) && (iz_start < block_iz + blockDim.z))
         {
-            nvshmemx_float_put_nbi_block(a_new + top_iz * nx + block_ix, a_new + iz_start * nx + block_ix,
-                                         min(blockDim.x, nx - 1 - block_ix), top_pe);
+            nvshmemx_float_put_nbi_block(a_new + top_iz * nx * ny + block_iy * nx + block_ix, a_new + iz_start * nx * ny + block_iy * nx + block_ix,
+                                         min(blockDim.y * nx * blockDim.x, nx * (ny - 1) - 1 - (block_iy * nx + block_ix)), top_pe);
         }
         if ((block_iz < iz_end) && (iz_end <= block_iz + blockDim.z))
         {
             nvshmemx_float_put_nbi_block(a_new + bottom_iz * nx + block_ix, a_new + (iz_end - 1) * nx + block_ix,
-                                         min(blockDim.x, nx - 1 - block_ix), bottom_pe);
+                                         min(blockDim.y * nx * blockDim.x, nx * (ny - 1) - 1 - (block_iy * nx + block_ix)), bottom_pe);
         }
     }
 
@@ -149,7 +149,7 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny *(((nz - 2) + size - 1) / size + 2);
+    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 2);
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
