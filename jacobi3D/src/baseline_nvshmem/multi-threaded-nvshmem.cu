@@ -43,7 +43,7 @@ namespace BaselineMultiThreadedNvshmem
         int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
         int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
         int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-        
+
         if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
         {
             const real new_val = (real(1) / real(6)) *
@@ -72,7 +72,7 @@ int BaselineMultiThreadedNvshmem::init(int argc, char *argv[])
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
     const int nz = get_argval<int>(argv, argv + argc, "-nz", 512);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
-    
+
     real *a;
     real *a_new;
 
@@ -124,7 +124,7 @@ int BaselineMultiThreadedNvshmem::init(int argc, char *argv[])
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny *(((nz - 2) + size - 1) / size + 2);
+    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 2);
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -156,8 +156,6 @@ int BaselineMultiThreadedNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    
-
     cudaStream_t compute_stream;
     cudaEvent_t compute_done[2];
 
@@ -188,9 +186,9 @@ int BaselineMultiThreadedNvshmem::init(int argc, char *argv[])
         chunk_size = chunk_size_high;
 
     a = (real *)nvshmem_malloc(
-        nx * (chunk_size_high + 2) *
+        nx * ny * (chunk_size_high + 2) *
         sizeof(real)); // Using chunk_size_high so that it is same across all PEs
-    a_new = (real *)nvshmem_malloc(nx * (chunk_size_high + 2) * sizeof(real));
+    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
 
     cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real));
     cudaMemset(a_new, 0, nx * (chunk_size + 2) * sizeof(real));
@@ -253,10 +251,9 @@ int BaselineMultiThreadedNvshmem::init(int argc, char *argv[])
     double start = MPI_Wtime();
     PUSH_RANGE("Jacobi solve", 0)
 
-
     cudaStreamSynchronize(compute_stream);
 
-    while ( iter < iter_max)
+    while (iter < iter_max)
     {
         // on new iteration: old current vars are now previous vars, old
         // previous vars are no longer needed

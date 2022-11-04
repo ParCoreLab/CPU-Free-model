@@ -211,12 +211,12 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
         chunk_size = chunk_size_high;
 
     a = (real *)nvshmem_malloc(
-        nx * (chunk_size_high + 2) *
+        nx * ny * (chunk_size_high + 2) *
         sizeof(real)); // Using chunk_size_high so that it is same across all PEs
-    a_new = (real *)nvshmem_malloc(nx * (chunk_size_high + 2) * sizeof(real));
+    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
 
-    cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real));
-    cudaMemset(a_new, 0, nx * (chunk_size + 2) * sizeof(real));
+    cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real));
+    cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real));
 
     // Calculate local domain boundaries
     int iz_start_global; // My start index in the global array
