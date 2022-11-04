@@ -111,7 +111,7 @@ for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
 
         for (( i=1; i <= ${NUM_RUNS}; i++ )); do
             execution_time=$(mpirun -np ${NP} ./jacobi -s 1 -v ${version_idx} -nx ${NX} -ny ${NY} -nz  ${NZ} -niter ${NUM_ITER})
-            echo "${execution_time}"
+            echo "${execution_time} on run ${i}"
         done
 
         printf "\n"
