@@ -19,37 +19,29 @@ declare -A version_name_to_idx_map
 #version_name_to_idx_map["Baseline P2P"]=2
 #version_name_to_idx_map["Baseline Single Copy"]=3
 
-version_name_to_idx_map["Single Stream 1TB"]=4
-version_name_to_idx_map["Single Stream 1TB Warp"]=5
-#version_name_to_idx_map["Single Stream 2TB"]=6
-#version_name_to_idx_map["Double Stream"]=7
+version_name_to_idx_map["Single Stream 1TB"]=6
+version_name_to_idx_map["Single Stream 1TB Warp"]=7
+#version_name_to_idx_map["Single Stream 2TB"]=8
+#version_name_to_idx_map["Double Stream"]=9
 
-#version_name_to_idx_map["Baseline Copy (No compute)"]=11
-#version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=12
-#version_name_to_idx_map["Baseline P2P (No Compute)"]=13
+#version_name_to_idx_map["Baseline Copy (No compute)"]=13
+#version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=14
+#version_name_to_idx_map["Baseline P2P (No Compute)"]=15
 
-#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=14
-#version_name_to_idx_map["Single Stream 1TB Warp (No Compute)"]=15
-#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=16
-#version_name_to_idx_map["Double Stream (No Compute)"]=17
+#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=16
+#version_name_to_idx_map["Single Stream 1TB Warp (No Compute)"]=17
+#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=18
+#version_name_to_idx_map["Double Stream (No Compute)"]=19
 
 declare -A version_name_to_idx_map_nvshmem
 
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Bulk"]=8
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=9
-version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=10
 
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Bulk"]=0
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Contiguous"]=1
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Warp"]=2
+#version_name_to_idx_map_nvshmem["Baseline NVSHMEM"]=4
+#version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=5
 
-#version_name_to_idx_map_nvshmem["Single Stream 1TB Bulk (No Compute)"]=8
-#version_name_to_idx_map_nvshmem["Single Stream 1TB Contiguous (No Compute)"]=9
-#version_name_to_idx_map_nvshmem["Single Stream 1TB Warp (No Compute)"]=10
-
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Bulk (No Compute)"]=0
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Contiguous (No Compute)"]=1
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Warp (No Compute)"]=2
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Bulk"]=10
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=11
+version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=12
 
 
 
