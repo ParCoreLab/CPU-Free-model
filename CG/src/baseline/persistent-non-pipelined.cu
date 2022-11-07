@@ -198,19 +198,11 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
         a = r1 / *dot_result;
 
-        cg::sync(grid);
-
         gpuSaxpy(p, x, a, N, peer_group);
-
-        cg::sync(grid);
 
         na = -a;
 
-        cg::sync(grid);
-
         gpuSaxpy(Ax, r, na, N, peer_group);
-
-        cg::sync(grid);
 
         r0 = r1;
 
@@ -235,11 +227,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
         r1 = *dot_result;
 
-        cg::sync(grid);
-
         k++;
-
-        cg::sync(grid);
     }
 }
 }  // namespace BaselinePersistentNonPipelined
@@ -353,16 +341,14 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
                 memcpy(um_J, host_J, sizeof(int) * nnz);
                 memcpy(um_val, host_val, sizeof(real) * nnz);
             }
+
+            CUDA_RT_CALL(
+                cudaMemAdvise(um_I, sizeof(int) * (num_rows + 1), cudaMemAdviseSetReadMostly, 0));
+            CUDA_RT_CALL(cudaMemAdvise(um_J, sizeof(int) * nnz, cudaMemAdviseSetReadMostly, 0));
+            CUDA_RT_CALL(cudaMemAdvise(um_val, sizeof(real) * nnz, cudaMemAdviseSetReadMostly, 0));
+
+            CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(real) * num_rows));
         }
-
-#pragma omp barrier
-
-        CUDA_RT_CALL(
-            cudaMemAdvise(um_I, sizeof(int) * (num_rows + 1), cudaMemAdviseSetReadMostly, 0));
-        CUDA_RT_CALL(cudaMemAdvise(um_J, sizeof(int) * nnz, cudaMemAdviseSetReadMostly, 0));
-        CUDA_RT_CALL(cudaMemAdvise(um_val, sizeof(real) * nnz, cudaMemAdviseSetReadMostly, 0));
-
-        CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(real) * num_rows));
 
 #pragma omp barrier
 
@@ -440,8 +426,6 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
 #pragma omp barrier
 
-        CUDA_RT_CALL(cudaStreamCreate(&mainStream));
-
         int perGPUIter = num_rows / (totalThreadsPerGPU * num_devices);
         int offset_s = gpu_idx * totalThreadsPerGPU;
         int offset_r = gpu_idx * totalThreadsPerGPU;
@@ -496,6 +480,8 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
             (void *)&iter_max,
         };
 
+        CUDA_RT_CALL(cudaDeviceSynchronize());
+
 #pragma omp barrier
 
         double start = omp_get_wtime();
@@ -505,10 +491,10 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
             multi_device_data.deviceRank = gpu_idx;
             CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)multiGpuConjugateGradient, dimGrid,
                                                      dimBlock, kernelArgs, sMemSize, mainStream));
-        }
 
-        CUDA_RT_CALL(cudaMemPrefetchAsync(um_x, sizeof(real) * num_rows, cudaCpuDeviceId));
-        CUDA_RT_CALL(cudaMemPrefetchAsync(dot_result, sizeof(double), cudaCpuDeviceId));
+            CUDA_RT_CALL(cudaMemPrefetchAsync(um_x, sizeof(real) * num_rows, cudaCpuDeviceId));
+            CUDA_RT_CALL(cudaMemPrefetchAsync(dot_result, sizeof(double), cudaCpuDeviceId));
+        }
 
         CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
@@ -517,11 +503,11 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 #pragma omp master
         { r1 = (real)*dot_result; }
 
+        CUDA_RT_CALL(cudaDeviceSynchronize());
+
 #pragma omp barrier
 
         double stop = omp_get_wtime();
-
-#pragma omp barrier
 
 #pragma omp master
         {
