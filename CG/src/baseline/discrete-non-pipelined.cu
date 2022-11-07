@@ -312,60 +312,40 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
         MultiGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_r, um_x, num_rows, gpu_idx, num_devices);
 
-        MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         // ax0 = Ax0
         MultiGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_x, um_ax0, gpu_idx,
             num_devices);
 
-        MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         // r0 = b0 - ax0
         // NOTE: b is a unit vector.
         MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_ax0, um_r, real_negative_one, num_rows, gpu_idx, num_devices);
 
-        MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         // p0 = r0
         MultiGPU::gpuCopyVector<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_r, um_p, num_rows, gpu_idx, num_devices);
 
-        MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
-        CUDA_RT_CALL(cudaDeviceSynchronize());
-
-        resetLocalDotProduct<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1);
-
-        MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(um_r, um_r, num_rows,
                                                                               gpu_idx, num_devices);
 
-        MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1);
 
         MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         *um_tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
-
-        MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
-        CUDA_RT_CALL(cudaDeviceSynchronize());
 
         int k = 1;
 
@@ -375,32 +355,24 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
                 um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_p, um_s, gpu_idx,
                 num_devices);
 
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaDeviceSynchronize());
-
             resetLocalDotProduct<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1);
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
                 um_p, um_s, num_rows, gpu_idx, num_devices);
 
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1);
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             r1_div_x<<<1, 1, 0, mainStream>>>(*um_tmp_dot_gamma0, (real)*um_tmp_dot_delta1,
                                               um_alpha);
@@ -408,54 +380,41 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             // x_(k+1) = x_k + alpha_k * p_k
             MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_p, um_x, *um_alpha, num_rows, gpu_idx, num_devices);
-
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaDeviceSynchronize());
 
             a_minus<<<1, 1, 0, mainStream>>>(*um_alpha, um_negative_alpha);
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             // r_(k+1) = r_k - alpha_k * s
             MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_s, um_r, *um_negative_alpha, num_rows, gpu_idx, num_devices);
-
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaDeviceSynchronize());
 
             resetLocalDotProduct<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1);
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
                 um_r, um_r, num_rows, gpu_idx, num_devices);
 
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1);
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             r1_div_x<<<1, 1, 0, mainStream>>>((real)*um_tmp_dot_gamma1, *um_tmp_dot_gamma0,
                                               um_beta);
@@ -463,16 +422,11 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             // p_(k+1) = r_(k+1) = beta_k * p_(k)
             MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_r, um_p, real_positive_one, *um_beta, num_rows, gpu_idx, num_devices);
-
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaDeviceSynchronize());
 
             *um_tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
             *um_tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
@@ -480,7 +434,7 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaDeviceSynchronize());
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
 #pragma omp barrier
 
