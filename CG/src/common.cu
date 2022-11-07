@@ -1,5 +1,6 @@
 #include "../include/common.h"
 
+#include <math.h>
 #include <omp.h>
 
 #include <cooperative_groups.h>
@@ -63,7 +64,7 @@ void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu,
         std::cout << "Comparing correctness against Single GPU" << std::endl;
 
         for (i = 0; result_correct_single_gpu && (i < num_rows); i++) {
-            if (std::fabs(x_ref_single_gpu[i] - x[i]) > tol) {
+            if (std::fabs(x_ref_single_gpu[i] - x[i]) > tol || isnan(x[i])) {
                 fprintf(stderr,
                         "ERROR: x[%d] = %.8f does not match %.8f "
                         "(reference)\n",
@@ -78,7 +79,7 @@ void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu,
         std::cout << "Comparing correctness against CPU" << std::endl;
 
         for (i = 0; result_correct_cpu && (i < num_rows); i++) {
-            if (std::fabs(x_ref_cpu[i] - x[i]) > tol) {
+            if (std::fabs(x_ref_cpu[i] - x[i]) > tol || isnan(x[i])) {
                 fprintf(stderr,
                         "ERROR: x[%d] = %.8f does not match %.8f "
                         "(reference)\n",
@@ -89,7 +90,7 @@ void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu,
         }
     }
 
-    if (result_correct_single_gpu || result_correct_cpu) {
+    if (result_correct_single_gpu && result_correct_cpu) {
         printf("Execution time: %8.4f s\n", (stop - start));
 
         if (compare_to_single_gpu) {
