@@ -219,7 +219,6 @@ int SSMultiThreadedOneBlockWarpComm::init(int argc, char *argv[])
         int nz_per_gpu = nz / num_devices;
 
         cudaDeviceProp deviceProp{};
-        int maxActiveBlocksPerSM = 0;
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
         int numSms = deviceProp.multiProcessorCount;
 

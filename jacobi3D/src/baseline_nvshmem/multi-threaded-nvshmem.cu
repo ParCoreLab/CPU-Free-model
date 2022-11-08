@@ -250,8 +250,8 @@ int BaselineMultiThreadedNvshmem::init(int argc, char *argv[])
     {
         // on new iteration: old current vars are now previous vars, old
         // previous vars are no longer needed
-        int prev = iter % 2;
-        int curr = (iter + 1) % 2;
+        // int prev = iter % 2;
+        // int curr = (iter + 1) % 2;
 
         jacobi_kernel<dim_block_x, dim_block_y, dim_block_z>
             <<<dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0, compute_stream>>>(

@@ -35,7 +35,6 @@ __global__ void __launch_bounds__(1024, 1)
     const int comp_tile_size_x = blockDim.x;
     const int comp_tile_size_y = blockDim.y;
     const int comp_tile_size_z = blockDim.z;
-    const int thread_count_per_block = blockDim.x * blockDim.y * blockDim.z;
 
     int iz;
     int iy;

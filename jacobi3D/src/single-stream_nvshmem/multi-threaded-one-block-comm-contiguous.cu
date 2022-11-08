@@ -207,8 +207,8 @@ int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
     constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
     constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
 
-    int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
-    int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
+    // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
+    // int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
 
     int num_comm_tiles = (nx * ny) / (comm_tile_size_x * comm_tile_size_y) + ((nx * ny) % (comm_tile_size_x * comm_tile_size_y) != 0);
 
@@ -278,8 +278,7 @@ int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
 
     int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
     int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
-    int num_comp_tiles_z =
-        (nz / npes) / comp_tile_size_z + ((nz / npes) % comp_tile_size_z != 0);
+    // int num_comp_tiles_z =(nz / npes) / comp_tile_size_z + ((nz / npes) % comp_tile_size_z != 0);
 
     const int top = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom = (mype + 1) % npes;

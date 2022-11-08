@@ -185,11 +185,11 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
     constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
 
-    int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
-    int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
+    // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
+    // int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
 
-    int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
-    int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
+    // int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
+    // int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
 
     int total_num_flags = 4;
 
@@ -255,8 +255,7 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
 
     int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
     int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
-    int num_comp_tiles_z =
-        (nz / num_devices) / comp_tile_size_z + ((nz / num_devices) % comp_tile_size_z != 0);
+    // int num_comp_tiles_z = (nz / npes) / comp_tile_size_z + ((nz / npes) % comp_tile_size_z != 0);
 
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
