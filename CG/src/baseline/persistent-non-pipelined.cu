@@ -501,12 +501,10 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
         CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
-#pragma omp barrier
+        // #pragma omp barrier
 
-#pragma omp master
-        { r1 = (real)*dot_result; }
-
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        // #pragma omp master
+        //         { r1 = (real)*dot_result; }
 
 #pragma omp barrier
 

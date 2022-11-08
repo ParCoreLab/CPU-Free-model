@@ -128,8 +128,6 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
         matrix_name = "random tridiagonal";
     }
 
-    // std::cout << "Running on matrix: " << matrix_name << "\n" << std::endl;
-
     int num_devices = 0;
     double single_gpu_runtime;
 
@@ -150,7 +148,6 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
     int *host_I = NULL;
     int *host_J = NULL;
     real *host_val = NULL;
-    real *x_ref_host = NULL;
 
     real *x_ref_single_gpu = NULL;
 
@@ -247,7 +244,7 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
                     iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
 
                 // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
-                //     iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
+                //     iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
             }
 
             if (compare_to_cpu) {
@@ -441,10 +438,10 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
             k++;
         }
 
-#pragma omp barrier
+        // #pragma omp barrier
 
-#pragma omp master
-        { r1 = (real)*um_tmp_dot_gamma0; }
+        // #pragma omp master
+        //         { r1 = (real)*um_tmp_dot_gamma0; }
 
 #pragma omp barrier
 

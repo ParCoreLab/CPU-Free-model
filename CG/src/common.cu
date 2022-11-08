@@ -485,8 +485,6 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, 0);
 
-    int numSms = deviceProp.multiProcessorCount;
-
     int numBlocks = (num_rows / THREADS_PER_BLOCK) + 1;
 
     CUDA_RT_CALL(cudaStreamCreate(&streamOtherOps));
