@@ -149,10 +149,10 @@ __device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int
     }
 }
 
-__global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *s, real *p,
-                                          real *r, real *w, real *t, real *u,
+__global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *r, real *p,
+                                          real *s, real *z, real *w, real *q, real *ax0,
                                           double *dot_result_delta, double *dot_result_gamma,
-                                          int nnz, int N, real tol,
+                                          int nnz, int num_rows, real tol,
                                           MultiDeviceData multi_device_data, const int iter_max,
                                           const int num_blocks_for_spmv, const int sMemSize) {
     cg::thread_block cta = cg::this_thread_block();
@@ -172,70 +172,39 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
     real tmp_dot_delta_1;
     real tmp_dot_gamma_1;
 
-    real b;
-    real a;
-    real na;
+    real beta;
+    real alpha;
+    real negative_alpha;
 
-    for (int i = peer_group.thread_rank(); i < N; i += peer_group.size()) {
+    for (int i = peer_group.thread_rank(); i < num_rows; i += peer_group.size()) {
         r[i] = 1.0;
         x[i] = 0.0;
     }
 
     cg::sync(grid);
 
-    gpuSpMV(I, J, val, nnz, N, real_positive_one, x, s, gridDim.x, device_rank, num_devices,
+    // ax0 = AX0
+    gpuSpMV(I, J, val, nnz, num_rows, real_positive_one, x, ax0, gridDim.x, device_rank,
+            num_devices, peer_group);
+
+    cg::sync(grid);
+
+    // r0 = b0 - ax0
+    // NOTE: b is a unit vector.
+    gpuSaxpy(ax0, r, real_negative_one, num_rows, peer_group);
+
+    cg::sync(grid);
+
+    // w0 = Ar0
+
+    gpuSpMV(I, J, val, nnz, num_rows, real_positive_one, r, w, gridDim.x, device_rank, num_devices,
             peer_group);
-
-    cg::sync(grid);
-
-    gpuSaxpy(s, r, real_negative_one, N, peer_group);
-
-    cg::sync(grid);
-
-    gpuSpMV(I, J, val, nnz, N, real_positive_one, r, w, gridDim.x, device_rank, num_devices,
-            peer_group);
-
-    cg::sync(grid);
-
-    gpuDotProductsMerged(r, r, r, w, N, cta, gridDim.x, device_rank, num_devices, sMemSize,
-                         peer_group);
-
-    cg::sync(grid);
-
-    if (grid.thread_rank() == 0) {
-        atomicAdd_system(dot_result_delta, grid_dot_result_delta);
-        atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
-
-        grid_dot_result_delta = 0.0;
-        grid_dot_result_gamma = 0.0;
-    }
 
     peer_group.sync();
-
-    // I don't know if this is correct.
-    // Need to figure the whole tolerance thing for pipelined CG
-    tmp_dot_delta_1 = *dot_result_delta;
 
     int k = 1;
 
     while (k <= iter_max) {
-        if (k > 1) {
-            b = tmp_dot_delta_1 / tmp_dot_delta_0;
-
-            // gpuScaleVectorAndSaxpy(r, p, real_positive_one, b, N, peer_group);
-            // gpuScaleVectorAndSaxpy(w, s, real_positive_one, b, N, peer_group);
-            // gpuScaleVectorAndSaxpy(t, u, real_positive_one, b, N, peer_group);
-
-        } else {
-            gpuCopyVector(r, p, N, peer_group);
-
-            // Need to figure out what to copy where
-            // Other vectors also need to be initialized
-            // Fine for now
-        }
-
-        peer_group.sync();
-
         if (peer_group.thread_rank() == 0) {
             *dot_result_delta = 0.0;
             *dot_result_gamma = 0.0;
@@ -243,51 +212,103 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
         peer_group.sync();
 
-        // This is where the overlap will happen
-        // Need to figure out how to do it
-        // Need to keep track of peer_group.sync() calls
-
-        // if => SpMV
-        // else => Dot
-
-        if (blockIdx.x < num_blocks_for_spmv) {
-            gpuSpMV(I, J, val, nnz, N, real_positive_one, p, s, num_blocks_for_spmv, device_rank,
-                    num_devices, peer_group);
+        if (blockIdx.x < num_blocks_for_dot) {
+            gpuDotProductsMerged(r, r, r, w, num_rows, cta, num_blocks_for_dot, device_rank,
+                                 num_devices, sMemSize, peer_group);
         } else {
-            cg::coalesced_group dot_active_threads = cg::coalesced_threads();
+            gpuSpMV(I, J, val, nnz, num_rows, real_positive_one, w, q, num_blocks_for_spmv,
+                    device_rank, num_devices, peer_group);
+        }
 
-            gpuDotProductsMerged(r, r, r, w, N, cta, num_blocks_for_dot, device_rank, num_devices,
-                                 sMemSize, peer_group);
+        cg::sync(grid);
 
-            cg::sync(dot_active_threads);
+        if (grid.thread_rank() == 0) {
+            printf("First element of q => %f\n", q[0]);
+        }
 
-            if (dot_active_threads.thread_rank() == 0) {
-                atomicAdd_system(dot_result_delta, grid_dot_result_delta);
-                atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
+        if (grid.thread_rank() == 0) {
+            atomicAdd_system(dot_result_delta, grid_dot_result_delta);
+            atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
 
-                grid_dot_result_delta = 0.0;
-                grid_dot_result_gamma = 0.0;
-            }
+            grid_dot_result_delta = 0.0;
+            grid_dot_result_gamma = 0.0;
         }
 
         peer_group.sync();
 
-        a = tmp_dot_delta_1 / (tmp_dot_gamma_1 - (b / a) * tmp_dot_delta_1);
+        if (grid.thread_rank() == 0) {
+            printf("Dot delta => %f\n", dot_result_delta);
+            printf("Dot gamma => %f\n", dot_result_gamma);
+        }
 
-        gpuSaxpy(p, x, a, N, peer_group);
+        if (k > 1) {
+            beta = tmp_dot_delta_1 / tmp_dot_delta_0;
+            alpha = tmp_dot_delta_1 / (tmp_dot_gamma_1 - (beta / alpha) * tmp_dot_delta_1);
+        } else {
+            beta = 0.0;
+            alpha = tmp_dot_delta_1 / tmp_dot_gamma_1;
+        }
 
-        na = -a;
-
-        gpuSaxpy(s, r, na, N, peer_group);
-
-        // Do we need this sync?
+        // IMPORTANT: Is this peer sync necessary? Or would a grid sync suffice?
         peer_group.sync();
+
+        if (grid.thread_rank() == 0) {
+            printf("Alpha => %f\n", alpha);
+            printf("Beta => %f\n", beta);
+        }
+
+        // z_k = q_k + beta_k * z_(k-1)
+        gpuScaleVectorAndSaxpy(q, z, real_positive_one, beta, num_rows, peer_group);
+
+        // s_k = w_k + beta_k * s_(k-1)
+        gpuScaleVectorAndSaxpy(w, s, real_positive_one, beta, num_rows, peer_group);
+
+        // p_k = r_k = beta_k * p_(k-1)
+        gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, num_rows, peer_group);
+
+        peer_group.sync();
+
+        if (grid.thread_rank() == 0) {
+            printf("First element of q (after Saxpy) => %f\n", q[0]);
+        }
+
+        if (grid.thread_rank() == 0) {
+            printf("First element of w => %f\n", w[0]);
+        }
+
+        if (grid.thread_rank() == 0) {
+            printf("First element of p => %f\n", p[0]);
+        }
+
+        // cg::sync(grid);
+
+        // x_(k+1) = x_k + alpha_k * p_k
+        gpuSaxpy(p, x, alpha, num_rows, peer_group);
+
+        negative_alpha = -alpha;
+
+        // r_(k+1) = r_k - alpha_k * s_k
+        gpuSaxpy(s, r, negative_alpha, num_rows, peer_group);
+
+        // w_(k+1) = w_k - alpha_k * z_k
+        gpuSaxpy(z, w, negative_alpha, num_rows, peer_group);
+
+        peer_group.sync();
+
+        if (grid.thread_rank() == 0) {
+            printf("First element of x => %f\n", x[0]);
+        }
+
+        if (grid.thread_rank() == 0) {
+            printf("First element of r => %f\n", r[0]);
+        }
+
+        if (grid.thread_rank() == 0) {
+            printf("First element of w => %f\n", w[0]);
+        }
 
         tmp_dot_delta_0 = tmp_dot_delta_1;
         tmp_dot_gamma_0 = tmp_dot_gamma_1;
-
-        tmp_dot_delta_1 = *dot_result_delta;
-        tmp_dot_gamma_1 = *dot_result_gamma;
 
         k++;
     }
@@ -336,13 +357,14 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     int *um_J = NULL;
     real *um_val = NULL;
 
+    real *um_x;
     real *um_r;
     real *um_p;
     real *um_s;
-    real *um_x;
+    real *um_z;
     real *um_w;
-    real *um_u;
-    real *um_t;
+    real *um_q;
+    real *um_ax0;
 
     real r1;
 
@@ -443,9 +465,10 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(real)));
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(real)));
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_z, num_rows * sizeof(real)));
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_w, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_u, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_t, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_q, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_ax0, num_rows * sizeof(real)));
 
     // ASSUMPTION: All GPUs are the same and P2P callable
 
@@ -498,12 +521,13 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
         (void *)&um_J,
         (void *)&um_val,
         (void *)&um_x,
-        (void *)&um_s,
-        (void *)&um_p,
         (void *)&um_r,
+        (void *)&um_p,
+        (void *)&um_s,
+        (void *)&um_z,
         (void *)&um_w,
-        (void *)&um_t,
-        (void *)&um_u,
+        (void *)&um_q,
+        (void *)&um_ax0,
         (void *)&um_dot_result_delta,
         (void *)&um_dot_result_gamma,
         (void *)&nnz,
