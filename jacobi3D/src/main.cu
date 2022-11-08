@@ -51,11 +51,11 @@ int main(int argc, char *argv[]) {
                   SSMultiThreadedTwoBlockComm::init),
         make_pair("Naive Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
 
-        make_pair("NVSHMEM Single stream multi threaded (one thread block communicates)",
+        make_pair("NVSHMEM Single stream multi threaded bulk (one thread block communicates)",
                   SSMultiThreadedOneBlockCommNvshmem::init),
-        make_pair("NVSHMEM Single stream multi threaded warp (one thread block communicates),Contiguous",
+        make_pair("NVSHMEM Single stream multi threaded contiguous (one thread block communicates)",
                   SSMultiThreadedOneBlockCommContiguousNvshmem::init),
-        make_pair("NVSHMEM Single stream multi threaded (one thread block communicates),Warp",
+        make_pair("NVSHMEM Single stream multi threaded warp (one thread block communicates)",
                   SSMultiThreadedOneBlockWarpCommNvshmem::init),
 
 
