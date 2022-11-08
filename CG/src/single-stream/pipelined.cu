@@ -90,6 +90,12 @@ __device__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
                                      const int num_allocated_tbs, const int device_rank,
                                      const int num_devices, const int sMemSize,
                                      const PeerGroup &peer_group) {
+    int local_subgrid_size = peer_group.calc_subgrid_size(num_allocated_tbs);
+    int local_subgrid_rank = peer_group.calc_subgrid_thread_rank(num_allocated_tbs);
+
+    int global_subgrid_size = local_subgrid_size * num_devices;
+    int global_subgrid_rank = device_rank * local_subgrid_size + local_subgrid_rank;
+
     // First half (up to sMemSize / 2) will be used for delta
     // Second half (from sMemSize / 2) will be used for gamma
     extern __shared__ double tmp[];
@@ -100,10 +106,7 @@ __device__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
     double temp_sum_delta = 0.0;
     double temp_sum_gamma = 0.0;
 
-    int subgrid_thread_rank = peer_group.calc_subgrid_thread_rank(num_allocated_tbs);
-    int subgrid_size = peer_group.calc_subgrid_size(num_allocated_tbs);
-
-    for (int i = subgrid_thread_rank; i < num_rows; i += subgrid_size) {
+    for (int i = global_subgrid_rank; i < num_rows; i += global_subgrid_size) {
         temp_sum_delta += (double)(vecA_delta[i] * vecB_delta[i]);
         temp_sum_gamma += (double)(vecA_gamma[i] * vecB_gamma[i]);
     }
@@ -196,11 +199,10 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
     cg::sync(grid);
 
     // w0 = Ar0
-
     gpuSpMV(I, J, val, nnz, num_rows, real_positive_one, r, w, gridDim.x, device_rank, num_devices,
             peer_group);
 
-    peer_group.sync();
+    cg::sync(grid);
 
     int k = 1;
 
@@ -223,10 +225,6 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
         cg::sync(grid);
 
         if (grid.thread_rank() == 0) {
-            printf("First element of q => %f\n", q[0]);
-        }
-
-        if (grid.thread_rank() == 0) {
             atomicAdd_system(dot_result_delta, grid_dot_result_delta);
             atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
 
@@ -236,10 +234,8 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
         peer_group.sync();
 
-        if (grid.thread_rank() == 0) {
-            printf("Dot delta => %f\n", dot_result_delta);
-            printf("Dot gamma => %f\n", dot_result_gamma);
-        }
+        tmp_dot_delta_1 = *dot_result_delta;
+        tmp_dot_gamma_1 = *dot_result_gamma;
 
         if (k > 1) {
             beta = tmp_dot_delta_1 / tmp_dot_delta_0;
@@ -252,11 +248,6 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
         // IMPORTANT: Is this peer sync necessary? Or would a grid sync suffice?
         peer_group.sync();
 
-        if (grid.thread_rank() == 0) {
-            printf("Alpha => %f\n", alpha);
-            printf("Beta => %f\n", beta);
-        }
-
         // z_k = q_k + beta_k * z_(k-1)
         gpuScaleVectorAndSaxpy(q, z, real_positive_one, beta, num_rows, peer_group);
 
@@ -266,21 +257,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
         // p_k = r_k = beta_k * p_(k-1)
         gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, num_rows, peer_group);
 
-        peer_group.sync();
-
-        if (grid.thread_rank() == 0) {
-            printf("First element of q (after Saxpy) => %f\n", q[0]);
-        }
-
-        if (grid.thread_rank() == 0) {
-            printf("First element of w => %f\n", w[0]);
-        }
-
-        if (grid.thread_rank() == 0) {
-            printf("First element of p => %f\n", p[0]);
-        }
-
-        // cg::sync(grid);
+        cg::sync(grid);
 
         // x_(k+1) = x_k + alpha_k * p_k
         gpuSaxpy(p, x, alpha, num_rows, peer_group);
@@ -293,22 +270,10 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
         // w_(k+1) = w_k - alpha_k * z_k
         gpuSaxpy(z, w, negative_alpha, num_rows, peer_group);
 
+        tmp_dot_delta_0 = (real)tmp_dot_delta_1;
+        tmp_dot_gamma_0 = (real)tmp_dot_gamma_1;
+
         peer_group.sync();
-
-        if (grid.thread_rank() == 0) {
-            printf("First element of x => %f\n", x[0]);
-        }
-
-        if (grid.thread_rank() == 0) {
-            printf("First element of r => %f\n", r[0]);
-        }
-
-        if (grid.thread_rank() == 0) {
-            printf("First element of w => %f\n", w[0]);
-        }
-
-        tmp_dot_delta_0 = tmp_dot_delta_1;
-        tmp_dot_gamma_0 = tmp_dot_gamma_1;
 
         k++;
     }
