@@ -64,7 +64,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                         }
 
-                        nvshmemx_putmem_signal_warp(
+                        nvshmemx_putmem_signal_nbi_block(
                             halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             a_new + iz_start * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             min(warp.num_threads(), nx - comm_tile_idx_x * warp.num_threads()) * sizeof(real),
@@ -94,7 +94,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                         }
 
-                        nvshmemx_putmem_signal_warp(
+                        nvshmemx_putmem_signal_nbi_block(
                             halo_buffer_top + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             a_new + (iz_end - 1) * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             min(warp.num_threads(), nx - comm_tile_idx_x * warp.num_threads()) * sizeof(real),
