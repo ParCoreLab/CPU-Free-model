@@ -161,6 +161,54 @@ __global__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int
         y[i] = a * x[i] + scale * y[i];
     }
 }
+
+__global__ void r1_div_x(real r1, real r0, real *b) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gid == 0) {
+        *b = r1 / r0;
+    }
+}
+
+__global__ void a_minus(real a, real *na) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gid == 0) {
+        *na = -a;
+    }
+}
+
+__global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gid == 0) {
+        *a = dot_delta_1 / (dot_gamma_1 - (b / *a) * dot_delta_1);
+    }
+}
+
+__global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gid == 0) {
+        *b = dot_delta_1 / dot_delta_0;
+    }
+}
+
+__global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gid == 0) {
+        *a = dot_delta_1 / dot_gamma_1;
+    }
+}
+
+__global__ void init_b_k(real *b) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gid == 0) {
+        *b = 0.0;
+    }
+}
 }  // namespace SingleGPU
 
 // Common Multi GPU kernels
@@ -295,56 +343,55 @@ __global__ void syncPeers(const int device_rank, const int num_devices,
         }
     }
 }
-}  // namespace MultiGPU
 
-// Common between Single and Multi GPU
-__global__ void r1_div_x(real r1, real r0, real *b) {
+__global__ void r1_div_x(real r1, real r0, real *b, const int gpu_idx) {
     int gid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (gpu_idx == 0 && gid == 0) {
         *b = r1 / r0;
     }
 }
 
-__global__ void a_minus(real a, real *na) {
+__global__ void a_minus(real a, real *na, const int gpu_idx) {
     int gid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (gpu_idx == 0 && gid == 0) {
         *na = -a;
     }
 }
 
-__global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a) {
+__global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a, const int gpu_idx) {
     int gid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (gpu_idx == 0 && gid == 0) {
         *a = dot_delta_1 / (dot_gamma_1 - (b / *a) * dot_delta_1);
     }
 }
 
-__global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b) {
+__global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b, const int gpu_idx) {
     int gid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (gpu_idx == 0 && gid == 0) {
         *b = dot_delta_1 / dot_delta_0;
     }
 }
 
-__global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a) {
+__global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a, const int gpu_idx) {
     int gid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (gpu_idx == 0 && gid == 0) {
         *a = dot_delta_1 / dot_gamma_1;
     }
 }
 
-__global__ void init_b_k(real *b) {
+__global__ void init_b_k(real *b, const int gpu_idx) {
     int gid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (gpu_idx == 0 && gid == 0) {
         *b = 0.0;
     }
 }
+}  // namespace MultiGPU
 
 // Single GPU Pipelined Implementation
 
@@ -544,14 +591,14 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
         if (k > 1) {
-            update_b_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1, *um_tmp_dot_delta0,
-                                                    um_beta);
-            update_a_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
-                                                    (real)*um_tmp_dot_gamma1, *um_beta, um_alpha);
+            SingleGPU::update_b_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
+                                                               *um_tmp_dot_delta0, um_beta);
+            SingleGPU::update_a_k<<<1, 1, 0, streamOtherOps>>>(
+                (real)*um_tmp_dot_delta1, (real)*um_tmp_dot_gamma1, *um_beta, um_alpha);
         } else {
-            init_b_k<<<1, 1, 0, streamOtherOps>>>(um_beta);
-            init_a_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
-                                                  (real)*um_tmp_dot_gamma1, um_alpha);
+            SingleGPU::init_b_k<<<1, 1, 0, streamOtherOps>>>(um_beta);
+            SingleGPU::init_a_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
+                                                             (real)*um_tmp_dot_gamma1, um_alpha);
         }
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -576,7 +623,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
         CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
 
-        a_minus<<<1, 1, 0, streamSaxpy>>>(*um_alpha, um_negative_alpha);
+        SingleGPU::a_minus<<<1, 1, 0, streamSaxpy>>>(*um_alpha, um_negative_alpha);
 
         CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
 
@@ -775,7 +822,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        r1_div_x<<<1, 1, 0, 0>>>(*um_tmp_dot_gamma0, (real)*um_tmp_dot_delta1, um_alpha);
+        SingleGPU::r1_div_x<<<1, 1, 0, 0>>>(*um_tmp_dot_gamma0, (real)*um_tmp_dot_delta1, um_alpha);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -785,7 +832,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        a_minus<<<1, 1, 0, 0>>>(*um_alpha, um_negative_alpha);
+        SingleGPU::a_minus<<<1, 1, 0, 0>>>(*um_alpha, um_negative_alpha);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -807,7 +854,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        r1_div_x<<<1, 1, 0, 0>>>((real)*um_tmp_dot_gamma1, *um_tmp_dot_gamma0, um_beta);
+        SingleGPU::r1_div_x<<<1, 1, 0, 0>>>((real)*um_tmp_dot_gamma1, *um_tmp_dot_gamma0, um_beta);
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 

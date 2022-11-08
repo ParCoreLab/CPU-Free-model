@@ -126,10 +126,11 @@ __global__ void addLocalDotContributions(double *dot_result_delta, double *dot_r
     }
 }
 
-__global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_result_gamma) {
+__global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_result_gamma,
+                                      const int gpu_idx) {
     int gid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (gpu_idx == 0 && gid == 0) {
         *dot_result_delta = 0.0;
         *dot_result_gamma = 0.0;
     }
@@ -370,7 +371,8 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
 
         while (k <= iter_max) {
             // Two dot products => <r, r> and <r, w>
-            resetLocalDotProducts<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
+            resetLocalDotProducts<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1,
+                                                          gpu_idx);
 
             MultiGPU::syncPeers<<<1, 1, 0, streamDot>>>(gpu_idx, num_devices,
                                                         hostMemoryArrivedList);
@@ -398,14 +400,15 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaStreamSynchronize(0))
 
             if (k > 1) {
-                update_b_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
-                                                        *um_tmp_dot_delta0, um_beta);
-                update_a_k<<<1, 1, 0, streamOtherOps>>>(
-                    (real)*um_tmp_dot_delta1, (real)*um_tmp_dot_gamma1, *um_beta, um_alpha);
+                MultiGPU::update_b_k<<<1, 1, 0, streamOtherOps>>>(
+                    (real)*um_tmp_dot_delta1, *um_tmp_dot_delta0, um_beta, gpu_idx);
+                MultiGPU::update_a_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
+                                                                  (real)*um_tmp_dot_gamma1,
+                                                                  *um_beta, um_alpha, gpu_idx);
             } else {
-                init_b_k<<<1, 1, 0, streamOtherOps>>>(um_beta);
-                init_a_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
-                                                      (real)*um_tmp_dot_gamma1, um_alpha);
+                MultiGPU::init_b_k<<<1, 1, 0, streamOtherOps>>>(um_beta, gpu_idx);
+                MultiGPU::init_a_k<<<1, 1, 0, streamOtherOps>>>(
+                    (real)*um_tmp_dot_delta1, (real)*um_tmp_dot_gamma1, um_alpha, gpu_idx);
             }
 
             MultiGPU::syncPeers<<<1, 1, 0, streamOtherOps>>>(gpu_idx, num_devices,
@@ -431,7 +434,7 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
             MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
                 um_p, um_x, *um_alpha, num_rows, gpu_idx, num_devices);
 
-            a_minus<<<1, 1, 0, streamOtherOps>>>(*um_alpha, um_negative_alpha);
+            MultiGPU::a_minus<<<1, 1, 0, streamOtherOps>>>(*um_alpha, um_negative_alpha, gpu_idx);
 
             MultiGPU::syncPeers<<<1, 1, 0, streamOtherOps>>>(gpu_idx, num_devices,
                                                              hostMemoryArrivedList);

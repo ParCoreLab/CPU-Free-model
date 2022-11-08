@@ -133,6 +133,18 @@ __global__ void gpuSaxpy(real *x, real *y, real a, int num_rows);
 
 __global__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int num_rows);
 
+__global__ void a_minus(real a, real *na);
+
+__global__ void r1_div_x(real r1, real r0, real *b);
+
+__global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a);
+
+__global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b);
+
+__global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a);
+
+__global__ void init_b_k(real *b);
+
 }  // namespace SingleGPU
 
 // Multi GPU kernels
@@ -159,19 +171,19 @@ __device__ void store_arrived(unsigned char *arrived, unsigned char val);
 
 __global__ void syncPeers(const int device_rank, const int num_devices,
                           unsigned char *hostMemoryArrivedList);
+
+__global__ void a_minus(real a, real *na, const int gpu_idx);
+
+__global__ void r1_div_x(real r1, real r0, real *b, const int gpu_idx);
+
+__global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a, const int gpu_idx);
+
+__global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b, const int gpu_idx);
+
+__global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a, const int gpu_idx);
+
+__global__ void init_b_k(real *b, const int gpu_idx);
 }  // namespace MultiGPU
-
-__global__ void a_minus(real a, real *na);
-
-__global__ void r1_div_x(real r1, real r0, real *b);
-
-__global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a);
-
-__global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b);
-
-__global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a);
-
-__global__ void init_b_k(real *b);
 
 // Multi-GPU Sync Kernel
 
