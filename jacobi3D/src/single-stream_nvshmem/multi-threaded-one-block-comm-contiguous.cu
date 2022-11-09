@@ -90,7 +90,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                         is_done_computing_flags + next_iter_mod * 2 * max_block_count + block_idx,
                         iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                 }
-                nvshmem_quiet();
+                
             }
             else
             {

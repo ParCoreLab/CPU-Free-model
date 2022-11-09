@@ -104,7 +104,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                     }
                 }
-                nvshmem_quiet();
+                
             }
             else
             {
