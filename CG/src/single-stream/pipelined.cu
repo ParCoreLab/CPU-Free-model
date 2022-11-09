@@ -218,8 +218,25 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
         peer_group.sync();
 
         if (blockIdx.x < num_blocks_for_dot) {
+            // NOTE: The whole point is that we're trying to overlap computation and communication
+            // It doesn't make sense to have the atomicAdds after the Dot and SpMV computations are
+            // I'm not sure if there is a way to overlap communication the way we need to
+            // Because we need to sync specific TBs which isn't possible at the moment.
+
+            // cg::coalesced_group dot_thread_blocks = cg::coalesced_threads();
+
             gpuDotProductsMerged(r, r, r, w, num_rows, cta, num_blocks_for_dot, device_rank,
                                  num_devices, sMemSize, peer_group);
+
+            // cg::sync(dot_thread_blocks);
+
+            // if (blockIdx.x == 0 && threadIdx.x == 0) {
+            //     atomicAdd_system(dot_result_delta, grid_dot_result_delta);
+            //     atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
+
+            //     grid_dot_result_delta = 0.0;
+            //     grid_dot_result_gamma = 0.0;
+            // }
         } else {
             gpuSpMV(I, J, val, nnz, num_rows, real_positive_one, w, q, num_blocks_for_spmv,
                     device_rank, num_devices, peer_group);
@@ -227,6 +244,9 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
         cg::sync(grid);
 
+        // NOTE: This part should be inside the dot if branch
+        // But putting it there results in a race condition; results are slightly mismatched
+        // Something to do with coalesced groups.
         if (grid.thread_rank() == 0) {
             atomicAdd_system(dot_result_delta, grid_dot_result_delta);
             atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
