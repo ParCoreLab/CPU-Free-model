@@ -59,10 +59,13 @@ __device__ double grid_dot_result_gamma = 0.0;
 __device__ void gpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha,
                         real *inputVecX, real *outputVecY, const int num_allocated_tbs,
                         const int device_rank, const int num_devices, const PeerGroup &peer_group) {
-    int subgrid_thread_rank = peer_group.calc_subgrid_thread_rank(num_allocated_tbs);
-    int subgrid_size = peer_group.calc_subgrid_size(num_allocated_tbs);
+    int local_subgrid_size = peer_group.calc_subgrid_size(num_allocated_tbs);
+    int local_subgrid_rank = peer_group.calc_subgrid_thread_rank(num_allocated_tbs);
 
-    for (int i = subgrid_thread_rank; i < num_rows; i += subgrid_size) {
+    int global_subgrid_size = local_subgrid_size * num_devices;
+    int global_subgrid_rank = device_rank * local_subgrid_size + local_subgrid_rank;
+
+    for (int i = global_subgrid_rank; i < num_rows; i += global_subgrid_size) {
         int row_elem = I[i];
         int next_row_elem = I[i + 1];
         int num_elems_this_row = next_row_elem - row_elem;
