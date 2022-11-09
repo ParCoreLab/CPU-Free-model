@@ -55,14 +55,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx, ny * nx * sizeof(real),
                     //is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                       top);
-                
-                if (!cta.thread_rank())
-                {
-                    nvshmem_quiet();
-                    nvshmemx_signal_op(is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,top);
-                }
-                
-                
+            
                 nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
 
                 for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
@@ -84,11 +77,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * ny * nx, ny * nx * sizeof(real),
                     // is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                      bottom);
-                if (!cta.thread_rank())
-                {
-                    nvshmem_quiet();
-                    nvshmemx_signal_op(is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,bottom);
-                }
             }
             else
             {
