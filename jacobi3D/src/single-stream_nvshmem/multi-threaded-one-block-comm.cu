@@ -51,9 +51,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
 
-                nvshmemx_putmem_nbi_block(
+                nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx, ny * nx * sizeof(real),
-                    //is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
+                    is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                       top);
             
                 nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
@@ -73,9 +73,9 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     }
                 }
 
-                nvshmemx_putmem_nbi_block(
+                nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * ny * nx, ny * nx * sizeof(real),
-                    // is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
+                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                      bottom);
             }
             else
