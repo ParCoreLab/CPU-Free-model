@@ -85,3 +85,24 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
 
     echo "-------------------------------------"
 done
+
+for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
+    echo "Running ${version_name}"; echo ""
+
+    version_idx=${version_name_to_idx_map_nvshmem[$version_name]}
+
+    for (( NP=1; NP <= ${MAX_NUM_GPUS}; NP+=1 )); do
+        
+        echo "Num GPUS: ${NP}"
+        echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
+
+        for (( i=1; i <= ${NUM_RUNS}; i++ )); do
+           execution_time=$(mpirun -np ${NP} ./jacobi -s 1 -v ${version_idx} -nx ${NX} -ny ${NY} -nz  ${NZ} -niter ${NUM_ITER})
+            echo "${execution_time} on run ${i}"
+        done
+
+        printf "\n"
+    done
+
+    echo "-------------------------------------"
+done
