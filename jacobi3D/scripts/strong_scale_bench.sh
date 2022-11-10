@@ -7,9 +7,9 @@
 #SBATCH --time=06:00:00
 #SBATCH --output=sbatch_output_%j.log
 
-#. ./scripts/modules.sh > /dev/null
+. ./scripts/modules.sh > /dev/null
 
-MAX_NUM_GPUS=4
+MAX_NUM_GPUS=8
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
 
 declare -A version_name_to_idx_map
@@ -42,11 +42,6 @@ declare -A version_name_to_idx_map_nvshmem
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Bulk"]=10
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=11
 version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=12
-
-
-
-
-
 
 BIN="./jacobi -s 1"
 
@@ -87,10 +82,6 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
 
     echo "-------------------------------------"
 done
-
-. ~/spack/share/spack/setup-env.sh
-spack load nvshmem@2.7.0-6
-export LD_LIBRARY_PATH=/home/dsagbili17/spack/opt/spack/linux-ubuntu20.04-zen2/gcc-11.1.0/nvshmem-2.7.0-6-egeda2rqruuglrdlv6xwqhn67uwwuhg6/lib:/home/dsagbili17/spack/opt/spack/linux-ubuntu20.04-zen2/gcc-11.1.0/ucx-1.13.1-wb7hgb22ogmnsla3xc6ktndo47ofclr5/lib:/usr/local/lib64:/usr/local/lib:/usr/lib:/usr/lib64
 
 for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
     echo "Running ${version_name}"; echo ""

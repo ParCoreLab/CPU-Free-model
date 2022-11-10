@@ -2,7 +2,7 @@
 
 #SBATCH -J stencil-bench-weak
 #SBATCH -N 1
-#SBATCH -n 1
+#SBATCH -n 8
 #SBATCH -c 128
 #SBATCH -A proj16
 #SBATCH -p palamut-cuda
@@ -10,49 +10,41 @@
 #SBATCH --time=6:00:00
 #SBATCH -o stencil_bench_weak_output_%j.log
 
-. ./scripts/modules_truba.sh > /dev/null
+#. ./scripts/modules_truba.sh > /dev/null
 
 MAX_NUM_GPUS=8
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
 
 declare -A version_name_to_idx_map
 
-version_name_to_idx_map["Baseline Copy"]=0
-version_name_to_idx_map["Baseline Copy Overlap"]=1
-version_name_to_idx_map["Baseline P2P"]=2
-version_name_to_idx_map["Baseline Single Copy"]=3
+#version_name_to_idx_map["Baseline Copy"]=0
+#version_name_to_idx_map["Baseline Copy Overlap"]=1
+#version_name_to_idx_map["Baseline P2P"]=2
+#version_name_to_idx_map["Baseline Single Copy"]=3
 
-version_name_to_idx_map["Single Stream 1TB"]=4
-version_name_to_idx_map["Single Stream 1TB Warp"]=5
-version_name_to_idx_map["Single Stream 2TB"]=6
-version_name_to_idx_map["Double Stream"]=7
+version_name_to_idx_map["Single Stream 1TB"]=6
+version_name_to_idx_map["Single Stream 1TB Warp"]=7
+#version_name_to_idx_map["Single Stream 2TB"]=8
+#version_name_to_idx_map["Double Stream"]=9
 
-version_name_to_idx_map["Baseline Copy (No compute)"]=11
-version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=12
-version_name_to_idx_map["Baseline P2P (No Compute)"]=13
+#version_name_to_idx_map["Baseline Copy (No compute)"]=13
+#version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=14
+#version_name_to_idx_map["Baseline P2P (No Compute)"]=15
 
-version_name_to_idx_map["Single Stream 1TB (No Compute)"]=14
-version_name_to_idx_map["Single Stream 1TB Warp (No Compute)"]=15
-version_name_to_idx_map["Single Stream 2TB (No Compute)"]=16
-version_name_to_idx_map["Double Stream (No Compute)"]=17
+#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=16
+#version_name_to_idx_map["Single Stream 1TB Warp (No Compute)"]=17
+#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=18
+#version_name_to_idx_map["Double Stream (No Compute)"]=19
 
 declare -A version_name_to_idx_map_nvshmem
 
-version_name_to_idx_map_nvshmem["Single Stream 1TB Bulk"]=8
-version_name_to_idx_map_nvshmem["Single Stream 1TB Contiguous"]=9
-version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=10
 
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Bulk"]=0
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Contiguous"]=1
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Warp"]=2
+#version_name_to_idx_map_nvshmem["Baseline NVSHMEM"]=4
+#version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=5
 
-#version_name_to_idx_map_nvshmem["Single Stream 1TB Bulk (No Compute)"]=8
-#version_name_to_idx_map_nvshmem["Single Stream 1TB Contiguous (No Compute)"]=9
-#version_name_to_idx_map_nvshmem["Single Stream 1TB Warp (No Compute)"]=10
-
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Bulk (No Compute)"]=0
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Contiguous (No Compute)"]=1
-#version_name_to_idx_map_nvshmem["Double Stream 1TB Warp (No Compute)"]=2
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Bulk"]=10
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=11
+version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=12
 
 BIN="./jacobi -s 1"
 
@@ -97,6 +89,33 @@ for version_name in "${!version_name_to_idx_map[@]}"; do
 
         NZ=$((2*NZ))
        
+    done
+
+    echo "-------------------------------------"
+done
+for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
+    echo "Running ${version_name}"; echo ""
+
+    version_idx=${version_name_to_idx_map_nvshmem[$version_name]}
+
+    NX=${STARTING_NX}
+    NY=${STARTING_NY}
+    NZ=${STARTING_NZ}
+    NP=${STARTING_NP}
+
+    for (( NP=1; NP <= ${MAX_NUM_GPUS}; NP*=2 )); do
+
+        echo "Num GPUS: ${NP}"
+        echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
+
+        for (( i=1; i <= ${NUM_RUNS}; i++ )); do
+            execution_time=$(mpirun -np ${NP} ./jacobi -s 1 -v ${version_idx} -nx ${NX} -ny ${NY} -nz  ${NZ} -niter ${NUM_ITER})
+            echo "${execution_time} on run ${i}"
+        done
+
+        printf "\n"
+
+        NZ=$((2*${NZ}))
     done
 
     echo "-------------------------------------"
