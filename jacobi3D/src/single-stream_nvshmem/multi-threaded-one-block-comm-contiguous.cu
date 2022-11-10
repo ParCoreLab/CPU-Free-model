@@ -62,7 +62,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                         a_new[iz_start * ny * nx + element_idx] = new_val;
                     }
 
-                    nvshmemx_putmem_signal_nbi_block(
+                    nvshmemx_putmem_signal_block(
                         halo_buffer_bottom + next_iter_mod * nx * ny + block_start_idx,
                         a_new + iz_start * ny * nx + block_start_idx,
                         min(thread_count_per_block, ny * nx - block_start_idx) * sizeof(real),
@@ -83,7 +83,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                         a_new[(iz_end - 1) * ny * nx + element_idx] = new_val;
                     }
 
-                    nvshmemx_putmem_signal_nbi_block(
+                    nvshmemx_putmem_signal_block(
                         halo_buffer_top + next_iter_mod * nx * ny + block_start_idx,
                         a_new + (iz_end - 1) * ny * nx + block_start_idx,
                         min(thread_count_per_block, ny * nx - block_start_idx) * sizeof(real),
