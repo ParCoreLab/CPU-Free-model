@@ -18,12 +18,12 @@ CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2
 declare -A version_name_to_idx_map
 
 #version_name_to_idx_map["Baseline Copy"]=0
-#version_name_to_idx_map["Baseline Copy Overlap"]=1
-#version_name_to_idx_map["Baseline P2P"]=2
+version_name_to_idx_map["Baseline Copy Overlap"]=1
+version_name_to_idx_map["Baseline P2P"]=2
 #version_name_to_idx_map["Baseline Single Copy"]=3
 
 version_name_to_idx_map["Single Stream 1TB"]=6
-version_name_to_idx_map["Single Stream 1TB Warp"]=7
+#version_name_to_idx_map["Single Stream 1TB Warp"]=7
 #version_name_to_idx_map["Single Stream 2TB"]=8
 #version_name_to_idx_map["Double Stream"]=9
 
@@ -38,13 +38,12 @@ version_name_to_idx_map["Single Stream 1TB Warp"]=7
 
 declare -A version_name_to_idx_map_nvshmem
 
-
-#version_name_to_idx_map_nvshmem["Baseline NVSHMEM"]=4
-#version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=5
+version_name_to_idx_map_nvshmem["Baseline NVSHMEM"]=4
+version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=5
 
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Bulk"]=10
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=11
-version_name_to_idx_map_nvshmem["Single Stream 1TB Warp"]=12
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Warp"]=12
 
 BIN="./jacobi -s 1"
 
