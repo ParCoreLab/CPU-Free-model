@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <array>
+#include <assert.h>
 
 typedef float real;
 
