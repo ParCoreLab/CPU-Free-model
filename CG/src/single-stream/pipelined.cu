@@ -59,6 +59,7 @@ __device__ double grid_dot_result_gamma = 0.0;
 __device__ void gpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha,
                         real *inputVecX, real *outputVecY, const int num_allocated_tbs,
                         const int device_rank, const int num_devices, const PeerGroup &peer_group) {
+    // This is kind of inelegant and could be better
     int local_subgrid_size = peer_group.calc_subgrid_size(num_allocated_tbs);
     int local_subgrid_rank = peer_group.calc_subgrid_thread_rank(num_allocated_tbs);
 
@@ -90,15 +91,8 @@ __device__ void gpuSaxpy(real *x, real *y, real a, int size, const PeerGroup &pe
 // Can we combined the two atomicAdds somehow?
 __device__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *vecA_gamma,
                                      real *vecB_gamma, int num_rows, const cg::thread_block &cta,
-                                     const int num_allocated_tbs, const int device_rank,
-                                     const int num_devices, const int sMemSize,
+                                     const int device_rank, const int sMemSize,
                                      const PeerGroup &peer_group) {
-    int local_subgrid_size = peer_group.calc_subgrid_size(num_allocated_tbs);
-    int local_subgrid_rank = peer_group.calc_subgrid_thread_rank(num_allocated_tbs);
-
-    int global_subgrid_size = local_subgrid_size * num_devices;
-    int global_subgrid_rank = device_rank * local_subgrid_size + local_subgrid_rank;
-
     // First half (up to sMemSize / 2) will be used for delta
     // Second half (from sMemSize / 2) will be used for gamma
     extern __shared__ double tmp[];
@@ -109,7 +103,7 @@ __device__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
     double temp_sum_delta = 0.0;
     double temp_sum_gamma = 0.0;
 
-    for (int i = global_subgrid_rank; i < num_rows; i += global_subgrid_size) {
+    for (int i = peer_group.thread_rank(); i < num_rows; i += peer_group.size()) {
         temp_sum_delta += (double)(vecA_delta[i] * vecB_delta[i]);
         temp_sum_gamma += (double)(vecA_gamma[i] * vecB_gamma[i]);
     }
@@ -160,14 +154,13 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
                                           double *dot_result_delta, double *dot_result_gamma,
                                           int nnz, int num_rows, real tol,
                                           MultiDeviceData multi_device_data, const int iter_max,
-                                          const int num_blocks_for_spmv, const int sMemSize) {
+                                          const int sMemSize) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
     PeerGroup peer_group(multi_device_data, grid);
 
     const int num_devices = multi_device_data.numDevices;
     const int device_rank = multi_device_data.deviceRank;
-    const int num_blocks_for_dot = gridDim.x - num_blocks_for_spmv;
 
     real real_positive_one = 1.0;
     real real_negative_one = -1.0;
@@ -217,42 +210,23 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
         peer_group.sync();
 
-        if (blockIdx.x < num_blocks_for_dot) {
-            // NOTE: The whole point is that we're trying to overlap computation and communication
-            // It doesn't make sense to have the atomicAdds after the Dot and SpMV computations are
-            // I'm not sure if there is a way to overlap communication the way we need to
-            // Because we need to sync specific TBs which isn't possible at the moment.
-
-            // cg::coalesced_group dot_thread_blocks = cg::coalesced_threads();
-
-            gpuDotProductsMerged(r, r, r, w, num_rows, cta, num_blocks_for_dot, device_rank,
-                                 num_devices, sMemSize, peer_group);
-
-            // cg::sync(dot_thread_blocks);
-
-            // if (blockIdx.x == 0 && threadIdx.x == 0) {
-            //     atomicAdd_system(dot_result_delta, grid_dot_result_delta);
-            //     atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
-
-            //     grid_dot_result_delta = 0.0;
-            //     grid_dot_result_gamma = 0.0;
-            // }
-        } else {
-            gpuSpMV(I, J, val, nnz, num_rows, real_positive_one, w, q, num_blocks_for_spmv,
-                    device_rank, num_devices, peer_group);
-        }
+        gpuDotProductsMerged(r, r, r, w, num_rows, cta, device_rank, sMemSize, peer_group);
 
         cg::sync(grid);
 
-        // NOTE: This part should be inside the dot if branch
-        // But putting it there results in a race condition; results are slightly mismatched
-        // Something to do with coalesced groups.
-        if (grid.thread_rank() == 0) {
-            atomicAdd_system(dot_result_delta, grid_dot_result_delta);
-            atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
+        // Allocate one thread block for dot global reduction (`atomicAdd`s)
+        // Rest are for SpMV
+        if (blockIdx.x == gridDim.x - 1) {
+            if (cta.thread_rank() == 0) {
+                atomicAdd_system(dot_result_delta, grid_dot_result_delta);
+                atomicAdd_system(dot_result_gamma, grid_dot_result_gamma);
 
-            grid_dot_result_delta = 0.0;
-            grid_dot_result_gamma = 0.0;
+                grid_dot_result_delta = 0.0;
+                grid_dot_result_gamma = 0.0;
+            }
+        } else {
+            gpuSpMV(I, J, val, nnz, num_rows, real_positive_one, w, q, gridDim.x - 1, device_rank,
+                    num_devices, peer_group);
         }
 
         peer_group.sync();
@@ -306,7 +280,6 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 int SingleStreamPipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
-    int num_blocks_for_spmv = get_argval<int>(argv, argv + argc, "-num-spmv-blocks", -1);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
     const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare-cpu");
 
@@ -480,12 +453,6 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     // Can also determine experimentally
     // Hardcoding for now => half and half to each
 
-    // If number of blocks for SpMV is not specified, split evenly between SpMV and Dot
-    if (num_blocks_for_spmv == -1) {
-        std::cout << "Splitting thread blocks evenly between SpMV and Dot" << std::endl;
-        num_blocks_for_spmv = (numSms * numBlocksPerSm) / 2;
-    }
-
     // Structure used for cross-grid synchronization.
     unsigned char *hostMemoryArrivedList;
 
@@ -523,7 +490,6 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
         (void *)&tol,
         (void *)&multi_device_data,
         (void *)&iter_max,
-        (void *)&num_blocks_for_spmv,
         (void *)&sMemSize,
     };
 
