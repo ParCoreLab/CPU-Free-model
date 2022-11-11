@@ -546,26 +546,26 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     SingleGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(um_r, um_x,
                                                                                 num_rows);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
 
     // ax0 = Ax0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
         um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_x, um_ax0);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
 
     // r0 = b0 - s0
     // NOTE: b is a unit vector.
     SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
         um_ax0, um_r, real_negative_one, num_rows);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
 
     // w0 = Ar0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
         um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_r, um_w);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
 
     int k = 1;
 
@@ -588,7 +588,8 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamSpMV>>>(
             um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_w, um_q);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         if (k > 1) {
             SingleGPU::update_b_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
@@ -601,7 +602,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
                                                              (real)*um_tmp_dot_gamma1, um_alpha);
         }
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        // We don't need to sync streamSpMV until this point.
 
         // z_k = q_k + beta_k * z_(k-1)
         SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
@@ -615,7 +616,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
         SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
             um_r, um_p, real_positive_one, *um_beta, num_rows);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
 
         // x_(i+1) = x_i + alpha_i * p_i
         SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(um_p, um_x, *um_alpha,
@@ -635,12 +636,10 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
         SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
             um_z, um_w, *um_negative_alpha, num_rows);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
-
         *um_tmp_dot_delta0 = *um_tmp_dot_delta1;
         *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
 
         k++;
     }
@@ -763,43 +762,39 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     SingleGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_r, um_x, num_rows);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(0));
 
     // ax0 = Ax0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_I, um_J, um_val, nnz, num_rows,
                                                                real_positive_one, um_x, um_ax0);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(0));
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
     SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_ax0, um_r, real_negative_one,
                                                                 num_rows);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(0));
 
     // p0 = r0
     SingleGPU::gpuCopyVector<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_r, um_p, num_rows);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
-
-    // Need to do a dot product here for <r0, r0>
-
     resetLocalDotProduct<<<1, 1, 0, 0>>>(um_tmp_dot_gamma1);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(0));
 
     gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(um_r, um_r, num_rows);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(0));
 
     addLocalDotContribution<<<1, 1, 0, 0>>>(um_tmp_dot_gamma1);
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(0));
 
     *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(0));
 
     int k = 1;
 
@@ -808,71 +803,63 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
             um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_p, um_s);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
-
         resetLocalDotProduct<<<1, 1, 0, 0>>>(um_tmp_dot_delta1);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(um_p, um_s, num_rows);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         addLocalDotContribution<<<1, 1, 0, 0>>>(um_tmp_dot_delta1);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         SingleGPU::r1_div_x<<<1, 1, 0, 0>>>(*um_tmp_dot_gamma0, (real)*um_tmp_dot_delta1, um_alpha);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         // x_(k+1) = x_k + alpha_k * p_k
         SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_p, um_x, *um_alpha,
                                                                     num_rows);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         SingleGPU::a_minus<<<1, 1, 0, 0>>>(*um_alpha, um_negative_alpha);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         // r_(k+1) = r_k - alpha_k * s
         SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_s, um_r, *um_negative_alpha,
                                                                     num_rows);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
-
         resetLocalDotProduct<<<1, 1, 0, 0>>>(um_tmp_dot_gamma1);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(um_r, um_r, num_rows);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         addLocalDotContribution<<<1, 1, 0, 0>>>(um_tmp_dot_gamma1);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         SingleGPU::r1_div_x<<<1, 1, 0, 0>>>((real)*um_tmp_dot_gamma1, *um_tmp_dot_gamma0, um_beta);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         // p_(k+1) = r_(k+1) = beta_k * p_(k)
         SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
             um_r, um_p, real_positive_one, *um_beta, num_rows);
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
-
         *um_tmp_dot_delta0 = *um_tmp_dot_delta1;
         *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;
 
-        CUDA_RT_CALL(cudaDeviceSynchronize());
+        CUDA_RT_CALL(cudaStreamSynchronize(0));
 
         k++;
     }
-
-    CUDA_RT_CALL(cudaDeviceSynchronize());
 
     double stop = omp_get_wtime();
 
