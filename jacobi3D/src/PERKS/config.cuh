@@ -1,10 +1,10 @@
-#ifndef TILE_X
-    #define TILE_X (256)
-#endif 
-#ifndef RTILE_Y
-    // #define RTILE_Y (8)
-    #define RTILE_Y (8)
-#endif
+//#ifndef TILE_X
+//    #define TILE_X (256)
+//#endif
+//#ifndef RTILE_Y
+//    // #define RTILE_Y (8)
+//    #define RTILE_Y (8)
+//#endif
 
 //minimal architecture is 600
 
@@ -38,6 +38,6 @@
     
 //#endif
 
-#ifndef Halo 
-    #define Halo HALO
-#endif
+//#ifndef Halo
+//    #define Halo HALO
+//#endif

@@ -238,7 +238,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
     //    real(*output_gold)[nx] = (real(*)[nx])getZero2DArray(ny, nx);
 
 #define ITEM_PER_THREAD (8)
-#define REG_FOLDER_Z (0)
 //#define TILE_X 256
 
     // damnit
@@ -276,7 +275,196 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 //                         isDoubleTile,
 //                         false);
 
-#define REAL real
+    int TILE_Y = LOCAL_ITEM_PER_THREAD * bdimx / TILE_X;
+    if (blkpsm <= 0) blkpsm = 100;
+    // int iteration=4;
+
+    // 128 or 256
+    int REG_FOLDER_Y = 0;
+
+    auto execute_kernel =
+        isDoubleTile
+            ?
+
+            (bdimx == 128
+                 ? (blkpsm >= 4
+                        ? (useSM ? kernel3d_general_wrapper<real, HALO, 2 * ITEM_PER_THREAD, TILE_X,
+                                                            256, true, 128, curshape>
+                                 : kernel3d_general_wrapper<real, HALO, 2 * ITEM_PER_THREAD, TILE_X,
+                                                            256, false, 128, curshape>)
+                        : (useSM ? kernel3d_general_wrapper<real, HALO, 2 * ITEM_PER_THREAD, TILE_X,
+                                                            256, true, 128, curshape>
+                                 : kernel3d_general_wrapper<real, HALO, 2 * ITEM_PER_THREAD, TILE_X,
+                                                            256, false, 128, curshape>))
+                 : (blkpsm >= 2
+                        ? (useSM ? kernel3d_general_wrapper<real, HALO, 2 * ITEM_PER_THREAD, TILE_X,
+                                                            256, true, 256, curshape>
+                                 : kernel3d_general_wrapper<real, HALO, 2 * ITEM_PER_THREAD, TILE_X,
+                                                            256, false, 256, curshape>)
+                        : (useSM ? kernel3d_general_wrapper<real, HALO, 2 * ITEM_PER_THREAD, TILE_X,
+                                                            256, true, 256, curshape>
+                                 : kernel3d_general_wrapper<real, HALO, 2 * ITEM_PER_THREAD, TILE_X,
+                                                            256, false, 256, curshape>)))
+            : (bdimx == 128
+                   ? (blkpsm >= 4
+                          ? (useSM ? kernel3d_general_wrapper<real, HALO, ITEM_PER_THREAD, TILE_X,
+                                                              128, true, 128, curshape>
+                                   : kernel3d_general_wrapper<real, HALO, ITEM_PER_THREAD, TILE_X,
+                                                              128, false, 128, curshape>)
+                          : (useSM ? kernel3d_general_wrapper<real, HALO, ITEM_PER_THREAD, TILE_X,
+                                                              256, true, 128, curshape>
+                                   : kernel3d_general_wrapper<real, HALO, ITEM_PER_THREAD, TILE_X,
+                                                              256, false, 128, curshape>))
+                   : (blkpsm >= 2
+                          ? (useSM ? kernel3d_general_wrapper<real, HALO, ITEM_PER_THREAD, TILE_X,
+                                                              128, true, 256, curshape>
+                                   : kernel3d_general_wrapper<real, HALO, ITEM_PER_THREAD, TILE_X,
+                                                              128, false, 256, curshape>)
+                          : (useSM ? kernel3d_general_wrapper<real, HALO, ITEM_PER_THREAD, TILE_X,
+                                                              256, true, 256, curshape>
+                                   : kernel3d_general_wrapper<real, HALO, ITEM_PER_THREAD, TILE_X,
+                                                              256, false, 256, curshape>)));
+    int reg_folder_z = 0;
+    // if(isDoubleTile)
+    bool ifspill = false;
+    {
+        if (bdimx == 128) {
+            if (blkpsm >= 4) {
+                if (ptx == 800) {
+                    reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 800,
+                                                     true, real>::val
+                                         : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 800,
+                                                     false, real>::val;
+                    ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 800,
+                                                true, real>::spill
+                                    : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 800,
+                                                false, real>::spill;
+                }
+                if (ptx == 700) {
+                    reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 700,
+                                                     true, real>::val
+                                         : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 700,
+                                                     false, real>::val;
+                    ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 700,
+                                                true, real>::spill
+                                    : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 700,
+                                                false, real>::spill;
+                }
+            } else {
+                if (isDoubleTile) {
+                    if (ptx == 800) {
+                        reg_folder_z = useSM ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
+                                                         256, 800, true, real>::val
+                                             : regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
+                                                         256, 800, false, real>::val;
+                        ifspill = useSM ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD, 256,
+                                                    800, true, real>::spill
+                                        : regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD, 256,
+                                                    800, false, real>::spill;
+                    }
+                    if (ptx == 700) {
+                        reg_folder_z = useSM ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
+                                                         256, 700, true, real>::val
+                                             : regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
+                                                         256, 700, false, real>::val;
+                        ifspill = useSM ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD, 256,
+                                                    700, true, real>::spill
+                                        : regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD, 256,
+                                                    700, false, real>::spill;
+                    }
+                } else {
+                    if (ptx == 800) {
+                        reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
+                                                         800, true, real>::val
+                                             : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
+                                                         800, false, real>::val;
+                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 800,
+                                                    true, real>::spill
+                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 800,
+                                                    false, real>::spill;
+                    }
+                    if (ptx == 700) {
+                        reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
+                                                         700, true, real>::val
+                                             : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
+                                                         700, false, real>::val;
+                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 700,
+                                                    true, real>::spill
+                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 700,
+                                                    false, real>::spill;
+                    }
+                }
+            }
+        } else {
+            if (blkpsm >= 2) {
+                if (ptx == 800) {
+                    reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 800,
+                                                     true, real>::val
+                                         : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 800,
+                                                     false, real>::val;
+                    ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 800,
+                                                true, real>::spill
+                                    : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 800,
+                                                false, real>::spill;
+                }
+                if (ptx == 700) {
+                    reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 700,
+                                                     true, real>::val
+                                         : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 700,
+                                                     false, real>::val;
+                    ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 700,
+                                                true, real>::spill
+                                    : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 700,
+                                                false, real>::spill;
+                }
+            } else {
+                if (isDoubleTile) {
+                    if (ptx == 800) {
+                        reg_folder_z = useSM ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
+                                                         256, 800, true, real>::val
+                                             : regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
+                                                         256, 800, false, real>::val;
+                        ifspill = useSM ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD, 256,
+                                                    800, true, real>::spill
+                                        : regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD, 256,
+                                                    800, false, real>::spill;
+                    }
+                    if (ptx == 700) {
+                        reg_folder_z = useSM ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
+                                                         256, 700, true, real>::val
+                                             : regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
+                                                         256, 700, false, real>::val;
+                        ifspill = useSM ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD, 256,
+                                                    700, true, real>::spill
+                                        : regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD, 256,
+                                                    700, false, real>::spill;
+                    }
+                } else {
+                    if (ptx == 800) {
+                        reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
+                                                         800, true, real>::val
+                                             : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
+                                                         800, false, real>::val;
+                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 800,
+                                                    true, real>::spill
+                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 800,
+                                                    false, real>::spill;
+                    }
+                    if (ptx == 700) {
+                        reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
+                                                         700, true, real>::val
+                                             : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
+                                                         700, false, real>::val;
+                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 700,
+                                                    true, real>::spill
+                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 700,
+                                                    false, real>::spill;
+                    }
+                }
+            }
+        }
+    }
+    if (ifspill) return -5;
 
     num_devices = 1;
 #pragma omp parallel num_threads(num_devices)
@@ -475,294 +663,78 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
         CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-        const int LOCAL_ITEM_PER_THREAD = isDoubleTile ? ITEM_PER_THREAD * 2 : ITEM_PER_THREAD;
-        bdimx = bdimx == 128 ? 128 : 256;
-        if (isDoubleTile) {
-            if (bdimx == 256) blkpsm = 1;
-            if (bdimx == 128) blkpsm = min(blkpsm, 2);
-        }
-        int TILE_Y = LOCAL_ITEM_PER_THREAD * bdimx / TILE_X;
-        if (blkpsm <= 0) blkpsm = 100;
-        // int iteration=4;
-        /* Host allocation Begin */
-        int sm_count;
-        cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, 0);
+        size_t executeSM=0;
+        int basic_sm_space=((TILE_Y+2*HALO)*(TILE_X+HALO+isBOX)*(1+HALO*2)+1)*sizeof(real);
+        executeSM=basic_sm_space;
 
-        auto execute_kernel =
-            isDoubleTile
-                ?
-
-                (bdimx == 128
-                     ? (blkpsm >= 4
-                            ? (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
-                                                                256, true, 128, curshape>
-                                     : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
-                                                                256, false, 128, curshape>)
-                            : (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
-                                                                256, true, 128, curshape>
-                                     : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
-                                                                256, false, 128, curshape>))
-                     : (blkpsm >= 2
-                            ? (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
-                                                                256, true, 256, curshape>
-                                     : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
-                                                                256, false, 256, curshape>)
-                            : (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
-                                                                256, true, 256, curshape>
-                                     : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
-                                                                256, false, 256, curshape>)))
-                : (bdimx == 128
-                       ? (blkpsm >= 4
-                              ? (useSM ? kernel3d_general_wrapper<REAL, HALO, ITEM_PER_THREAD, TILE_X,
-                                                                  128, true, 128, curshape>
-                                       : kernel3d_general_wrapper<REAL, HALO, ITEM_PER_THREAD, TILE_X,
-                                                                  128, false, 128, curshape>)
-                              : (useSM ? kernel3d_general_wrapper<REAL, HALO, ITEM_PER_THREAD, TILE_X,
-                                                                  256, true, 128, curshape>
-                                       : kernel3d_general_wrapper<REAL, HALO, ITEM_PER_THREAD, TILE_X,
-                                                                  256, false, 128, curshape>))
-                       : (blkpsm >= 2
-                              ? (useSM ? kernel3d_general_wrapper<REAL, HALO, ITEM_PER_THREAD, TILE_X,
-                                                                  128, true, 256, curshape>
-                                       : kernel3d_general_wrapper<REAL, HALO, ITEM_PER_THREAD, TILE_X,
-                                                                  128, false, 256, curshape>)
-                              : (useSM ? kernel3d_general_wrapper<REAL, HALO, ITEM_PER_THREAD, TILE_X,
-                                                                  256, true, 256, curshape>
-                                       : kernel3d_general_wrapper<REAL, HALO, ITEM_PER_THREAD, TILE_X,
-                                                                  256, false, 256, curshape>)));
-        int reg_folder_z = 0;
-        // if(isDoubleTile)
-        bool ifspill = false;
-        {
-            if (bdimx == 128) {
-                if (blkpsm >= 4) {
-                    if (ptx == 800) {
-                        reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128,
-                                                         800, true, REAL>::val
-                                             : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128,
-                                                         800, false, REAL>::val;
-                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 800,
-                                                    true, REAL>::spill
-                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 800,
-                                                    false, REAL>::spill;
-                    }
-                    if (ptx == 700) {
-                        reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128,
-                                                         700, true, REAL>::val
-                                             : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128,
-                                                         700, false, REAL>::val;
-                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 700,
-                                                    true, REAL>::spill
-                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 700,
-                                                    false, REAL>::spill;
-                    }
-                } else {
-                    if (isDoubleTile) {
-                        if (ptx == 800) {
-                            reg_folder_z = useSM
-                                               ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
-                                                           256, 800, true, REAL>::val
-                                               : regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
-                                                           256, 800, false, REAL>::val;
-                            ifspill = useSM ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
-                                                        256, 800, true, REAL>::spill
-                                            : regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
-                                                        256, 800, false, REAL>::spill;
-                        }
-                        if (ptx == 700) {
-                            reg_folder_z = useSM
-                                               ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
-                                                           256, 700, true, REAL>::val
-                                               : regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
-                                                           256, 700, false, REAL>::val;
-                            ifspill = useSM ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
-                                                        256, 700, true, REAL>::spill
-                                            : regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
-                                                        256, 700, false, REAL>::spill;
-                        }
-                    } else {
-                        if (ptx == 800) {
-                            reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-                                                             256, 800, true, REAL>::val
-                                                 : regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-                                                             256, 800, false, REAL>::val;
-                            ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-                                                        800, true, REAL>::spill
-                                            : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-                                                        800, false, REAL>::spill;
-                        }
-                        if (ptx == 700) {
-                            reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-                                                             256, 700, true, REAL>::val
-                                                 : regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-                                                             256, 700, false, REAL>::val;
-                            ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-                                                        700, true, REAL>::spill
-                                            : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-                                                        700, false, REAL>::spill;
-                        }
-                    }
-                }
-            } else {
-                if (blkpsm >= 2) {
-                    if (ptx == 800) {
-                        reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128,
-                                                         800, true, REAL>::val
-                                             : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128,
-                                                         800, false, REAL>::val;
-                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 800,
-                                                    true, REAL>::spill
-                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 800,
-                                                    false, REAL>::spill;
-                    }
-                    if (ptx == 700) {
-                        reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128,
-                                                         700, true, REAL>::val
-                                             : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128,
-                                                         700, false, REAL>::val;
-                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 700,
-                                                    true, REAL>::spill
-                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 700,
-                                                    false, REAL>::spill;
-                    }
-                } else {
-                    if (isDoubleTile) {
-                        if (ptx == 800) {
-                            reg_folder_z = useSM
-                                               ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
-                                                           256, 800, true, REAL>::val
-                                               : regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
-                                                           256, 800, false, REAL>::val;
-                            ifspill = useSM ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
-                                                        256, 800, true, REAL>::spill
-                                            : regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
-                                                        256, 800, false, REAL>::spill;
-                        }
-                        if (ptx == 700) {
-                            reg_folder_z = useSM
-                                               ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
-                                                           256, 700, true, REAL>::val
-                                               : regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
-                                                           256, 700, false, REAL>::val;
-                            ifspill = useSM ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
-                                                        256, 700, true, REAL>::spill
-                                            : regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
-                                                        256, 700, false, REAL>::spill;
-                        }
-                    } else {
-                        if (ptx == 800) {
-                            reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-                                                             256, 800, true, REAL>::val
-                                                 : regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-                                                             256, 800, false, REAL>::val;
-                            ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-                                                        800, true, REAL>::spill
-                                            : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-                                                        800, false, REAL>::spill;
-                        }
-                        if (ptx == 700) {
-                            reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-                                                             256, 700, true, REAL>::val
-                                                 : regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-                                                             256, 700, false, REAL>::val;
-                            ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-                                                        700, true, REAL>::spill
-                                            : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-                                                        700, false, REAL>::spill;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (ifspill) printf("JESS\n");
-
-        // shared memory related
-        size_t executeSM = 0;
-
-        int basic_sm_space =
-            ((TILE_Y + 2 * HALO) * (TILE_X + HALO + isBOX) * (1 + HALO * 2) + 1) * sizeof(REAL);
-        executeSM = basic_sm_space;
-
-// shared memory related
         int maxSharedMemory;
-        CUDA_RT_CALL(cudaDeviceGetAttribute(&maxSharedMemory, cudaDevAttrMaxSharedMemoryPerMultiprocessor, 0));
-        int SharedMemoryUsed = maxSharedMemory - 2048;
-        CUDA_RT_CALL(cudaFuncSetAttribute(execute_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize,
-                             SharedMemoryUsed));
-
-        int max_sm_flder = 0;
-
-        // printf("asdfjalskdfjaskldjfals;");
+        CUDA_RT_CALL(cudaDeviceGetAttribute (&maxSharedMemory, cudaDevAttrMaxSharedMemoryPerMultiprocessor,0 ));
+        int SharedMemoryUsed=maxSharedMemory-2048;
+        CUDA_RT_CALL(cudaFuncSetAttribute(execute_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, SharedMemoryUsed));
 
         int numBlocksPerSm_current = 100;
-
-        executeSM += reg_folder_z * 2 * HALO * (TILE_Y + TILE_X + 2 * isBOX);
-
+//        cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+//            &numBlocksPerSm_current, execute_kernel, bdimx, executeSM);
         CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm_current, execute_kernel,
                                                       bdimx, executeSM));
+        if(blkpsm<=0)blkpsm=numBlocksPerSm_current;
+        numBlocksPerSm_current=min(blkpsm,numBlocksPerSm_current);
+        // numBlocksPerSm_current=1;
 
-        if (blkpsm <= 0) blkpsm = numBlocksPerSm_current;
-        numBlocksPerSm_current = min(blkpsm, numBlocksPerSm_current);
+        int perSMUsable=SharedMemoryUsed/numBlocksPerSm_current;
+        int perSMValsRemaind=(perSMUsable-basic_sm_space)/sizeof(real);
+        int reg_boundary=reg_folder_z*2*HALO*(TILE_Y+TILE_X+2*isBOX);
+        int max_sm_flder=(perSMValsRemaind-reg_boundary)/(2*HALO*(TILE_Y+TILE_X+2*isBOX)+TILE_X*TILE_Y);
+
+        real * input;
+        CUDA_RT_CALL(cudaMalloc(&input,sizeof(real)*(nz*nx*ny)));
+//        CUDA_RT_CALL(cudaMemcpy(input,h_input,sizeof(real)*(nz*nx*ny), cudaMemcpyHostToDevice));
+
+//        real *__var_1__;
+//        CUDA_RT_CALL(cudaMalloc(&__var_1__,sizeof(real)*(nz*nx*ny)));
+        real *__var_2__;
+        CUDA_RT_CALL(cudaMalloc(&__var_2__,sizeof(real)*(nz*nx*ny)));
+
+        size_t L2_utage = ny*nz*sizeof(real)*HALO*(nx/TILE_X)*2+
+                          nx*nz*sizeof(real)*HALO*(ny/TILE_Y)*2  ;
+
+        real *l2_cache1;
+        real *l2_cache2;
+        CUDA_RT_CALL(cudaMalloc(&l2_cache1,L2_utage));
+        CUDA_RT_CALL(cudaMalloc(&l2_cache2,L2_utage));
+
+        int l_iteration=iter_max;
+        void* KernelArgs[] ={(void**)&input,
+                              (void*)&__var_2__,
+                              (void**)&nx,
+                              (void**)&ny,
+                              (void*)&nx,
+                              (void**)&l2_cache1,
+                              (void**)&l2_cache2,
+                              (void*)&l_iteration,
+                              (void*)&max_sm_flder};
+
+//        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel, 2,
+//                                                 dim_block, kernelArgsBoundary, 0,
+//                                                 boundary_sync_stream));
 
         dim3 block_dim_3(bdimx, 1, 1);
-        dim3 grid_dim_3(nx / TILE_X, ny / TILE_Y,
-                        MIN(nz, MAX(1, sm_count * numBlocksPerSm_current /
-                                               (nx * ny / TILE_X / TILE_Y))));
-        dim3 executeBlockDim = block_dim_3;
-        dim3 executeGridDim = grid_dim_3;
+        dim3 grid_dim_3(nx/TILE_X, ny/TILE_Y, MIN(nz, MAX(1,numSms*numBlocksPerSm_current/(nx*ny/TILE_X/TILE_Y))));
+        dim3 executeBlockDim=block_dim_3;
+        dim3 executeGridDim=grid_dim_3;
 
-        if (numBlocksPerSm_current == 0) printf("JESSE 3\n");
+        executeSM = 0;
 
-        int minHeight = 0;
-
-        int perSMUsable = SharedMemoryUsed / numBlocksPerSm_current;
-        int perSMValsRemaind = (perSMUsable - basic_sm_space) / sizeof(REAL);
-        int reg_boundary = reg_folder_z * 2 * HALO * (TILE_Y + TILE_X + 2 * isBOX);
-        max_sm_flder = (perSMValsRemaind - reg_boundary) /
-                       (2 * HALO * (TILE_Y + TILE_X + 2 * isBOX) + TILE_X * TILE_Y);
-
-        if (!useSM) max_sm_flder = 0;
-        if (useSM && max_sm_flder == 0) printf("JESSE 2\n");
-
-        int sharememory1 = 2 * HALO * (TILE_Y + TILE_X + 2 * isBOX) * (max_sm_flder + reg_folder_z) *
-                           sizeof(REAL);  // boundary
-        int sharememory2 = sharememory1 + sizeof(REAL) * (max_sm_flder) * (TILE_Y)*TILE_X;
-        executeSM = sharememory2 + basic_sm_space;
-
-        minHeight = (max_sm_flder + reg_folder_z + 2 * NOCACHE_Z) * executeGridDim.z;
-
-        if (executeGridDim.z * (2 * HALO + 1) > nz) printf("JESSE 4\n");
-
-        REAL* input;
-        CUDA_RT_CALL(cudaMalloc(&input, sizeof(REAL) * (nz * nx * ny)));
-
-        //    cudaMemcpy(input, h_input, sizeof(REAL) * (height * width_x * width_y), cudaMemcpyHostToDevice);
-        REAL* __var_1__;
-        CUDA_RT_CALL(cudaMalloc(&__var_1__, sizeof(REAL) * (nz * nx * ny)));
-        REAL* __var_2__;
-        CUDA_RT_CALL(cudaMalloc(&__var_2__, sizeof(REAL) * (nz * nx * ny)));
-
-        size_t L2_utage = ny * nz * sizeof(REAL) * HALO * (nx / TILE_X) * 2 +
-                          nx * nz * sizeof(REAL) * HALO * (ny / TILE_Y) * 2;
-
-        REAL* l2_cache1;
-        REAL* l2_cache2;
-        CUDA_RT_CALL(cudaMalloc(&l2_cache1, L2_utage));
-        CUDA_RT_CALL(cudaMalloc(&l2_cache2, L2_utage));
-
-        int l_iteration = iter_max;
-        void* KernelArgs[] = {(void**)&input,     (void*)&__var_2__,   (void**)&nz,
-                              (void**)&ny,   (void*)&nx,     (void**)&l2_cache1,
-                              (void**)&l2_cache2, (void*)&l_iteration, (void*)&max_sm_flder};
-
-        printf("executeGridDim: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
-        printf("executeBlockDim: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
-
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim, executeBlockDim, KernelArgs,
-                                    executeSM, 0));
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim, executeBlockDim, KernelArgs, executeSM,0));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        // Need to swap pointers on CPU if iteration count is odd
+        // Technically, we don't know the iteration number (since we'll be doing l2-norm)
+        // Could write iter to CPU when kernel is done
+//        if (iter_max % 2 == 1) {
+//            std::swap(a_new[dev_id], a[dev_id]);
+//        }
 
 #pragma omp barrier
         double stop = omp_get_wtime();
@@ -782,12 +754,12 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
                            start, stop, compare_to_single_gpu);
         }
 
-//        CUDA_RT_CALL(cudaFree(a_new[dev_id]));
-//        CUDA_RT_CALL(cudaFree(a[dev_id]));
+        CUDA_RT_CALL(cudaFree(a_new[dev_id]));
+        CUDA_RT_CALL(cudaFree(a[dev_id]));
 
         if (compare_to_single_gpu && 0 == dev_id) {
-//            CUDA_RT_CALL(cudaFreeHost(a_h));
-//            CUDA_RT_CALL(cudaFreeHost(a_ref_h));
+            CUDA_RT_CALL(cudaFreeHost(a_h));
+            CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }
     }
 

@@ -5,19 +5,19 @@
 #ifndef CUDACOMMON
 #define CUDACOMMON
 
-#ifndef __CUDA_ARCH__
+//#ifndef __CUDA_ARCH__
     #define PERKS_ARCH 000
-#else
-    #if __CUDA_ARCH__==800
-        #define PERKS_ARCH 800
-    #elif __CUDA_ARCH__==700
-        #define PERKS_ARCH 700
-    #elif __CUDA_ARCH__==600
-        #define PERKS_ARCH 600
-    #else
-        #error "unsupport"
-    #endif
-#endif
+//#else
+//    #if __CUDA_ARCH__==800
+//        #define PERKS_ARCH 800
+//    #elif __CUDA_ARCH__==700
+//        #define PERKS_ARCH 700
+//    #elif __CUDA_ARCH__==600
+//        #define PERKS_ARCH 600
+//    #else
+//        #error "unsupport"
+//    #endif
+//#endif
 
 #ifdef ASYNCSM
   // #if PERKS_ARCH<800 
