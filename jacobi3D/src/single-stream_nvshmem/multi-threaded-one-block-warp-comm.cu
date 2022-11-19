@@ -47,7 +47,6 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                     {
                         if (warp.thread_rank() == 0)
                         {
-                            nvshmem_quiet(); // these may be a problem
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
                                     comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
@@ -81,7 +80,6 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 
                         if (warp.thread_rank() == 0)
                         {
-                            nvshmem_quiet();
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
                                     num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
@@ -145,7 +143,10 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-
+            if (grid.thread_rank()==0)
+            {
+                nvshmem_quiet();
+            }
             cg::sync(grid);
         }
     }

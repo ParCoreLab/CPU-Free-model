@@ -45,7 +45,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                 {
                     if (cta.thread_rank() == 0)
                     {
-                        nvshmem_quiet();
+                        
                         nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
                     }
                     cg::sync(cta);
@@ -74,7 +74,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
                     if (cta.thread_rank() == 0)
                     {
-                        nvshmem_quiet();
+                        
                         nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
                     }
                     cg::sync(cta);
@@ -128,7 +128,10 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-
+            if (grid.thread_rank()==0)
+            {
+                nvshmem_quiet();
+            }
             cg::sync(grid);
         }
     }
