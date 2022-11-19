@@ -75,10 +75,10 @@ namespace SSMultiThreadedOneBlockCommThreadGetNvshmem
                                                                              a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
                                                                              a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
                                                                              a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                                                                             nvshmem_float_g(halo_buffer_top + cur_iter_mod * ny * nx + iy * nx + ix, bottom);
+                                                                             nvshmem_float_g(halo_buffer_top + cur_iter_mod * ny * nx + iy * nx + ix, bottom)
                                                                          a[(iz_end - 2) * ny * nx + iy * nx + ix]);
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
-                        halo_buffer_top[next_iter_mod * ny * nx + iy * nx + ix] = first_row_val;
+                        halo_buffer_bottom[next_iter_mod * ny * nx + iy * nx + ix] = last_row_val;
                     }
                 }
                 cg::sync(cta);
@@ -196,14 +196,14 @@ int SSMultiThreadedOneBlockCommThreadGetNvshmem::init(int argc, char *argv[])
     constexpr int dim_block_y = 32;
     constexpr int dim_block_z = 1;
 
-    constexpr int comp_tile_size_x = dim_block_x;
-    constexpr int comp_tile_size_y = dim_block_y;
+    //constexpr int comp_tile_size_x = dim_block_x;
+    //constexpr int comp_tile_size_y = dim_block_y;
 
     constexpr int comm_tile_size_x = dim_block_x;
     constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
 
-    constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
-    constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
+    //constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
+    //constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
 
     // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
     // int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
@@ -274,8 +274,8 @@ int SSMultiThreadedOneBlockCommThreadGetNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
     int numSms = deviceProp.multiProcessorCount;
 
-    int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
-    int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
+    //int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+    //int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
     // int num_comp_tiles_z =(nz / npes) / comp_tile_size_z + ((nz / npes) % comp_tile_size_z != 0);
 
     const int top = mype > 0 ? mype - 1 : (npes - 1);
