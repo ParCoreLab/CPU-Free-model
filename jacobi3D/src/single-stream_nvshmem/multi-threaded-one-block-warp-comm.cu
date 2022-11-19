@@ -4,11 +4,11 @@
 #include <cstdio>
 #include <iostream>
 
+#include "../../include/single-stream_nvshmem/multi-threaded-one-block-warp-comm.cuh"
 #include <cooperative_groups.h>
 
 #include <nvshmem.h>
 #include <nvshmemx.h>
-#include "../../include/single-stream_nvshmem/multi-threaded-one-block-warp-comm.cuh"
 
 namespace cg = cooperative_groups;
 
@@ -45,11 +45,16 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x;
                          comm_tile_idx_x++, ix += blockDim.x)
                     {
-                        nvshmem_signal_wait_until(
-                            is_done_computing_flags + cur_iter_mod * num_flags +
-                                comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
-                                comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
-                            NVSHMEM_CMP_EQ, iter);
+                        if (warp.thread_rank() == 0)
+                        {
+                            nvshmem_quiet(); // these may be a problem
+                            nvshmem_signal_wait_until(
+                                is_done_computing_flags + cur_iter_mod * num_flags +
+                                    comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                    comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
+                                NVSHMEM_CMP_EQ, iter);
+                        }
+                        cg::sync(warp);
 
                         if (iy < ny - 1 && ix < nx - 1)
                         {
@@ -64,7 +69,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                         }
 
-                        nvshmemx_putmem_signal_nbi_block(
+                        nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             a_new + iz_start * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             min(warp.num_threads(), nx - comm_tile_idx_x * warp.num_threads()) * sizeof(real),
@@ -74,13 +79,17 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                             iter + 1, NVSHMEM_SIGNAL_SET, top);
 
-                        nvshmem_signal_wait_until(
-                            is_done_computing_flags + cur_iter_mod * num_flags +
-                                num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
-                                comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
-                                comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
-                            NVSHMEM_CMP_EQ, iter);
-
+                        if (warp.thread_rank() == 0)
+                        {
+                            nvshmem_quiet();
+                            nvshmem_signal_wait_until(
+                                is_done_computing_flags + cur_iter_mod * num_flags +
+                                    num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
+                                    comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
+                                    comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
+                                NVSHMEM_CMP_EQ, iter);
+                        }
+                        cg::sync(warp);
                         if (iy < ny - 1 && ix < nx - 1)
                         {
                             const real last_row_val = (real(1) / real(6)) *
@@ -94,7 +103,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                         }
 
-                        nvshmemx_putmem_signal_nbi_block(
+                        nvshmemx_putmem_signal_nbi_warp(
                             halo_buffer_top + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             a_new + (iz_end - 1) * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
                             min(warp.num_threads(), nx - comm_tile_idx_x * warp.num_threads()) * sizeof(real),
@@ -104,7 +113,6 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                             iter + 1, NVSHMEM_SIGNAL_SET, bottom);
                     }
                 }
-                
             }
             else
             {
