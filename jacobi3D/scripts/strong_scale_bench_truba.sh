@@ -3,11 +3,11 @@
 #SBATCH -J stencil-bench-strong
 #SBATCH -N 1
 #SBATCH -n 8
-#SBATCH -c 128
+#SBATCH -c 16
 #SBATCH -A proj16
 #SBATCH -p palamut-cuda
 #SBATCH --gres=gpu:8
-#SBATCH --time=6:00:00
+#SBATCH --time=12:00:00
 #SBATCH -o stencil_bench_strong_output_%j.log
 
 #. ./scripts/modules_truba.sh > /dev/null

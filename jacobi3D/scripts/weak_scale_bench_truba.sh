@@ -3,7 +3,7 @@
 #SBATCH -J stencil-bench-weak
 #SBATCH -N 1
 #SBATCH -n 8
-#SBATCH -c 128
+#SBATCH -c 16
 #SBATCH -A proj16
 #SBATCH -p palamut-cuda
 #SBATCH --gres=gpu:8
