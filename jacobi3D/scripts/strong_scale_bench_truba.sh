@@ -10,7 +10,7 @@
 #SBATCH --time=12:00:00
 #SBATCH -o stencil_bench_strong_output_%j.log
 
-#. ./scripts/modules_truba.sh > /dev/null
+. ./scripts/modules_truba.sh > /dev/null
 
 MAX_NUM_GPUS=8
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
