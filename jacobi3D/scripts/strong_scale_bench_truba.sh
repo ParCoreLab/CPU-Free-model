@@ -44,7 +44,7 @@ version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=5
 
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Bulk"]=10
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=11
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Warp"]=12
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Warp"]=12
 
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Get"]=13
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Put"]=14
