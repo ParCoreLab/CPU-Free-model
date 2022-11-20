@@ -34,7 +34,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
             {
                 if (cta.thread_rank() == 0)
                 {
-
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
@@ -60,7 +59,6 @@ namespace SSMultiThreadedOneBlockCommNvshmem
 
                 if (cta.thread_rank() == 0)
                 {
-
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);

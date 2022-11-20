@@ -17,6 +17,8 @@
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-warp-comm.cuh"
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-thread-get.cuh"
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-thread-put.cuh"
+#include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-original.cuh"
+#include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-original-put.cuh"
 //#include "../include/single-stream_nvshmem/multi-threaded-two-block-comm-contiguous.cuh"
 //#include "../include/single-stream_nvshmem/multi-threaded-two-block-comm.cuh"
 //#include "../include/single-stream_nvshmem/multi-threaded-two-block-warp-comm.cuh"
@@ -65,6 +67,10 @@ int main(int argc, char *argv[]) {
         make_pair("NVSHMEM Single stream multi threaded thread put (one thread block communicates)",
                   SSMultiThreadedOneBlockCommThreadPutNvshmem::init),
 
+        make_pair("NVSHMEM Single stream multi threaded original (one thread block communicates)",
+                  SSMultiThreadedOneBlockCommOriginalNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded original put (one thread block communicates)",
+                  SSMultiThreadedOneBlockCommOriginalPutNvshmem::init),
 
         make_pair("Baseline Multi Threaded Copy (No computation)",
                   BaselineMultiThreadedCopyNoCompute::init),

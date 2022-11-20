@@ -27,14 +27,14 @@ version_name_to_idx_map["Single Stream 1TB Warp"]=7
 #version_name_to_idx_map["Single Stream 2TB"]=8
 #version_name_to_idx_map["Double Stream"]=9
 
-#version_name_to_idx_map["Baseline Copy (No compute)"]=15
-#version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=16
-#version_name_to_idx_map["Baseline P2P (No Compute)"]=17
+#version_name_to_idx_map["Baseline Copy (No compute)"]=17
+#version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=18
+#version_name_to_idx_map["Baseline P2P (No Compute)"]=19
 
-#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=18
-#version_name_to_idx_map["Single Stream 1TB Warp (No Compute)"]=19
-#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=20
-#version_name_to_idx_map["Double Stream (No Compute)"]=21
+#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=20
+#version_name_to_idx_map["Single Stream 1TB Warp (No Compute)"]=21
+#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=22
+#version_name_to_idx_map["Double Stream (No Compute)"]=23
 
 declare -A version_name_to_idx_map_nvshmem
 
@@ -48,6 +48,9 @@ version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=11
 
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Get"]=13
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Put"]=14
+
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Original"]=15
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Original Put"]=16
 
 BIN="./jacobi -s 1"
 
