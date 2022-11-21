@@ -68,7 +68,7 @@ namespace SSMultiThreadedOneBlockCommOriginalPutNvshmem
                         cg::sync(cta);
                         if (cta.thread_rank() == 0)
                         {
-                            
+                            nvshmem_fence();
                             nvshmemx_signal_op(
                                 is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y +
                                     comm_tile_idx_y * num_comm_tiles_x + comm_tile_idx_x,
@@ -95,6 +95,7 @@ namespace SSMultiThreadedOneBlockCommOriginalPutNvshmem
                         cg::sync(cta);
                         if (cta.thread_rank() == 0)
                         {
+                            nvshmem_fence();
                             nvshmemx_signal_op(
                                 is_done_computing_flags + next_iter_mod * num_flags +
                                     comm_tile_idx_y * num_comm_tiles_x + comm_tile_idx_x,
