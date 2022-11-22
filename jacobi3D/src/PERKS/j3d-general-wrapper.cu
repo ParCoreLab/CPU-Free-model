@@ -29,7 +29,7 @@ __global__ void kernel3d_general_wrapper(REAL * __restrict__ input,
                                 int width_z, int width_y, int width_x,
                                 REAL* l2_cache_i, REAL* l2_cache_o,
                                 int iteration,
-                                int max_sm_flder)
+                                volatile int *iteration_done, int max_sm_flder)
 {
 
   kernel3d_general_inner<REAL,halo,LOCAL_ITEM_PER_THREAD,LOCAL_TILE_X,

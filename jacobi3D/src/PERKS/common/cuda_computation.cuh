@@ -362,9 +362,9 @@ __global__ void  kernel3d_general_wrapper
 (REAL* __restrict__ input, REAL*__restrict__ output,
                                   int height, int width_y, int width_x,
                                   REAL * l2_cache_i, REAL * l2_cache_o,
-                                  int iteration, int max_sm_flder=0);
+                                  int iteration, volatile int *iteration_done, int max_sm_flder=0);
 
 #define PERKS_DECLARE_INITIONIZATION_GENERAL_WRAPPER(_type,halo,ttile,tilex,ramount,usesm,blockdim,shape) \
-    __global__ void kernel3d_general_wrapper<_type,halo,ttile,tilex,ramount,usesm,blockdim,shape>(_type*__restrict__,_type*__restrict__,int,int,int, _type*, _type*, int, int);
+    __global__ void kernel3d_general_wrapper<_type,halo,ttile,tilex,ramount,usesm,blockdim,shape>(_type*__restrict__,_type*__restrict__,int,int,int, _type*, _type*, int, volatile int*, int);
 
 

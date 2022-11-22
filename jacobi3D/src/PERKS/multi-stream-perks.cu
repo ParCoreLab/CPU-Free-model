@@ -12,14 +12,14 @@
 
 // perks stuff
 // #include "./common/common.hpp"
+#include "./config.cuh"
+#include "./perksconfig.cuh"
+#include "config.cuh"
 #include "./common/cuda_common.cuh"
 #include "./common/cuda_computation.cuh"
 #include "./common/jacobi_cuda.cuh"
 #include "./common/jacobi_reference.hpp"
 #include "./common/types.hpp"
-#include "./config.cuh"
-#include "./perksconfig.cuh"
-#include "config.cuh"
 
 #include "../../include/PERKS/multi-stream-perks.cuh"
 #include "../../include/common.h"
@@ -66,9 +66,7 @@ __global__ void __launch_bounds__(1024, 1)
     int ix = 0;
 
     while (iter < iter_max) {
-        //            while (iteration_done[1] != iter)
-        //            {
-        //            }
+//        while (iteration_done[1] != iter) {}
 
         if (blockIdx.x == gridDim.x - 1) {
             for (comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++) {
@@ -365,48 +363,39 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         int *iteration_done_flags[2];
 
-        //        CUDA_RT_CALL(cudaMalloc(iteration_done_flags, 2 * sizeof(int)));
-        //        CUDA_RT_CALL(cudaMalloc(iteration_done_flags, 2 * sizeof(int)));
-        //
-        //        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + 1, 2 * sizeof(int)));
-        //        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + 1, 2 * sizeof(int)));
-        //
-        //        CUDA_RT_CALL(cudaMemset(iteration_done_flags[0], 0, 2 * sizeof(int)));
-        //        CUDA_RT_CALL(cudaMemset(iteration_done_flags[1], 0, 2 * sizeof(int)));
-        //
-        //        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * ny * (chunk_size + 2) * sizeof(real)));
-        //        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * ny * (chunk_size + 2) *
-        //        sizeof(real)));
-        //
-        //        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
-        //        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * ny * (chunk_size + 2) *
-        //        sizeof(real)));
-        //
-        //        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * ny *
-        //        sizeof(real))); CUDA_RT_CALL(
-        //            cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * ny *
-        //            sizeof(real)));
-        //
-        //        CUDA_RT_CALL(
-        //            cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, 2 * nx * ny *
-        //            sizeof(real)));
-        //        CUDA_RT_CALL(
-        //            cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx * ny *
-        //            sizeof(real)));
-        //
-        //        CUDA_RT_CALL(
-        //            cudaMalloc(is_top_done_computing_flags + dev_id, total_num_flags *
-        //            sizeof(int)));
-        //        CUDA_RT_CALL(
-        //            cudaMalloc(is_bottom_done_computing_flags + dev_id, total_num_flags *
-        //            sizeof(int)));
-        //
-        //        CUDA_RT_CALL(
-        //            cudaMemset(is_top_done_computing_flags[dev_id], 0, total_num_flags *
-        //            sizeof(int)));
-        //        CUDA_RT_CALL(
-        //            cudaMemset(is_bottom_done_computing_flags[dev_id], 0, total_num_flags *
-        //            sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(iteration_done_flags, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(iteration_done_flags, 2 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + 1, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + 1, 2 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMemset(iteration_done_flags[0], 0, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(iteration_done_flags[1], 0, 2 * sizeof(int)));
+
+        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * ny * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * ny * (chunk_size + 2) * sizeof(real)));
+
+        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+
+        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
+        CUDA_RT_CALL(
+            cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
+
+        CUDA_RT_CALL(
+            cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, 2 * nx * ny * sizeof(real)));
+        CUDA_RT_CALL(
+            cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx * ny * sizeof(real)));
+
+        CUDA_RT_CALL(
+            cudaMalloc(is_top_done_computing_flags + dev_id, total_num_flags * sizeof(int)));
+        CUDA_RT_CALL(
+            cudaMalloc(is_bottom_done_computing_flags + dev_id, total_num_flags * sizeof(int)));
+
+        CUDA_RT_CALL(
+            cudaMemset(is_top_done_computing_flags[dev_id], 0, total_num_flags * sizeof(int)));
+        CUDA_RT_CALL(
+            cudaMemset(is_bottom_done_computing_flags[dev_id], 0, total_num_flags * sizeof(int)));
 
         // Calculate local domain boundaries
         int iz_start_global;  // My start index in the global array
@@ -753,11 +742,11 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         //    cudaMemcpy(input, h_input, sizeof(REAL) * (height * width_x * width_y),
         //    cudaMemcpyHostToDevice);
-        REAL *__var_1__;
-        CUDA_RT_CALL(cudaMalloc(&__var_1__, sizeof(REAL) * (nz * nx * ny)));
-        REAL *__var_2__;
-        CUDA_RT_CALL(cudaMalloc(&__var_2__, sizeof(REAL) * (nz * nx * ny)));
-
+        //        REAL *__var_1__;
+        //        CUDA_RT_CALL(cudaMalloc(&__var_1__, sizeof(REAL) * (nz * nx * ny)));
+        //        REAL *__var_2__;
+        //        CUDA_RT_CALL(cudaMalloc(&__var_2__, sizeof(REAL) * (nz * nx * ny)));
+        //
         size_t L2_utage = ny * nz * sizeof(REAL) * HALO * (nx / TILE_X) * 2 +
                           nx * nz * sizeof(REAL) * HALO * (ny / TILE_Y) * 2;
 
@@ -767,13 +756,18 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMalloc(&l2_cache2, L2_utage));
 
         int l_iteration = iter_max;
-        void *KernelArgs[] = {(void **)&input,     (void *)&__var_2__,   (void **)&nz,
-                              (void **)&ny,        (void *)&nx,          (void **)&l2_cache1,
-                              (void **)&l2_cache2, (void *)&l_iteration, (void *)&max_sm_flder};
-
-        printf("executeGridDim: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
-        printf("executeBlockDim: %d %d %d\n", executeBlockDim.x, executeBlockDim.y,
-               executeBlockDim.z);
+        void *KernelArgs[] = {
+            (void *)&a[dev_id],
+            (void *)&a_new[dev_id],
+            (void *)&chunk_size,
+            (void *)&ny,
+            (void *)&nx,
+            (void *)&l2_cache1,
+            (void *)&l2_cache2,
+            (void *)&l_iteration,
+            (void *)&iteration_done_flags[0],
+            (void *)&max_sm_flder
+        };
 
         double start = omp_get_wtime();
 
@@ -781,9 +775,8 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
                                                  executeBlockDim, KernelArgs, executeSM,
                                                  inner_domain_stream));
 
-        //        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)boundary_sync_kernel,
-        //                                                 2, dim_block, kernelArgsBoundary, 0,
-        //                                                 boundary_sync_stream));
+//        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)boundary_sync_kernel, 2, dim_block,
+//                                                 kernelArgsBoundary, 0, boundary_sync_stream));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
