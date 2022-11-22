@@ -30,7 +30,7 @@ namespace MultiGPUPeerTilingNoCompute
                       volatile int *iteration_done)
     {
         cg::thread_block cta = cg::this_thread_block();
-        cg::grid_group grid = cg::this_grid(); 
+        cg::grid_group grid = cg::this_grid();
 
         /*
         const int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
@@ -84,7 +84,6 @@ namespace MultiGPUPeerTilingNoCompute
                 }
             }
             */
-            
 
             real *temp_pointer_first = a_new;
             a_new = a;
@@ -146,11 +145,11 @@ namespace MultiGPUPeerTilingNoCompute
         int cur_iter_comm_tile_flag_idx_y;
         int next_iter_comm_tile_flag_idx_x;
         int next_iter_comm_tile_flag_idx_y;
-        
-        //int iy_below = 0;
-        //int iy_above = 0;
+
+        // int iy_below = 0;
+        // int iy_above = 0;
         int iy = 0;
-        
+
         int ix = 0;
 
         while (iter < iter_max)
@@ -172,7 +171,7 @@ namespace MultiGPUPeerTilingNoCompute
 
                         ix = threadIdx.x + comm_tile_start_x;
 
-                        if (cta.thread_rank() == 0)
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             cur_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
                             cur_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
@@ -185,7 +184,7 @@ namespace MultiGPUPeerTilingNoCompute
                         }
 
                         cg::sync(cta);
-
+                        /*
                         if (iy < ny - 1 && ix < nx - 1)
                         {
                             // const real first_row_val =
@@ -202,9 +201,15 @@ namespace MultiGPUPeerTilingNoCompute
                         }
 
                         cg::sync(cta);
+                        */
+                        if (iy < ny - 1 && ix < nx - 1)
+                        {
+                            const real first_row_val = remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx + iy * nx + ix];
+                            local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy * nx + ix] = first_row_val;
+                        }
+                        cg::sync(cta);
 
-
-                        if (cta.thread_rank() == 0)
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             next_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
                             next_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
@@ -229,7 +234,7 @@ namespace MultiGPUPeerTilingNoCompute
                         comm_tile_start_x = (comm_tile_idx_x == 0) ? 1 : comm_tile_idx_x * comm_tile_size_x;
                         ix = threadIdx.x + comm_tile_start_x;
 
-                        if (cta.thread_rank() == 0)
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             cur_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
                             cur_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
@@ -242,7 +247,7 @@ namespace MultiGPUPeerTilingNoCompute
                         }
 
                         cg::sync(cta);
-
+                        /*
                         if (iy < ny - 1 && ix < nx - 1)
                         {
 
@@ -260,8 +265,16 @@ namespace MultiGPUPeerTilingNoCompute
                         }
 
                         cg::sync(cta);
+                        */
 
-                        if (cta.thread_rank() == 0)
+                        if (iy < ny - 1 && ix < nx - 1)
+                        {
+                            const real last_row_val = remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx + iy * nx + ix];
+                            local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy * nx + ix] = last_row_val;
+                        }
+                        cg::sync(cta);
+                        
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             next_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
                             next_iter_comm_tile_flag_idx_y = comm_tile_idx_y;

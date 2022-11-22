@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <iostream>
 
-#include "../../include/single-stream_nvshmem/multi-threaded-one-block-warp-comm.cuh"
+#include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-warp.cuh"
 #include <cooperative_groups.h>
 
 #include <nvshmem.h>
@@ -12,7 +12,7 @@
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedOneBlockWarpCommNvshmem
+namespace SSMultiThreadedOneBlockCommWarpNvshmem
 {
 
     __global__ void __launch_bounds__(1024, 1)
@@ -45,7 +45,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x;
                          comm_tile_idx_x++, ix += blockDim.x)
                     {
-                        if (warp.thread_rank() == 0)
+                        if (warp.thread_rank() == warp.num_threads() - 1)
                         {
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
@@ -78,7 +78,7 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
                                 comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
                             iter + 1, NVSHMEM_SIGNAL_SET, top);
 
-                        if (warp.thread_rank() == 0)
+                        if (warp.thread_rank() == warp.num_threads() - 1)
                         {
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
@@ -143,16 +143,16 @@ namespace SSMultiThreadedOneBlockWarpCommNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            if (grid.thread_rank()==0)
+            if (grid.thread_rank()==grid.num_threads()-1)
             {
                 nvshmem_quiet();
             }
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedOneBlockWarpCommNvshmem
+} // namespace SSMultiThreadedOneBlockCommWarpNvshmem
 
-int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
+int SSMultiThreadedOneBlockCommWarpNvshmem::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -391,7 +391,7 @@ int SSMultiThreadedOneBlockWarpCommNvshmem::init(int argc, char *argv[])
     double start = MPI_Wtime();
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)SSMultiThreadedOneBlockWarpCommNvshmem::jacobi_kernel, dim_grid, dim_block,
+        (void *)SSMultiThreadedOneBlockCommWarpNvshmem::jacobi_kernel, dim_grid, dim_block,
         kernelArgs, 0, nullptr));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());

@@ -24,7 +24,6 @@ namespace SSMultiThreadedOneBlockCommOriginalPutNvshmem
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
-        auto warp = cg::tiled_partition<32>(cta);
 
         int iter = 0;
         int cur_iter_mod = 0;
@@ -45,7 +44,7 @@ namespace SSMultiThreadedOneBlockCommOriginalPutNvshmem
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x;
                          comm_tile_idx_x++, ix += blockDim.x)
                     {
-                        if (cta.thread_rank() == 0)
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
@@ -66,7 +65,7 @@ namespace SSMultiThreadedOneBlockCommOriginalPutNvshmem
                             nvshmem_float_p(halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + ix, first_row_val, top);
                         }
                         cg::sync(cta);
-                        if (cta.thread_rank() == 0)
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             nvshmem_fence();
                             nvshmemx_signal_op(
@@ -93,7 +92,7 @@ namespace SSMultiThreadedOneBlockCommOriginalPutNvshmem
                             nvshmem_float_p(halo_buffer_top + next_iter_mod * ny * nx + iy * nx + ix, last_row_val, bottom);
                         }
                         cg::sync(cta);
-                        if (cta.thread_rank() == 0)
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             nvshmem_fence();
                             nvshmemx_signal_op(
@@ -135,7 +134,7 @@ namespace SSMultiThreadedOneBlockCommOriginalPutNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            if (grid.thread_rank() == 0)
+            if (grid.thread_rank() == grid.num_threads()-1)
             {
                 nvshmem_quiet();
             }

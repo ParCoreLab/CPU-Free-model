@@ -13,15 +13,16 @@
 
 
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-contiguous.cuh"
-#include "../include/single-stream_nvshmem/multi-threaded-one-block-comm.cuh"
-#include "../include/single-stream_nvshmem/multi-threaded-one-block-warp-comm.cuh"
+#include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-bulk.cuh"
+#include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-bulk-get.cuh"
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-thread-get.cuh"
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-thread-put.cuh"
-#include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-original.cuh"
+#include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-original-get.cuh"
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-original-put.cuh"
+
+//#include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-warp.cuh"
 //#include "../include/single-stream_nvshmem/multi-threaded-two-block-comm-contiguous.cuh"
 //#include "../include/single-stream_nvshmem/multi-threaded-two-block-comm.cuh"
-//#include "../include/single-stream_nvshmem/multi-threaded-two-block-warp-comm.cuh"
 
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
 //#include "../include/multi-stream_nvshmem/multi-gpu-peer-tiling.cuh"
@@ -34,6 +35,16 @@
 #include "../include/no-compute/multi-threaded-one-block-warp-comm-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-p2p-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
+
+#include "../include/no-compute_nvshmem/multi-threaded-nvshmem-no-compute.cuh"
+#include "../include/no-compute_nvshmem/multi-threaded-nvshmem-opt-no-compute.cuh"
+#include "../include/no-compute_nvshmem/multi-threaded-one-block-comm-contiguous-no-compute.cuh"
+#include "../include/no-compute_nvshmem/multi-threaded-one-block-comm-bulk-no-compute.cuh"
+#include "../include/no-compute_nvshmem/multi-threaded-one-block-comm-bulk-get-no-compute.cuh"
+#include "../include/no-compute_nvshmem/multi-threaded-one-block-comm-thread-get-no-compute.cuh"
+#include "../include/no-compute_nvshmem/multi-threaded-one-block-comm-thread-put-no-compute.cuh"
+#include "../include/no-compute_nvshmem/multi-threaded-one-block-comm-original-get-no-compute.cuh"
+#include "../include/no-compute_nvshmem/multi-threaded-one-block-comm-original-put-no-compute.cuh"
 
 using std::make_pair;
 
@@ -56,11 +67,11 @@ int main(int argc, char *argv[]) {
         make_pair("Naive Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
 
         make_pair("NVSHMEM Single stream multi threaded bulk (one thread block communicates)",
-                  SSMultiThreadedOneBlockCommNvshmem::init),
+                  SSMultiThreadedOneBlockCommBulkNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded bulk get (one thread block communicates)",
+                  SSMultiThreadedOneBlockCommBulkGetNvshmem::init),
         make_pair("NVSHMEM Single stream multi threaded contiguous (one thread block communicates)",
                   SSMultiThreadedOneBlockCommContiguousNvshmem::init),
-        make_pair("NVSHMEM Single stream multi threaded warp (one thread block communicates)",
-                  SSMultiThreadedOneBlockWarpCommNvshmem::init),
                   
         make_pair("NVSHMEM Single stream multi threaded thread get (one thread block communicates)",
                   SSMultiThreadedOneBlockCommThreadGetNvshmem::init),
@@ -68,7 +79,7 @@ int main(int argc, char *argv[]) {
                   SSMultiThreadedOneBlockCommThreadPutNvshmem::init),
 
         make_pair("NVSHMEM Single stream multi threaded original (one thread block communicates)",
-                  SSMultiThreadedOneBlockCommOriginalNvshmem::init),
+                  SSMultiThreadedOneBlockCommOriginalGetNvshmem::init),
         make_pair("NVSHMEM Single stream multi threaded original put (one thread block communicates)",
                   SSMultiThreadedOneBlockCommOriginalPutNvshmem::init),
 
@@ -78,14 +89,35 @@ int main(int argc, char *argv[]) {
                   BaselineMultiThreadedCopyOverlapNoCompute::init),
         make_pair("Baseline Multi Threaded P2P (No Computation)",
                   BaselineMultiThreadedP2PNoCompute::init),
+
+        make_pair("Baseline Multi Threaded NVSHMEM (No Computation)", BaselineMultiThreadedNvshmemNoCompute::init),
+        make_pair("Baseline Single Threaded NVSHMEM Optimized (No Computation)", BaselineMultiThreadedNvshmemOptNoCompute::init),
+
         make_pair("Single stream multi threaded (one thread block communicates; no computation)",
                   SSMultiThreadedOneBlockCommNoCompute::init),
-                  make_pair("Single stream multi threaded warp (one thread block communicates; no computation)",
+        make_pair("Single stream multi threaded warp (one thread block communicates; no computation)",
                   SSMultiThreadedOneBlockWarpCommNoCompute::init),
         make_pair("Single stream multi threaded (two thread blocks communicate; no computation)",
                   SSMultiThreadedTwoBlockCommNoCompute::init),
         make_pair("Double stream multi threaded with Tiling (no computation)",
                   MultiGPUPeerTilingNoCompute::init),
+
+        make_pair("NVSHMEM Single stream multi threaded bulk (one thread block communicates; no computation)",
+                  SSMultiThreadedOneBlockCommBulkNvshmemNoCompute::init),
+        make_pair("NVSHMEM Single stream multi threaded bulk get (one thread block communicates; no computation)",
+                  SSMultiThreadedOneBlockCommBulkGetNvshmemNoCompute::init),
+        make_pair("NVSHMEM Single stream multi threaded contiguous (one thread block communicates; no computation)",
+                  SSMultiThreadedOneBlockCommContiguousNvshmemNoCompute::init),
+                  
+        make_pair("NVSHMEM Single stream multi threaded thread get (one thread block communicates; no computation)",
+                  SSMultiThreadedOneBlockCommThreadGetNvshmemNoCompute::init),
+        make_pair("NVSHMEM Single stream multi threaded thread put (one thread block communicates; no computation)",
+                  SSMultiThreadedOneBlockCommThreadPutNvshmemNoCompute::init),
+
+        make_pair("NVSHMEM Single stream multi threaded original (one thread block communicates; no computation)",
+                  SSMultiThreadedOneBlockCommOriginalGetNvshmemNoCompute::init),
+        make_pair("NVSHMEM Single stream multi threaded original put (one thread block communicates; no computation)",
+                  SSMultiThreadedOneBlockCommOriginalPutNvshmemNoCompute::init)
 
     };
 

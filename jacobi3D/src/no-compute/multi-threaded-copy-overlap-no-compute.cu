@@ -44,7 +44,7 @@ namespace BaselineMultiThreadedCopyOverlapNoCompute
         int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
         int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
         int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-
+        
         // real local_l2_norm = 0.0;
 
         if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))

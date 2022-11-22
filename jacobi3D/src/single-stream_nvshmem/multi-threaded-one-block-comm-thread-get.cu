@@ -35,7 +35,7 @@ namespace SSMultiThreadedOneBlockCommThreadGetNvshmem
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                if (cta.thread_rank() == 0)
+                if (cta.thread_rank() == cta.num_threads() - 1)
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
@@ -56,7 +56,7 @@ namespace SSMultiThreadedOneBlockCommThreadGetNvshmem
                     }
                 }
                 cg::sync(cta);
-                if (cta.thread_rank() == 0)
+                if (cta.thread_rank() == cta.num_threads() - 1)
                 {
                     nvshmemx_signal_op(is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                                        top);
@@ -81,7 +81,7 @@ namespace SSMultiThreadedOneBlockCommThreadGetNvshmem
                     }
                 }
                 cg::sync(cta);
-                if (cta.thread_rank() == 0)
+                if (cta.thread_rank() == cta.num_threads() - 1)
                 {
                     nvshmemx_signal_op(is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                                        bottom);
@@ -117,7 +117,7 @@ namespace SSMultiThreadedOneBlockCommThreadGetNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            if (grid.thread_rank() == 0)
+            if (grid.thread_rank() == grid.num_threads()-1)
             {
                 nvshmem_quiet();
             }

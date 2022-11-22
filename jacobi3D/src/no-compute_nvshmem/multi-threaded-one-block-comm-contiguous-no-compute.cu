@@ -4,8 +4,8 @@
 #include <cstdio>
 #include <iostream>
 
-#include "../../include/common.h"
-#include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-contiguous.cuh"
+
+#include "../../include/no-compute_nvshmem/multi-threaded-one-block-comm-contiguous-no-compute.cuh"
 #include <cooperative_groups.h>
 
 #include <nvshmem.h>
@@ -13,7 +13,7 @@
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedOneBlockCommContiguousNvshmem
+namespace SSMultiThreadedOneBlockCommContiguousNvshmemNoCompute
 {
 
     __global__ void __launch_bounds__(1024, 1)
@@ -48,10 +48,11 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                         nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
                     }
                     cg::sync(cta);
-
+                    
                     int block_start_idx = block_idx * thread_count_per_block;
+                    
+                    /*
                     int element_idx = block_start_idx + base_idx;
-
                     if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx && element_idx > nx)
                     {
                         const real new_val = (real(1) / real(6)) * (a[iz_start * ny * nx + element_idx + 1] +
@@ -63,7 +64,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
                         a_new[iz_start * ny * nx + element_idx] = new_val;
                     }
-
+                    */
                     nvshmemx_putmem_signal_nbi_block(
                         halo_buffer_bottom + next_iter_mod * nx * ny + block_start_idx,
                         a_new + iz_start * ny * nx + block_start_idx,
@@ -76,6 +77,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                         nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
                     }
                     cg::sync(cta);
+                    /*
                     if (element_idx % nx > 0 && element_idx % nx < (nx - 1) && element_idx < (ny - 1) * nx && element_idx > nx)
                     {
                         const real new_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + element_idx + 1] +
@@ -87,7 +89,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
                         a_new[(iz_end - 1) * ny * nx + element_idx] = new_val;
                     }
-
+                    */
                     nvshmemx_putmem_signal_nbi_block(
                         halo_buffer_top + next_iter_mod * nx * ny + block_start_idx,
                         a_new + (iz_end - 1) * ny * nx + block_start_idx,
@@ -98,7 +100,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
             }
             else
             {
-
+                /*
                 for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
                      iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
@@ -116,6 +118,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
                         }
                     }
                 }
+                */
             }
 
             real *temp_pointer = a_new;
@@ -126,16 +129,16 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            if (grid.thread_rank()==grid.num_threads()-1)
+            if (grid.thread_rank()==grid.num_threads() - 1)
             {
                 nvshmem_quiet();
             }
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedOneBlockCommNvshmem
+} // namespace SSMultiThreadedOneBlockCommContiguousNvshmemNoCompute
 
-int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
+int SSMultiThreadedOneBlockCommContiguousNvshmemNoCompute::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -376,7 +379,7 @@ int SSMultiThreadedOneBlockCommContiguousNvshmem::init(int argc, char *argv[])
     double start = MPI_Wtime();
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)SSMultiThreadedOneBlockCommContiguousNvshmem::jacobi_kernel, dim_grid,
+        (void *)SSMultiThreadedOneBlockCommContiguousNvshmemNoCompute::jacobi_kernel, dim_grid,
         dim_block, kernelArgs, 0, nullptr));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());

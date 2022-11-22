@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <iostream>
 
-#include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-original.cuh"
+#include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-original-get.cuh"
 #include <cooperative_groups.h>
 
 #include <nvshmem.h>
@@ -12,7 +12,7 @@
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedOneBlockCommOriginalNvshmem
+namespace SSMultiThreadedOneBlockCommOriginalGetNvshmem
 {
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end,
@@ -23,7 +23,6 @@ namespace SSMultiThreadedOneBlockCommOriginalNvshmem
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
-        auto warp = cg::tiled_partition<32>(cta);
 
         int iter = 0;
         int cur_iter_mod = 0;
@@ -31,7 +30,7 @@ namespace SSMultiThreadedOneBlockCommOriginalNvshmem
 
         const int num_comm_tiles_x = nx / blockDim.x + (nx % blockDim.x != 0);
         const int num_comm_tiles_y = ny / (blockDim.y * blockDim.z) + (ny % (blockDim.y * blockDim.z) != 0);
-        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size();
+        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
@@ -44,7 +43,7 @@ namespace SSMultiThreadedOneBlockCommOriginalNvshmem
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x;
                          comm_tile_idx_x++, ix += blockDim.x)
                     {
-                        if (cta.thread_rank() == 0)
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
@@ -65,7 +64,7 @@ namespace SSMultiThreadedOneBlockCommOriginalNvshmem
                             halo_buffer_top[next_iter_mod * ny * nx + iy * nx + ix] = first_row_val;
                         }
                         cg::sync(cta);
-                        if (cta.thread_rank() == 0)
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             nvshmemx_signal_op(
                                 is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y +
@@ -91,7 +90,7 @@ namespace SSMultiThreadedOneBlockCommOriginalNvshmem
                             halo_buffer_bottom[next_iter_mod * ny * nx + iy * nx + ix] = last_row_val;
                         }
                         cg::sync(cta);
-                        if (cta.thread_rank() == 0)
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             nvshmemx_signal_op(
                                 is_done_computing_flags + next_iter_mod * num_flags +
@@ -132,16 +131,16 @@ namespace SSMultiThreadedOneBlockCommOriginalNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            if (grid.thread_rank() == 0)
+            if (grid.thread_rank() == grid.num_threads()-1)
             {
                 nvshmem_quiet();
             }
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedOneBlockCommOriginalNvshmem
+} // namespace SSMultiThreadedOneBlockCommOriginalGetNvshmem
 
-int SSMultiThreadedOneBlockCommOriginalNvshmem::init(int argc, char *argv[])
+int SSMultiThreadedOneBlockCommOriginalGetNvshmem::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -380,7 +379,7 @@ int SSMultiThreadedOneBlockCommOriginalNvshmem::init(int argc, char *argv[])
     double start = MPI_Wtime();
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)SSMultiThreadedOneBlockCommOriginalNvshmem::jacobi_kernel, dim_grid, dim_block,
+        (void *)SSMultiThreadedOneBlockCommOriginalGetNvshmem::jacobi_kernel, dim_grid, dim_block,
         kernelArgs, 0, nullptr));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
