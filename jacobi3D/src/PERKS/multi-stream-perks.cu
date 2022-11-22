@@ -66,7 +66,7 @@ __global__ void __launch_bounds__(1024, 1)
     int ix = 0;
 
     while (iter < iter_max) {
-//        while (iteration_done[1] != iter) {}
+        while (iteration_done[1] != iter) {}
 
         if (blockIdx.x == gridDim.x - 1) {
             for (comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++) {
@@ -775,8 +775,8 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
                                                  executeBlockDim, KernelArgs, executeSM,
                                                  inner_domain_stream));
 
-//        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)boundary_sync_kernel, 2, dim_block,
-//                                                 kernelArgsBoundary, 0, boundary_sync_stream));
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)boundary_sync_kernel, 2, dim_block,
+                                                 kernelArgsBoundary, 0, boundary_sync_stream));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 

@@ -36,7 +36,7 @@ __global__ void kernel3d_general_wrapper(REAL * __restrict__ input,
   // reg_folder_z,
   regfolder<halo,shape,BLOCKDIM, LOCAL_ITEM_PER_THREAD, registeramount,PERKS_ARCH,UseSMCache,REAL>::val,
   UseSMCache,BLOCKDIM>
-    (input,output,width_z,width_y,width_x,l2_cache_i,l2_cache_o,iteration,max_sm_flder);
+    (input,output,width_z,width_y,width_x,l2_cache_i,l2_cache_o,iteration,iteration_done,max_sm_flder);
 
   // inner_general<REAL, LOCAL_TILE_Y, halo,
   // regfolder<halo,isstar,registeramount,PERKS_ARCH,UseSMCache,REAL,LOCAL_TILE_Y>::val,

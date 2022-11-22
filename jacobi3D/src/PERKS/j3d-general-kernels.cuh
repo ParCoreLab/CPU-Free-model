@@ -230,7 +230,8 @@ kernel3d_general_inner(REAL * __restrict__ input,
                                 int width_z, int width_y, int width_x,
                                 REAL* l2_cache_i, REAL* l2_cache_o,
                                 int iteration,
-                                int max_sm_flder) 
+                                volatile int *iteration_done,
+                                int max_sm_flder)
 {
   #define LOCAL_TILE_Y (LOCAL_ITEM_PER_THREAD*BLOCKDIM/LOCAL_TILE_X)
   #define gdim_y (BLOCKDIM/LOCAL_TILE_X)  
@@ -955,6 +956,17 @@ kernel3d_general_inner(REAL * __restrict__ input,
     }
 
     gg.sync();
+
+    if (gg.thread_rank() == 0) {
+        int iter_next = iter + 1;
+
+        while (iteration_done[0] != iter_next) {}
+
+        iteration_done[1] = iter_next;
+    }
+
+    gg.sync();
+
     //load frm global memory in l2 cache pointer (hopefully)
     REAL* tmp_ptr =output;
     output=input;
@@ -1198,6 +1210,8 @@ kernel3d_general_inner(REAL * __restrict__ input,
 
       __syncthreads();
     }
+
+
   }
 
   for(int global_z=p_z_reg_start, cache_z_reg=halo; global_z<p_z_sm_start; global_z+=1, cache_z_reg++)
