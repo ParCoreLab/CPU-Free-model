@@ -474,8 +474,6 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
 
 double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *x_ref,
                       int num_rows, int nnz) {
-    CUDA_RT_CALL(cudaSetDevice(0));
-
     real *um_x;
     real *um_r;
     real *um_p;
@@ -651,6 +649,23 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     for (int i = 0; i < num_rows; i++) {
         x_ref[i] = um_x[i];
     }
+
+    CUDA_RT_CALL(cudaFree(um_x));
+    CUDA_RT_CALL(cudaFree(um_r));
+    CUDA_RT_CALL(cudaFree(um_p));
+    CUDA_RT_CALL(cudaFree(um_s));
+    CUDA_RT_CALL(cudaFree(um_z));
+    CUDA_RT_CALL(cudaFree(um_w));
+    CUDA_RT_CALL(cudaFree(um_q));
+    CUDA_RT_CALL(cudaFree(um_ax0));
+
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_delta1));
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma1));
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_delta0));
+    CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma0));
+    CUDA_RT_CALL(cudaFree(um_alpha));
+    CUDA_RT_CALL(cudaFree(um_negative_alpha));
+    CUDA_RT_CALL(cudaFree(um_beta));
 
     return (stop - start);
 }
