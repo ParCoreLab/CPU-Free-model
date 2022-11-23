@@ -178,11 +178,10 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
         gpuSpMV(I, J, val, nnz, N, real_positive_one, p, Ax, peer_group);
 
-        cg::sync(grid);
-
         if (peer_group.thread_rank() == 0) {
             *dot_result = 0.0;
         }
+
         peer_group.sync();
 
         gpuDotProduct(p, Ax, N, cta, peer_group);
@@ -258,13 +257,6 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
 
     // Structure used for cross-grid synchronization.
     MultiDeviceData multi_device_data;
-    CUDA_RT_CALL(cudaHostAlloc(&multi_device_data.hostMemoryArrivedList,
-                               (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList),
-                               cudaHostAllocPortable));
-    memset(multi_device_data.hostMemoryArrivedList, 0,
-           (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList));
-    multi_device_data.numDevices = num_devices;
-    multi_device_data.deviceRank = 0;
 
     int *host_I = NULL;
     int *host_J = NULL;
@@ -362,7 +354,7 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
                     iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
 
                 // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
-                //     iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
+                //     iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
             }
 
             if (compare_to_cpu) {
@@ -475,6 +467,18 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
         // #pragma omp barrier
 
         dim3 dimGrid(numSms * numBlocksPerSm, 1, 1), dimBlock(numThreads, 1, 1);
+
+#pragma omp master
+        {
+            CUDA_RT_CALL(
+                cudaHostAlloc(&multi_device_data.hostMemoryArrivedList,
+                              (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList),
+                              cudaHostAllocPortable));
+            memset(multi_device_data.hostMemoryArrivedList, 0,
+                   (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList));
+            multi_device_data.numDevices = num_devices;
+            multi_device_data.deviceRank = 0;
+        }
 
         void *kernelArgs[] = {
             (void *)&um_I,     (void *)&um_J,     (void *)&um_val, (void *)&um_x,

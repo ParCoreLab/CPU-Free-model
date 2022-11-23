@@ -305,13 +305,6 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 
     // Structure used for cross-grid synchronization.
     MultiDeviceData multi_device_data;
-    CUDA_RT_CALL(cudaHostAlloc(&multi_device_data.hostMemoryArrivedList,
-                               (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList),
-                               cudaHostAllocPortable));
-    memset(multi_device_data.hostMemoryArrivedList, 0,
-           (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList));
-    multi_device_data.numDevices = num_devices;
-    multi_device_data.deviceRank = 0;
 
     int *host_I = NULL;
     int *host_J = NULL;
@@ -475,6 +468,18 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 #pragma omp barrier
 
         dim3 dimGrid(numSms * numBlocksPerSm, 1, 1), dimBlock(numThreads, 1, 1);
+
+#pragma omp master
+        {
+            CUDA_RT_CALL(
+                cudaHostAlloc(&multi_device_data.hostMemoryArrivedList,
+                              (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList),
+                              cudaHostAllocPortable));
+            memset(multi_device_data.hostMemoryArrivedList, 0,
+                   (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList));
+            multi_device_data.numDevices = num_devices;
+            multi_device_data.deviceRank = 0;
+        }
 
         void *kernelArgs[] = {
             (void *)&um_I,
