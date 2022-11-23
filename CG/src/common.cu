@@ -589,7 +589,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
             um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_w, um_q);
 
         CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
+        CUDA_RT_CALL(cudaStreamSynchronize(streamSpMV));
 
         if (k > 1) {
             SingleGPU::update_b_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
@@ -601,6 +601,8 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
             SingleGPU::init_a_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
                                                              (real)*um_tmp_dot_gamma1, um_alpha);
         }
+
+        CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
 
         // We don't need to sync streamSpMV until this point.
 
