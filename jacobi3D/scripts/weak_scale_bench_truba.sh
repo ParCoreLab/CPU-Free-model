@@ -91,7 +91,7 @@ done
 
 for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
 
-
+    
     for version_name in "${!version_name_to_idx_map[@]}"; do
         echo "Running ${version_name}"; echo ""
         NY=${NX}
@@ -141,4 +141,7 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
 
         echo "-------------------------------------"
     done
+    
+    echo "-------------------------------------"
+    echo "-------------------------------------"
 done
