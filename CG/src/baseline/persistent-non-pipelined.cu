@@ -121,9 +121,10 @@ __device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int
     }
 }
 
-__global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *Ax, real *p,
-                                          real *r, double *dot_result, int nnz, int N, real tol,
-                                          MultiDeviceData multi_device_data, const int iter_max) {
+__global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *ax0, real *s,
+                                          real *p, real *r, double *dot_result, int nnz, int N,
+                                          real tol, MultiDeviceData multi_device_data,
+                                          const int iter_max) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
     PeerGroup peer_group(multi_device_data, grid);
@@ -132,7 +133,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
     real real_negative_one = -1.0;
 
     real r0 = 0.0;
-    real r1;
+    real r1 = 0.0;
     real b;
     real a;
     real na;
@@ -144,11 +145,15 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
     cg::sync(grid);
 
-    gpuSpMV(I, J, val, nnz, N, real_positive_one, x, Ax, peer_group);
+    gpuSpMV(I, J, val, nnz, N, real_positive_one, x, ax0, peer_group);
 
     cg::sync(grid);
 
-    gpuSaxpy(Ax, r, real_negative_one, N, peer_group);
+    gpuSaxpy(ax0, r, real_negative_one, N, peer_group);
+
+    cg::sync(grid);
+
+    gpuCopyVector(r, p, N, peer_group);
 
     cg::sync(grid);
 
@@ -160,23 +165,15 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
         atomicAdd_system(dot_result, grid_dot_result);
         grid_dot_result = 0.0;
     }
+
     peer_group.sync();
 
-    r1 = *dot_result;
+    r0 = *dot_result;
 
     int k = 1;
 
     while (k <= iter_max) {
-        if (k > 1) {
-            b = r1 / r0;
-            gpuScaleVectorAndSaxpy(r, p, real_positive_one, b, N, peer_group);
-        } else {
-            gpuCopyVector(r, p, N, peer_group);
-        }
-
-        peer_group.sync();
-
-        gpuSpMV(I, J, val, nnz, N, real_positive_one, p, Ax, peer_group);
+        gpuSpMV(I, J, val, nnz, N, real_positive_one, p, s, peer_group);
 
         if (peer_group.thread_rank() == 0) {
             *dot_result = 0.0;
@@ -184,7 +181,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
         peer_group.sync();
 
-        gpuDotProduct(p, Ax, N, cta, peer_group);
+        gpuDotProduct(p, s, N, cta, peer_group);
 
         cg::sync(grid);
 
@@ -195,15 +192,13 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
         peer_group.sync();
 
-        a = r1 / *dot_result;
+        a = r0 / *dot_result;
 
         gpuSaxpy(p, x, a, N, peer_group);
 
         na = -a;
 
-        gpuSaxpy(Ax, r, na, N, peer_group);
-
-        r0 = r1;
+        gpuSaxpy(s, r, na, N, peer_group);
 
         peer_group.sync();
 
@@ -225,6 +220,14 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
         peer_group.sync();
 
         r1 = *dot_result;
+
+        b = r1 / r0;
+
+        gpuScaleVectorAndSaxpy(r, p, real_positive_one, b, N, peer_group);
+
+        r0 = r1;
+
+        peer_group.sync();
 
         k++;
     }
@@ -279,6 +282,7 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
     real *um_r;
     real *um_p;
     real *um_s;
+    real *um_ax0;
 
     double *dot_result;
 
@@ -350,11 +354,11 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
             if (compare_to_single_gpu) {
                 CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
 
-                single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
-                    iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
-
-                // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
+                // single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
                 //     iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
+
+                single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
+                    iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
             }
 
             if (compare_to_cpu) {
@@ -391,6 +395,7 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(real)));
             CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(real)));
             CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(real)));
+            CUDA_RT_CALL(cudaMallocManaged((void **)&um_ax0, num_rows * sizeof(real)));
         }
 
         int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
@@ -481,9 +486,19 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
         }
 
         void *kernelArgs[] = {
-            (void *)&um_I,     (void *)&um_J,     (void *)&um_val, (void *)&um_x,
-            (void *)&um_s,     (void *)&um_p,     (void *)&um_r,   (void *)&dot_result,
-            (void *)&nnz,      (void *)&num_rows, (void *)&tol,    (void *)&multi_device_data,
+            (void *)&um_I,
+            (void *)&um_J,
+            (void *)&um_val,
+            (void *)&um_x,
+            (void *)&um_ax0,
+            (void *)&um_s,
+            (void *)&um_p,
+            (void *)&um_r,
+            (void *)&dot_result,
+            (void *)&nnz,
+            (void *)&num_rows,
+            (void *)&tol,
+            (void *)&multi_device_data,
             (void *)&iter_max,
         };
 
@@ -532,6 +547,7 @@ int BaselinePersistentNonPipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaFree(um_r));
             CUDA_RT_CALL(cudaFree(um_p));
             CUDA_RT_CALL(cudaFree(um_s));
+            CUDA_RT_CALL(cudaFree(um_ax0));
             CUDA_RT_CALL(cudaFree(dot_result));
             free(host_val);
 
