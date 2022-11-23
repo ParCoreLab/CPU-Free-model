@@ -50,9 +50,10 @@ namespace BaselineMultiThreadedP2PNoCompute
         int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
         int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
         // real local_l2_norm = 0.0;
-        /*
+        
         if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
         {
+            /*
             const real new_val = (a[iz * ny * nx + iy* nx + ix + 1] +
                                   a[iz * ny * nx + iy * nx+ ix - 1] +
                                   a[iz * ny * nx + (iy + 1) * nx + ix] +
@@ -72,13 +73,13 @@ namespace BaselineMultiThreadedP2PNoCompute
             {
                 a_new_bottom[bottom_iz * ny * nx + iy * nx + ix] = 0;
             }
-        /*
+            
             // if (calculate_norm) {
             //     real residue = new_val - a[iy * nx + ix];
             //     local_l2_norm += residue * residue;
             // }
         }
-        */
+        
         // if (calculate_norm) {
         //     atomicAdd(l2_norm, local_l2_norm);
         // }
