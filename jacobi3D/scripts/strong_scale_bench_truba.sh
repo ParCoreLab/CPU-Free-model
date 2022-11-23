@@ -28,10 +28,10 @@ version_name_to_idx_map["Single Stream 1TB"]=6
 #version_name_to_idx_map["Double Stream"]=9
 
 #version_name_to_idx_map["Baseline Copy (No compute)"]=17
-#version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=18
-#version_name_to_idx_map["Baseline P2P (No Compute)"]=19
+version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=18
+version_name_to_idx_map["Baseline P2P (No Compute)"]=19
 
-#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=22
+version_name_to_idx_map["Single Stream 1TB (No Compute)"]=22
 #version_name_to_idx_map["Single Stream 1TB Warp (No Compute)"]=23
 #version_name_to_idx_map["Single Stream 2TB (No Compute)"]=24
 #version_name_to_idx_map["Double Stream (No Compute)"]=25
