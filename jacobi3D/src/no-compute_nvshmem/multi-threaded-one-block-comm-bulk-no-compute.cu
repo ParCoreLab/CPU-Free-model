@@ -82,10 +82,12 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmemNoCompute
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * ny * nx, ny * nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
+                
             }
             else
             {
-                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+               /* 
+               for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
                      iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
                     for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
@@ -99,6 +101,7 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmemNoCompute
                         }
                     }
                 }
+                */
             }
 
             real *temp_pointer = a_new;
@@ -109,7 +112,7 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmemNoCompute
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            if (grid.thread_rank() == cta.num_threads() - 1)
+            if (grid.thread_rank() == grid.num_threads() - 1)
             {
                 nvshmem_quiet();
             }

@@ -149,7 +149,7 @@ namespace SSMultiThreadedOneBlockCommOriginalGetNvshmemNoCompute
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            if (grid.thread_rank() == 0)
+            if (grid.thread_rank()==grid.num_threads() - 1)
             {
                 nvshmem_quiet();
             }
