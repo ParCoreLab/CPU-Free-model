@@ -40,15 +40,16 @@ for version_result in results_per_version:
                                 chunk_lines[0]).group('num_gpus'))
 
         run_parameters_match = re.match(
-            "(?P<num_iter>\d+) iterations on grid (?P<nx>\d+)x(?P<ny>\d+)", chunk_lines[1])
+            "(?P<num_iter>\d+) iterations on grid (?P<nx>\d+)x(?P<ny>\d+)x(?P<nz>\d+)", chunk_lines[1])
 
         num_iterations = int(run_parameters_match.group('num_iter'))
         grid_nx = int(run_parameters_match.group('nx'))
         grid_ny = int(run_parameters_match.group('ny'))
+        grid_nz = int(run_parameters_match.group('nz'))
 
         if not num_gpus_grid_size_label:
             label = f"{num_gpus} GPU" + \
-                ("s" if num_gpus > 1 else "") + f" ({grid_nx}x{grid_ny})"
+                ("s" if num_gpus > 1 else "") + f" ({grid_nx}x{grid_ny}x{grid_nz})"
             x_axis_label.append(label)
 
         perf_data_pattern = re.compile(

@@ -100,7 +100,7 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
 
         version_idx=${version_name_to_idx_map[$version_name]}
 
-        for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS*=2 )); do
+        for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS+=1 )); do
             export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_SETTING[${NUM_GPUS}]}
 
             echo "Num GPUS: ${NUM_GPUS}"
@@ -126,7 +126,7 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
 
         version_idx=${version_name_to_idx_map_nvshmem[$version_name]}
 
-        for (( NP=1; NP <= ${MAX_NUM_GPUS}; NP*=2 )); do
+        for (( NP=1; NP <= ${MAX_NUM_GPUS}; NP+=1 )); do
 
             echo "Num GPUS: ${NP}"
             echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
