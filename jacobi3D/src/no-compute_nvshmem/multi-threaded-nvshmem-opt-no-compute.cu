@@ -61,7 +61,7 @@ namespace BaselineMultiThreadedNvshmemOptNoCompute
         int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
         int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
         int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-
+        /*
         if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
         {
             const real new_val = (real(1) / real(6)) *
@@ -71,6 +71,7 @@ namespace BaselineMultiThreadedNvshmemOptNoCompute
 
             a_new[iz * ny * nx + iy * nx + ix] = new_val;
         }
+        */
 
         int block_iz = iz - threadIdx.z;
         int block_iy = iy - threadIdx.y; /* Alternatively, block_iy = blockIdx.y * blockDim.y + 1 */

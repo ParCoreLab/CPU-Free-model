@@ -46,12 +46,13 @@ namespace BaselineMultiThreadedNvshmemNoCompute
 
         if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
         {
-            const real new_val = (real(1) / real(6)) *
+            /*const real new_val = (real(1) / real(6)) *
                                  (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
                                   a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
                                   a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
 
             a_new[iz * ny * nx + iy * nx + ix] = new_val;
+            */
             if (iz_start == iz)
             {
                 nvshmem_float_p(a_new + top_iz * ny * nx + iy * nx + ix, new_val, top_pe);
