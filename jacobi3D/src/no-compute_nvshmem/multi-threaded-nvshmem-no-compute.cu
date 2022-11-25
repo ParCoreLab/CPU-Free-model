@@ -55,11 +55,11 @@ namespace BaselineMultiThreadedNvshmemNoCompute
             */
             if (iz_start == iz)
             {
-                nvshmem_float_p(a_new + top_iz * ny * nx + iy * nx + ix, new_val, top_pe);
+                nvshmem_float_p(a_new + top_iz * ny * nx + iy * nx + ix, 0, top_pe);
             }
             if ((iz_end - 1) == iz)
             {
-                nvshmem_float_p(a_new + bottom_iz * ny * nx + iy * nx + ix, new_val, bottom_pe);
+                nvshmem_float_p(a_new + bottom_iz * ny * nx + iy * nx + ix, 0, bottom_pe);
             }
         }
     }
