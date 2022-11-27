@@ -750,18 +750,20 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMalloc(&l2_cache2, L2_utage));
 
         int l_iteration = iter_max;
-        void *KernelArgs[] = {
-            (void *)&a[dev_id],
-            (void *)&a_new[dev_id],
-            (void *)&chunk_size,
-            (void *)&ny,
-            (void *)&nx,
-            (void *)&l2_cache1,
-            (void *)&l2_cache2,
-            (void *)&l_iteration,
-            (void *)&iteration_done_flags[0],
-            (void *)&max_sm_flder
-        };
+
+        const auto a_local = a[dev_id] + ny * nx;
+        const auto a_new_local = a_new[dev_id] + ny * nx;
+
+        void *KernelArgs[] = {(void *)&a_local,
+                              (void *)&a_new_local,
+                              (void *)&chunk_size,
+                              (void *)&ny,
+                              (void *)&nx,
+                              (void *)&l2_cache1,
+                              (void *)&l2_cache2,
+                              (void *)&l_iteration,
+                              (void *)&iteration_done_flags[0],
+                              (void *)&max_sm_flder};
 
         double start = omp_get_wtime();
 
