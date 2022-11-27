@@ -1,7 +1,6 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
 #include <cmath>
-#include <cstdio>
 #include <iostream>
 
 #include <cuda_runtime.h>
@@ -11,6 +10,7 @@
 #include <cooperative_groups.h>
 
 // perks stuff
+// DON'T CHANGE THE ORDER
 // #include "./common/common.hpp"
 #include "./config.cuh"
 #include "./perksconfig.cuh"
@@ -94,15 +94,18 @@ __global__ void __launch_bounds__(1024, 1)
                     cg::sync(cta);
 
                     if (iy < ny - 1 && ix < nx - 1) {
+                        const real top =
+                            remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx + iy * nx +
+                                                                  ix];
+                        // https://github.com/neozhang307/PERKS/blob/master/stencil/3dstencil/3d7pt/3d7pt_gold.cpp
                         const real first_row_val =
-                            (a[iz_start * ny * nx + iy * nx + ix + 1] +
-                             a[iz_start * ny * nx + iy * nx + ix - 1] +
-                             a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                             a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                             a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                             remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +
-                                                                   iy * nx + ix]) /
-                            real(6.0);
+                            0.161f * a[iz_start * ny * nx + iy * nx + ix + 1]      // east
+                            + 0.162f * a[iz_start * ny * nx + iy * nx + ix - 1]    // west
+                            + 0.163f * a[iz_start * ny * nx + (iy + 1) * nx + ix]  // north
+                            + 0.164f * a[iz_start * ny * nx + (iy - 1) * nx + ix]  // south
+                            + 0.165f * top                                         // top
+                            + 0.166f * a[(iz_start - 1) * ny * nx + iy * nx + ix]  // bottom
+                            - 1.67f * a[iz_start * ny * nx + iy * nx + ix];        // center
 
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                         local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy * nx + ix] =
@@ -146,15 +149,17 @@ __global__ void __launch_bounds__(1024, 1)
                     cg::sync(cta);
 
                     if (iy < ny - 1 && ix < nx - 1) {
+                        const real bottom =
+                            remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
+                                                                     iy * nx + ix];
                         const real last_row_val =
-                            (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                             a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                             a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                             a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                             remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
-                                                                      iy * nx + ix] +
-                             a[(iz_end - 2) * ny * nx + iy * nx + ix]) /
-                            real(6.0);
+                            0.161f * a[(iz_end - 1) * ny * nx + iy * nx + ix + 1]      // east
+                            + 0.162f * a[(iz_end - 1) * ny * nx + iy * nx + ix - 1]    // west
+                            + 0.163f * a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix]  // north
+                            + 0.164f * a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix]  // south
+                            + 0.166f * bottom                                          // bottom
+                            + 0.165f * a[(iz_end - 2) * ny * nx + iy * nx + ix]        // what?
+                            - 1.67f * a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix];
 
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                         local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy * nx +
@@ -262,21 +267,10 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
 #undef __PRINT__
 #define PERSISTENTLAUNCH
-    //    return j3d_iterative<float>(nullptr,
-    //                         nx, ny, nx,
-    //                         nullptr,
-    //                         bdimx,
-    //                         blkpsm,
-    //                         1,
-    //                         useSM,
-    //                         false,
-    //                         0,
-    //                         isDoubleTile,
-    //                         false);
 
 #define REAL real
 
-    num_devices = 1;
+//    num_devices = 1;
 #pragma omp parallel num_threads(num_devices)
     {
         int dev_id = omp_get_thread_num();
