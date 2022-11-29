@@ -306,8 +306,6 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
         double start = omp_get_wtime();
 
-        PUSH_RANGE("Iteration 0", 0)
-
         MultiGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_r, um_x, num_rows, gpu_idx, num_devices);
 
@@ -346,8 +344,6 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
         *um_tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
-        POP_RANGE
-
         int k = 1;
 
         while (k <= iter_max) {
@@ -362,9 +358,11 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("Dot", 2)
+            PUSH_RANGE("Dot", 0)
 
             resetLocalDotProduct<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1, gpu_idx);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
@@ -378,6 +376,8 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1);
 
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
@@ -385,10 +385,12 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("Saxpy", 3)
+            PUSH_RANGE("Saxpy", 2)
 
             MultiGPU::r1_div_x<<<1, 1, 0, mainStream>>>(
                 *um_tmp_dot_gamma0, (real)*um_tmp_dot_delta1, um_alpha, gpu_idx);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
@@ -399,7 +401,11 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
             MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_p, um_x, *um_alpha, num_rows, gpu_idx, num_devices);
 
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
             MultiGPU::a_minus<<<1, 1, 0, mainStream>>>(*um_alpha, um_negative_alpha, gpu_idx);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
@@ -419,7 +425,7 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("Dot", 2)
+            PUSH_RANGE("Dot", 0)
 
             gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
                 um_r, um_r, num_rows, gpu_idx, num_devices);
@@ -435,7 +441,7 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("Saxpy", 3)
+            PUSH_RANGE("Saxpy", 2)
 
             MultiGPU::r1_div_x<<<1, 1, 0, mainStream>>>((real)*um_tmp_dot_gamma1,
                                                         *um_tmp_dot_gamma0, um_beta, gpu_idx);
@@ -452,12 +458,14 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
             *um_tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
             *um_tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            POP_RANGE
+
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            POP_RANGE
 
 #pragma omp barrier
 

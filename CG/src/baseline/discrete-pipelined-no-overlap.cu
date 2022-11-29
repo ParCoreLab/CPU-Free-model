@@ -211,10 +211,12 @@ int BaselineDiscretePipelinedNoOverlap::init(int argc, char *argv[]) {
     {
         int gpu_idx = omp_get_thread_num();
 
-        cudaStream_t streamOtherOps;
-        cudaStream_t streamSaxpy;
-        cudaStream_t streamDot;
-        cudaStream_t streamSpMV;
+        // cudaStream_t streamOtherOps;
+        // cudaStream_t streamSaxpy;
+        // cudaStream_t streamDot;
+        // cudaStream_t streamSpMV;
+
+        cudaStream_t mainStream;
 
         CUDA_RT_CALL(cudaSetDevice(gpu_idx));
 
@@ -330,162 +332,149 @@ int BaselineDiscretePipelinedNoOverlap::init(int argc, char *argv[]) {
 
 #pragma omp barrier
 
-        CUDA_RT_CALL(cudaStreamCreate(&streamOtherOps));
-        CUDA_RT_CALL(cudaStreamCreate(&streamSaxpy));
-        CUDA_RT_CALL(cudaStreamCreate(&streamDot));
-        CUDA_RT_CALL(cudaStreamCreate(&streamSpMV));
+        // CUDA_RT_CALL(cudaStreamCreate(&streamOtherOps));
+        // CUDA_RT_CALL(cudaStreamCreate(&streamSaxpy));
+        // CUDA_RT_CALL(cudaStreamCreate(&streamDot));
+        // CUDA_RT_CALL(cudaStreamCreate(&streamSpMV));
+
+        CUDA_RT_CALL(cudaStreamCreate(&mainStream));
 
 #pragma omp barrier
 
         double start = omp_get_wtime();
 
-        PUSH_RANGE("Iteration 0", 0)
-
-        MultiGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
+        MultiGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_r, um_x, num_rows, gpu_idx, num_devices);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         // ax0 = Ax0
-        MultiGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
+        MultiGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_x, um_ax0, gpu_idx,
             num_devices);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         // r0 = b0 - ax0
         // NOTE: b is a unit vector.
-        MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
+        MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_ax0, um_r, real_negative_one, num_rows, gpu_idx, num_devices);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         // w0 = Ar0
-        MultiGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
+        MultiGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_r, um_w, gpu_idx, num_devices);
 
-        MultiGPU::syncPeers<<<1, 1, 0, streamOtherOps>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
+        MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices, hostMemoryArrivedList);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
-
-        POP_RANGE
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         int k = 1;
 
         while (k <= iter_max) {
-            PUSH_RANGE("Dot", 1)
+            PUSH_RANGE("Dot", 0)
 
             // Two dot products => <r, r> and <r, w>
-            resetLocalDotProducts<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1,
-                                                          gpu_idx);
+            resetLocalDotProducts<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1,
+                                                           gpu_idx);
 
-            MultiGPU::syncPeers<<<1, 1, 0, streamDot>>>(gpu_idx, num_devices,
-                                                        hostMemoryArrivedList);
+            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
+                                                         hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaStreamSynchronize(streamDot))
-
-            // Overlap happens below between Dot and SpMV
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream))
 
             // Dot
-            gpuDotProductsMerged<<<numBlocks, THREADS_PER_BLOCK, sMemSize, streamDot>>>(
+            gpuDotProductsMerged<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
                 um_r, um_r, um_r, um_w, num_rows, gpu_idx, num_devices, sMemSize);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream))
+
+            addLocalDotContributions<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
+
+            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
+                                                         hostMemoryArrivedList);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream))
 
             POP_RANGE
 
-            PUSH_RANGE("SpMV", 2)
+            PUSH_RANGE("SpMV", 1)
 
             // SpMV
-            MultiGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamSpMV>>>(
+            MultiGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_w, um_q, gpu_idx,
                 num_devices);
 
-            POP_RANGE
-
-            PUSH_RANGE("Dot", 1)
-
-            CUDA_RT_CALL(cudaStreamSynchronize(streamDot))
-
-            addLocalDotContributions<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream))
 
             POP_RANGE
 
-            PUSH_RANGE("SpMV", 2)
+            CUDA_RT_CALL(cudaDeviceSynchronize());
 
-            CUDA_RT_CALL(cudaStreamSynchronize(streamSpMV))
-
-            POP_RANGE
-
-            // streamSpMV is implicit synchronized using default stream (stream 0) semantics
-            MultiGPU::syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(0))
-
-            PUSH_RANGE("Other", 0)
+            PUSH_RANGE("Saxpy", 2)
 
             if (k > 1) {
-                MultiGPU::update_b_k<<<1, 1, 0, streamOtherOps>>>(
-                    (real)*um_tmp_dot_delta1, *um_tmp_dot_delta0, um_beta, gpu_idx);
-                MultiGPU::update_a_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
-                                                                  (real)*um_tmp_dot_gamma1,
-                                                                  *um_beta, um_alpha, gpu_idx);
+                MultiGPU::update_b_k<<<1, 1, 0, mainStream>>>((real)*um_tmp_dot_delta1,
+                                                              *um_tmp_dot_delta0, um_beta, gpu_idx);
+                MultiGPU::update_a_k<<<1, 1, 0, mainStream>>>((real)*um_tmp_dot_delta1,
+                                                              (real)*um_tmp_dot_gamma1, *um_beta,
+                                                              um_alpha, gpu_idx);
             } else {
-                MultiGPU::init_b_k<<<1, 1, 0, streamOtherOps>>>(um_beta, gpu_idx);
-                MultiGPU::init_a_k<<<1, 1, 0, streamOtherOps>>>(
+                MultiGPU::init_b_k<<<1, 1, 0, mainStream>>>(um_beta, gpu_idx);
+                MultiGPU::init_a_k<<<1, 1, 0, mainStream>>>(
                     (real)*um_tmp_dot_delta1, (real)*um_tmp_dot_gamma1, um_alpha, gpu_idx);
             }
 
-            MultiGPU::syncPeers<<<1, 1, 0, streamOtherOps>>>(gpu_idx, num_devices,
-                                                             hostMemoryArrivedList);
+            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
+                                                         hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
-
-            POP_RANGE
-
-            PUSH_RANGE("Saxpy", 3)
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             // z_k = q_k + beta_k * z_(k-1)
-            MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+            MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_q, um_z, real_positive_one, *um_beta, num_rows, gpu_idx, num_devices);
 
             // s_k = w_k + beta_k * s_(k-1)
-            MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+            MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_w, um_s, real_positive_one, *um_beta, num_rows, gpu_idx, num_devices);
 
             // p_k = r_k = beta_k * p_(k-1)
-            MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+            MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_r, um_p, real_positive_one, *um_beta, num_rows, gpu_idx, num_devices);
 
-            CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             // x_(k+1) = x_k + alpha_k * p_k
-            MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+            MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_p, um_x, *um_alpha, num_rows, gpu_idx, num_devices);
 
-            MultiGPU::a_minus<<<1, 1, 0, streamOtherOps>>>(*um_alpha, um_negative_alpha, gpu_idx);
+            MultiGPU::a_minus<<<1, 1, 0, mainStream>>>(*um_alpha, um_negative_alpha, gpu_idx);
 
-            MultiGPU::syncPeers<<<1, 1, 0, streamOtherOps>>>(gpu_idx, num_devices,
-                                                             hostMemoryArrivedList);
+            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
+                                                         hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             // r_(k+1) = r_k - alpha_k * s_k
-            MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+            MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_s, um_r, *um_negative_alpha, num_rows, gpu_idx, num_devices);
 
             // w_(k+1) = w_k - alpha_k * z_k
-            MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+            MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_z, um_w, *um_negative_alpha, num_rows, gpu_idx, num_devices);
 
             *um_tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
             *um_tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
-            MultiGPU::syncPeers<<<1, 1, 0, streamSaxpy>>>(gpu_idx, num_devices,
-                                                          hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             POP_RANGE
+
+            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
+                                                         hostMemoryArrivedList);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
 #pragma omp barrier
 
