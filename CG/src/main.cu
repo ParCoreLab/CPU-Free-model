@@ -12,7 +12,8 @@ using std::make_pair;
 int main(int argc, char *argv[]) {
     const std::array versions{
         make_pair("Baseline Discrete Non-Pipelined", BaselineDiscreteNonPipelined::init),
-        make_pair("Baseline Discrete Pipelined", BaselineDiscretePipelined::init),
+        make_pair("Baseline Discrete Pipelined (No Overlap)",
+                  BaselineDiscretePipelinedNoOverlap::init),
         make_pair("Baseline Persistent Non-Pipelined (with Prefetching)",
                   BaselinePersistentNonPipelined::init),
         make_pair("Single Stream Pipelined ", SingleStreamPipelined::init),
