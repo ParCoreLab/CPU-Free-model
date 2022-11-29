@@ -32,10 +32,10 @@ version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
 version_name_to_idx_map["Double Stream (No Compute)"]=12
 BIN="./jacobi -s 1"
 
-NX=${NX:-512}
-NY=${NY:-512}
-NZ=${NZ:-512}
-NUM_ITER=${NUM_ITER:-100000}
+NX=${1:-512}
+NY=${2:-512}
+NZ=${3:-512}
+NUM_ITER=${4:-100000}
 NUM_RUNS=${NUM_RUNS:-5}
 
 while [ $# -gt 0 ]; do
