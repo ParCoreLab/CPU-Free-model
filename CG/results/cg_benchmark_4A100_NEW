@@ -1,0 +1,129 @@
+Results per matrix; rows are versions
+
+Results for matrix (generated) tridiagonal =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard,3.2606,3.2692,3.3115,3.4529
+Baseline Discrete Pipelined,1.9962,2.7873,2.8094,2.7677
+Baseline Persistent Standard,0.9206,36.7244,16.9476,16.4452
+(Ours) Persistent Pipelined,1.2889,50.929,31.0559,27.8246
+
+
+Results for matrix ecology2 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard,2.5999,2.652,2.6919,2.7326
+Baseline Discrete Pipelined,1.836,1.8721,1.8969,1.8959
+Baseline Persistent Standard,0.0674,0.8994,0.6196,1.799
+(Ours) Persistent Pipelined,0.0803,1.164,0.566,0.6775
+
+
+Results for matrix hood =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard,2.6209,2.6637,2.7191,2.7551
+Baseline Discrete Pipelined,1.8462,1.8748,1.8991,1.9199
+Baseline Persistent Standard,0.0887,0.1117,0.2799,1.2202
+(Ours) Persistent Pipelined,0.0968,0.1973,0.1578,0.379
+
+
+Results for matrix bmwcra_1 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard,2.5443,2.6654,2.7078,2.7737
+Baseline Discrete Pipelined,1.8481,1.8777,1.8873,1.9495
+Baseline Persistent Standard,0.1102,0.1688,0.2725,0.6678
+(Ours) Persistent Pipelined,0.1149,0.1837,0.1563,0.646
+
+
+Results for matrix consph =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard,0.8587,2.6416,2.6621,2.7151
+Baseline Discrete Pipelined,0.504,1.8577,1.9568,1.9088
+Baseline Persistent Standard,0.0526,0.0539,0.1253,0.2678
+(Ours) Persistent Pipelined,0.0539,0.0771,0.1302,0.2349
+
+
+Results for matrix thermomech_dM =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard,2.5694,2.6308,2.6465,2.703
+Baseline Discrete Pipelined,1.7991,1.8242,1.9185,1.9642
+Baseline Persistent Standard,0.022,0.0933,0.4753,0.9443
+(Ours) Persistent Pipelined,0.0227,0.0949,0.1635,0.3433
+
+
+Results for matrix tmt_sym =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard,2.5852,2.6423,2.7089,2.7993
+Baseline Discrete Pipelined,1.8184,1.8451,1.8857,1.9029
+Baseline Persistent Standard,0.0631,0.6307,0.3597,1.4067
+(Ours) Persistent Pipelined,0.0704,0.3468,0.366,0.2573
+
+
+Results for matrix crankseg_1 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard,1.9585,2.6845,2.718,2.7545
+Baseline Discrete Pipelined,1.8973,1.9198,2.0015,1.9492
+Baseline Persistent Standard,0.2364,0.2481,0.3097,1.0052
+(Ours) Persistent Pipelined,0.2428,0.3389,0.2654,0.5765
+
+
+Results for matrix crankseg_2 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard,2.6828,2.7147,2.7446,2.8223
+Baseline Discrete Pipelined,1.9448,1.9453,1.9746,2.1078
+Baseline Persistent Standard,0.3864,0.668,0.6277,1.7941
+(Ours) Persistent Pipelined,0.3949,0.5916,1.3872,0.9601
+
+
+
+Results per version; rows are matrices
+
+Results for version Baseline Discrete Standard =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+(generated) tridiagonal,3.2606,3.2692,3.3115,3.4529
+ecology2,2.5999,2.652,2.6919,2.7326
+hood,2.6209,2.6637,2.7191,2.7551
+bmwcra_1,2.5443,2.6654,2.7078,2.7737
+consph,0.8587,2.6416,2.6621,2.7151
+thermomech_dM,2.5694,2.6308,2.6465,2.703
+tmt_sym,2.5852,2.6423,2.7089,2.7993
+crankseg_1,1.9585,2.6845,2.718,2.7545
+crankseg_2,2.6828,2.7147,2.7446,2.8223
+
+
+Results for version Baseline Discrete Pipelined =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+(generated) tridiagonal,1.9962,2.7873,2.8094,2.7677
+ecology2,1.836,1.8721,1.8969,1.8959
+hood,1.8462,1.8748,1.8991,1.9199
+bmwcra_1,1.8481,1.8777,1.8873,1.9495
+consph,0.504,1.8577,1.9568,1.9088
+thermomech_dM,1.7991,1.8242,1.9185,1.9642
+tmt_sym,1.8184,1.8451,1.8857,1.9029
+crankseg_1,1.8973,1.9198,2.0015,1.9492
+crankseg_2,1.9448,1.9453,1.9746,2.1078
+
+
+Results for version Baseline Persistent Standard =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+(generated) tridiagonal,0.9206,36.7244,16.9476,16.4452
+ecology2,0.0674,0.8994,0.6196,1.799
+hood,0.0887,0.1117,0.2799,1.2202
+bmwcra_1,0.1102,0.1688,0.2725,0.6678
+consph,0.0526,0.0539,0.1253,0.2678
+thermomech_dM,0.022,0.0933,0.4753,0.9443
+tmt_sym,0.0631,0.6307,0.3597,1.4067
+crankseg_1,0.2364,0.2481,0.3097,1.0052
+crankseg_2,0.3864,0.668,0.6277,1.7941
+
+
+Results for version (Ours) Persistent Pipelined =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+(generated) tridiagonal,1.2889,50.929,31.0559,27.8246
+ecology2,0.0803,1.164,0.566,0.6775
+hood,0.0968,0.1973,0.1578,0.379
+bmwcra_1,0.1149,0.1837,0.1563,0.646
+consph,0.0539,0.0771,0.1302,0.2349
+thermomech_dM,0.0227,0.0949,0.1635,0.3433
+tmt_sym,0.0704,0.3468,0.366,0.2573
+crankseg_1,0.2428,0.3389,0.2654,0.5765
+crankseg_2,0.3949,0.5916,1.3872,0.9601
+
+
