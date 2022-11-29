@@ -7,9 +7,11 @@
 #SBATCH --time=06:00:00
 #SBATCH --output=sbatch_output_%j.log
 
-NUM_ITER=${NUM_ITER:-10000}
+NUM_ITER=${NUM_ITER:-1000}
 FILENAME=${FILENAME:-USE_DEFAULT_FILENAME}
 MATRICES_FOLDER=${MATRICES_FOLDER:-USE_DEFAULT_MATRICES_FOLDER}
+NUM_GPUS=${NUM_GPUS:-8}
+GPU_MODEL=${GPU_MODEL:-V100}
 
 while [ $# -gt 0 ]; do
 
@@ -23,12 +25,12 @@ done
 
 cd ~/multi-perks/CG
 
-. ./scripts/modules.sh > /dev/null
+. ./batch/_load_simula_modules.sh > /dev/null
 
 echo "--- RUNNING ---"
 date
 
-./scripts/venv/bin/python3 ./scripts/measure_operation_breakdown.py --num_iter $NUM_ITER --filename $FILENAME --matrices_folder $MATRICES_FOLDER
+python3 ./scripts/measure_operation_breakdown.py --num_iter $NUM_ITER --matrices_folder $MATRICES_FOLDER --num_gpus $NUM_GPUS --gpu_model $GPU_MODEL
 
 echo ""
 

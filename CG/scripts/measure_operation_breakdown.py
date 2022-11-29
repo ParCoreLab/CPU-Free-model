@@ -1,37 +1,41 @@
 import subprocess
 import re
+import os
 from os.path import dirname, realpath
 from collections import OrderedDict, defaultdict
 import sys
 from datetime import datetime
+import io
 
-import pandas as pd
+import csv
+
+MAX_NUM_GPUS = 2
+CUDA_VISIBLE_DEVICES_SETTING = [
+    "0",
+    "0",
+    "0,1",
+    "0,1,2",
+    "0,1,2,3",
+    "0,1,2,3,4",
+    "0,1,2,3,4,5",
+    "0,1,2,3,4,5,6",
+    "0,1,2,3,4,5,6,7",
+]
 
 MATRICES_FOLDER_PATH = '/global/D1/homes/iismayilov/matrices'
-
-NUM_RUNS = 5
-NUM_ITERATIONS = 10000
-
-EXECUTION_TIME_REGEX = 'Execution time:\s+(?P<exec_time>[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) s'
-
-EXECUTABLE_NAME_TO_STEM_MAP = OrderedDict(
-    [
-        ('Dot product', 'only-dot-cg'),
-        ('SpMV', 'only-spmv-cg'),
-        ('Saxpy', 'only-saxpy-cg'),
-        ('Full', 'full-cg'),
-    ]
-)
+SAVE_NSYS_REPORTS_TO_DIR_PATH = None
+NUM_ITERATIONS = 100
+EXECUTABLE_NAME = 'cg'
+GPU_MODEL = None
 
 VERSION_NAME_TO_IDX_MAP = {
-    'Baseline Persistent Kernel with Unified Memory': 0,
-    'Baseline Persistent Kernel with Unified Memory (Input vector gathered before SpMV)': 1,
-    'Baseline Persistent Kernel with Unified Memory (Input vector is on device but stale)': 2
+    'Baseline Discrete Standard': 0,
+    'Baseline Discrete Pipelined (No Overlap)': 1,
 }
 
 MATRIX_NAMES = [
-    '(generated) tridiagonal',
-    'ecology2',
+    '(generated)_tridiagonal',
+    # 'ecology2',
     #   'shallow_water2', Too little non-zeros
     #   'Trefethen_2000', Too little non-zeros
     'hood',
@@ -43,76 +47,57 @@ MATRIX_NAMES = [
     'crankseg_2',
 ]
 
+OPERATION_LABELS_TO_IDX_MAP = OrderedDict(
+    [
+        ('Dot', 0),
+        ('SpMV', 1),
+        ('Saxpy', 2),
+    ]
+)
+
+
 VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
-OPERATION_LABELS = None
+GPU_COLUMN_NAMES = None
 
 
-def get_perf_data_string(version_to_result_map, column_labels):
-    row_labels = version_to_result_map.keys()
-    full_perf_data = version_to_result_map.values()
+def get_perf_data_string(result_map, column_labels):
+    ephemereal_csv_file = io.StringIO('')
 
-    df = pd.DataFrame(full_perf_data, columns=column_labels,
-                      index=row_labels)
+    csv_writer = csv.writer(ephemereal_csv_file, delimiter=',')
 
-    perf_data_string = df.to_csv()
+    # Add empty string column to get table-like output
+    padded_column_labels = [''] + column_labels
+
+    csv_writer.writerow(padded_column_labels)
+
+    for row_label, perf_data in result_map.items():
+        final_row = [row_label] + perf_data
+        csv_writer.writerow(final_row)
+
+    perf_data_string = ephemereal_csv_file.getvalue()
 
     return perf_data_string
 
 
-def evaluate_operation_breakdown(save_result_to_path, executable_dir):
-    execution_time_regex_pattern = re.compile(EXECUTION_TIME_REGEX)
+def parse_nsys_stats_output(stats_string):
+    ephemereal_csv_file = io.StringIO(stats_string)
 
-    matrix_to_version_to_result_map = dict.fromkeys(MATRIX_NAMES)
-    version_to_matrix_to_result_map = dict.fromkeys(
-        VERSION_LABELS)
+    print(stats_string)
 
-    for matrix_name in MATRIX_NAMES:
-        matrix_path = MATRICES_FOLDER_PATH + '/' + matrix_name + '.mtx'
+    csv_reader = csv.DictReader(ephemereal_csv_file)
 
-        if 'generated' in matrix_name:
-            matrix_path = None
+    operation_runtimes = [0] * len(OPERATION_LABELS_TO_IDX_MAP)
 
-        version_to_result_map = defaultdict(list)
+    for row in csv_reader:
+        operation_label = row['Range']
+        operation_runtimes[OPERATION_LABELS_TO_IDX_MAP[operation_label]
+                           ] = row['Time (%)']
 
-        for version_name, version_idx in VERSION_NAME_TO_IDX_MAP.items():
-            for _operation_name, operation_executable_stem in EXECUTABLE_NAME_TO_STEM_MAP.items():
-                operation_executable = executable_dir + '/' + operation_executable_stem
-                command = f'{operation_executable} -s 1 -v {version_idx} -niter {NUM_ITERATIONS}'
+    return operation_runtimes
 
-                if matrix_path:
-                    command += f' -matrix_path {matrix_path}'
 
-                execution_times = []
-
-                for _ in range(NUM_RUNS):
-                    output = subprocess.run(
-                        command.split(), capture_output=True)
-
-                    output = output.stdout.decode('utf-8')
-
-                    execution_time_match = execution_time_regex_pattern.match(
-                        output)
-                    execution_time_on_run = float(
-                        execution_time_match.group('exec_time'))
-
-                    execution_times.append(execution_time_on_run)
-
-                min_execution_time = min(execution_times)
-
-                version_to_result_map[version_name].append(min_execution_time)
-
-            matrix_to_version_to_result_map[matrix_name] = version_to_result_map
-
-    for version_name in VERSION_LABELS:
-        matrix_to_result_map = dict()
-
-        for matrix_name in MATRIX_NAMES:
-            result = matrix_to_version_to_result_map[matrix_name][version_name]
-            matrix_to_result_map[matrix_name] = result
-
-        version_to_matrix_to_result_map[version_name] = matrix_to_result_map
-
-    with open(save_result_to_path, 'a') as output_file:
+def save_results(save_result_to_path, matrix_to_version_to_result_map, version_to_matrix_to_result_map, operation_labels):
+    with open(save_result_to_path, 'w') as output_file:
         output_file.write('Results per matrix; rows are versions')
         output_file.write('\n\n')
 
@@ -120,7 +105,7 @@ def evaluate_operation_breakdown(save_result_to_path, executable_dir):
             output_file.write(f'Results for matrix {matrix_name} =>')
             output_file.write('\n')
             output_file.write(get_perf_data_string(
-                version_to_result_map, OPERATION_LABELS))
+                version_to_result_map, operation_labels))
             output_file.write('\n\n')
 
         output_file.write('\n')
@@ -131,27 +116,104 @@ def evaluate_operation_breakdown(save_result_to_path, executable_dir):
             output_file.write(f'Results for version {version_name} =>')
             output_file.write('\n')
             output_file.write(get_perf_data_string(
-                matrix_to_result_map, OPERATION_LABELS))
+                matrix_to_result_map, operation_labels))
             output_file.write('\n\n')
+
+
+def measure_operation_breakdown(save_result_to_path, executable_dir):
+    for num_gpus in range(1, MAX_NUM_GPUS + 1):
+        cuda_string = CUDA_VISIBLE_DEVICES_SETTING[num_gpus]
+        os.environ['CUDA_VISIBLE_DEVICES'] = cuda_string
+
+        matrix_to_version_to_result_map = dict.fromkeys(MATRIX_NAMES)
+        version_to_matrix_to_result_map = dict.fromkeys(
+            VERSION_LABELS)
+
+        for matrix_name in MATRIX_NAMES:
+            matrix_path = MATRICES_FOLDER_PATH + '/' + matrix_name + '.mtx'
+
+            if 'generated' in matrix_name:
+                matrix_path = None
+
+            version_to_result_map = defaultdict(list)
+
+            for version_name, version_idx in VERSION_NAME_TO_IDX_MAP.items():
+                executable_path = executable_dir + '/' + EXECUTABLE_NAME
+                full_executable = f'{executable_path} -s 1 -v {version_idx} -niter {NUM_ITERATIONS}'
+
+                if matrix_path:
+                    full_executable += f' -matrix_path {matrix_path}'
+
+                nsys_report_output_filename = SAVE_NSYS_REPORTS_TO_DIR_PATH + \
+                    f'/report-{num_gpus}{GPU_MODEL}-version{version_idx}-{matrix_name}.nsys-rep'
+
+                nsys_profile_command = 'nsys profile'
+                nsys_profile_command += ' '
+
+                # Trace only NVTX ranges
+                nsys_profile_command += '--trace nvtx'
+                nsys_profile_command += ' '
+
+                nsys_profile_command += \
+                    f'--output {nsys_report_output_filename}'
+                nsys_profile_command += ' '
+
+                # Overwrite any existing reports
+                nsys_profile_command += '--force-overwrite true'
+                nsys_profile_command += ' '
+
+                # Pass executable with arguments
+                nsys_profile_command += f'{full_executable}'
+
+                subprocess.run(
+                    nsys_profile_command.split(), capture_output=False)
+
+                nsys_stat_command = f'nsys stats {nsys_report_output_filename} --report nvtxppsum --format csv --quiet'
+
+                nsys_stats_output = subprocess.run(
+                    nsys_stat_command.split(), capture_output=True)
+
+                nsys_stats_output = nsys_stats_output.stdout.decode(
+                    'utf-8')
+
+                newline_slices = nsys_stats_output.split('\n')
+                nsys_stats_output = '\n'.join([
+                    line for line in newline_slices if line.strip() != ''])
+
+                operation_runtimes = parse_nsys_stats_output(
+                    nsys_stats_output)
+
+                version_to_result_map[version_name][:] = operation_runtimes[:]
+
+            matrix_to_version_to_result_map[matrix_name] = version_to_result_map
+
+        for version_name in VERSION_LABELS:
+            matrix_to_result_map = dict()
+
+            for matrix_name in MATRIX_NAMES:
+                result = matrix_to_version_to_result_map[matrix_name][version_name]
+                matrix_to_result_map[matrix_name] = result
+
+            version_to_matrix_to_result_map[version_name] = matrix_to_result_map
+
+        per_gpu_result_path = save_result_to_path + f'_{num_gpus}GPU' + '.txt'
+
+        operation_labels = list(OPERATION_LABELS_TO_IDX_MAP.keys())
+
+        save_results(per_gpu_result_path, matrix_to_version_to_result_map,
+                     version_to_matrix_to_result_map, operation_labels)
 
 
 if __name__ == "__main__":
     dir_path = dirname(realpath(__file__))
 
+    SAVE_NSYS_REPORTS_TO_DIR_PATH = dir_path + '/../nsys_reports'
     SAVE_RESULT_TO_DIR_PATH = dir_path + '/../results'
     EXECUTABLE_DIR = dir_path + '/../bin'
-    FILENAME = None
-    ONLY_MEASURE_TOTAL = False
 
     arg_idx = 1
 
     while arg_idx < len(sys.argv):
-        if sys.argv[arg_idx] == '--filename':
-            arg_idx += 1
-
-            if (arg_val := sys.argv[arg_idx]) != 'USE_DEFAULT_FILENAME':
-                FILENAME = arg_val
-
         if sys.argv[arg_idx] == '--num_iter':
             arg_idx += 1
 
@@ -159,23 +221,28 @@ if __name__ == "__main__":
 
         if sys.argv[arg_idx] == '--matrices_folder':
             arg_idx += 1
+            arg_val = sys.argv[arg_idx]
 
-            if (arg_val := sys.argv[arg_idx]) != 'USE_DEFAULT_MATRICES_FOLDER':
+            if arg_val != 'USE_DEFAULT_MATRICES_FOLDER':
                 MATRICES_FOLDER_PATH = arg_val
 
-        if sys.argv[arg_idx] == '-only_measure_total':
-            EXECUTABLE_NAME_TO_STEM_MAP = {'Total': 'cg'}
-            ONLY_MEASURE_TOTAL = True
+        if sys.argv[arg_idx] == '--num_gpus':
+            arg_idx += 1
+
+            MAX_NUM_GPUS = int(sys.argv[arg_idx])
+
+        if sys.argv[arg_idx] == '--gpu_model':
+            arg_idx += 1
+
+            GPU_MODEL = sys.argv[arg_idx]
 
         arg_idx += 1
 
-    if FILENAME == None:
-        BASE = 'cg_' + \
-            ('total_runtime' if ONLY_MEASURE_TOTAL else 'operation_breakdown')
-        FILENAME = BASE + '-' + datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + '.txt'
+    BASE_FILENAME = 'cg_operation_breakdown'
 
-    OPERATION_LABELS = EXECUTABLE_NAME_TO_STEM_MAP.keys()
+    SAVE_RESULT_TO_FILE_PATH = SAVE_RESULT_TO_DIR_PATH + '/' + BASE_FILENAME
 
-    SAVE_RESULT_TO_FILE_PATH = SAVE_RESULT_TO_DIR_PATH + '/' + FILENAME
+    GPU_COLUMN_NAMES = [str(num_gpus) + ' GPU' + ('s' if num_gpus != 1 else '')
+                        for num_gpus in range(1, MAX_NUM_GPUS + 1)]
 
-    evaluate_operation_breakdown(SAVE_RESULT_TO_FILE_PATH, EXECUTABLE_DIR)
+    measure_operation_breakdown(SAVE_RESULT_TO_FILE_PATH, EXECUTABLE_DIR)
