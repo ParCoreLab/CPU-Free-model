@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "../include/baseline/discrete-non-pipelined.cuh"
-#include "../include/baseline/discrete-pipelined.cuh"
+#include "../include/baseline/discrete-pipelined-no-overlap.cuh"
 #include "../include/baseline/persistent-non-pipelined.cuh"
 #include "../include/single-stream/pipelined.cuh"
 
