@@ -1,0 +1,77 @@
+Results per matrix; rows are versions
+
+Results for matrix (generated)_tridiagonal =>
+,Dot,SpMV,Saxpy
+Baseline Discrete Standard,37.7,14.7,47.7
+Baseline Discrete Pipelined (No Overlap),12.6,14.4,73.1
+
+
+Results for matrix hood =>
+,Dot,SpMV,Saxpy
+Baseline Discrete Standard,53.1,24.8,22.1
+Baseline Discrete Pipelined (No Overlap),9.2,38.6,52.2
+
+
+Results for matrix bmwcra_1 =>
+,Dot,SpMV,Saxpy
+Baseline Discrete Standard,43.3,22.8,33.9
+Baseline Discrete Pipelined (No Overlap),8.1,41.0,50.8
+
+
+Results for matrix consph =>
+,Dot,SpMV,Saxpy
+Baseline Discrete Standard,45.6,25.3,29.1
+Baseline Discrete Pipelined (No Overlap),12.2,32.5,55.3
+
+
+Results for matrix thermomech_dM =>
+,Dot,SpMV,Saxpy
+Baseline Discrete Standard,43.6,1.8,54.5
+Baseline Discrete Pipelined (No Overlap),39.7,2.5,57.8
+
+
+Results for matrix tmt_sym =>
+,Dot,SpMV,Saxpy
+Baseline Discrete Standard,33.6,6.8,59.6
+Baseline Discrete Pipelined (No Overlap),16.8,28.2,55.1
+
+
+Results for matrix crankseg_1 =>
+,Dot,SpMV,Saxpy
+Baseline Discrete Standard,41.9,23.0,35.1
+Baseline Discrete Pipelined (No Overlap),17.7,31.4,50.8
+
+
+Results for matrix crankseg_2 =>
+,Dot,SpMV,Saxpy
+Baseline Discrete Standard,48.4,32.3,19.3
+Baseline Discrete Pipelined (No Overlap),11.0,39.2,49.8
+
+
+
+Results per version; rows are matrices
+
+Results for version Baseline Discrete Standard =>
+,Dot,SpMV,Saxpy
+(generated)_tridiagonal,37.7,14.7,47.7
+hood,53.1,24.8,22.1
+bmwcra_1,43.3,22.8,33.9
+consph,45.6,25.3,29.1
+thermomech_dM,43.6,1.8,54.5
+tmt_sym,33.6,6.8,59.6
+crankseg_1,41.9,23.0,35.1
+crankseg_2,48.4,32.3,19.3
+
+
+Results for version Baseline Discrete Pipelined (No Overlap) =>
+,Dot,SpMV,Saxpy
+(generated)_tridiagonal,12.6,14.4,73.1
+hood,9.2,38.6,52.2
+bmwcra_1,8.1,41.0,50.8
+consph,12.2,32.5,55.3
+thermomech_dM,39.7,2.5,57.8
+tmt_sym,16.8,28.2,55.1
+crankseg_1,17.7,31.4,50.8
+crankseg_2,11.0,39.2,49.8
+
+
