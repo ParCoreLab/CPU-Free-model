@@ -9,7 +9,7 @@ import io
 
 import csv
 
-MAX_NUM_GPUS = 2
+MAX_NUM_GPUS = 8
 CUDA_VISIBLE_DEVICES_SETTING = [
     "0",
     "0",
@@ -35,7 +35,7 @@ VERSION_NAME_TO_IDX_MAP = {
 
 MATRIX_NAMES = [
     '(generated)_tridiagonal',
-    # 'ecology2',
+    'ecology2',
     #   'shallow_water2', Too little non-zeros
     #   'Trefethen_2000', Too little non-zeros
     'hood',
