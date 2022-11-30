@@ -9,6 +9,9 @@
 #include "../include/multi-stream/multi-gpu-peer-tiling-half.cuh"
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
 
+// PERKS
+#include "../include/PERKS/multi-stream-perks.cuh"
+
 #include "../include/single-stream/multi-threaded-one-block-comm.cuh"
 #include "../include/single-stream/multi-threaded-one-block-warp-comm.cuh"
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
@@ -36,6 +39,8 @@ int main(int argc, char *argv[]) {
         make_pair("Naive Single stream multi threaded (two thread blocks communicate)",
                   SSMultiThreadedTwoBlockComm::init),
         make_pair("Naive Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
+        make_pair("Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
+        make_pair("PERKS", MultiStreamPERKS::init),
         make_pair("Baseline Multi Threaded Copy (No computation)",
                   BaselineMultiThreadedCopyNoCompute::init),
         make_pair("Baseline Multi Threaded Copy Overlap (No Computation)",
