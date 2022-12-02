@@ -76,16 +76,16 @@ def parse_nsys_stats_output(stats_string):
     csv_reader = csv.DictReader(ephemereal_csv_file)
 
     labels = []
-    relative_runtimes = []
+    raw_runtimes = []
 
     for row in csv_reader:
         labels.append(row['Range'])
-        relative_runtimes.append(row['Time (%)'])
+        raw_runtimes.append(row['Total Time (sec)'])
 
-    sorted_labels, relative_runtimes = (
-        list(t) for t in zip(*sorted(zip(labels, relative_runtimes))))
+    sorted_labels, raw_runtimes = (
+        list(t) for t in zip(*sorted(zip(labels, raw_runtimes))))
 
-    return sorted_labels, relative_runtimes
+    return sorted_labels, raw_runtimes
 
 
 def save_results(save_result_to_path, version_to_matrix_to_result_map, version_to_operation_labels_map):
@@ -152,10 +152,17 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
                 subprocess.run(
                     nsys_profile_command.split(), capture_output=False)
 
-                nsys_stat_command = f'nsys stats {nsys_report_output_filename} --report nvtxppsum --format csv --quiet'
+                nsys_stats_command = f'nsys stats {nsys_report_output_filename} --format csv --quiet '
+
+                # Only report NVTX ranges
+                nsys_stats_command += '--report nvtxppsum'
+                nsys_stats_command += ' '
+
+                # Report runtimes in seconds
+                nsys_stats_command += '--timeunit seconds'
 
                 nsys_stats_output = subprocess.run(
-                    nsys_stat_command.split(), capture_output=True)
+                    nsys_stats_command.split(), capture_output=True)
 
                 nsys_stats_output = nsys_stats_output.stdout.decode(
                     'utf-8')
@@ -164,18 +171,19 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
                 nsys_stats_output = '\n'.join([
                     line for line in newline_slices if line.strip() != ''])
 
-                sorted_labels, relative_runtimes = parse_nsys_stats_output(
+                sorted_labels, raw_runtimes = parse_nsys_stats_output(
                     nsys_stats_output)
 
                 if not operation_labels:
                     operation_labels = sorted_labels
 
-                matrix_to_result_map[matrix_name][:] = relative_runtimes[:]
+                matrix_to_result_map[matrix_name][:] = raw_runtimes[:]
 
             version_to_matrix_to_result_map[version_name] = matrix_to_result_map
             version_to_operation_labels_map[version_name] = operation_labels
 
-        per_gpu_result_path = save_result_to_path + f'_{num_gpus}GPU' + '.txt'
+        per_gpu_result_path = save_result_to_path + \
+            f'_{num_gpus}{GPU_MODEL}' + '.txt'
 
         save_results(per_gpu_result_path, version_to_matrix_to_result_map,
                      version_to_operation_labels_map)
