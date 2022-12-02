@@ -24,7 +24,7 @@ CUDA_VISIBLE_DEVICES_SETTING = [
 
 MATRICES_FOLDER_PATH = '/global/D1/homes/iismayilov/matrices'
 SAVE_NSYS_REPORTS_TO_DIR_PATH = None
-NUM_ITERATIONS = 100
+NUM_ITERATIONS = 1000
 EXECUTABLE_NAME = 'cg'
 GPU_MODEL = None
 
@@ -36,8 +36,8 @@ VERSION_NAME_TO_IDX_MAP = {
 MATRIX_NAMES = [
     '(generated)_tridiagonal',
     'ecology2',
-    #   'shallow_water2', Too little non-zeros
-    #   'Trefethen_2000', Too little non-zeros
+    'shallow_water2',
+    'Trefethen_2000',
     'hood',
     'bmwcra_1',
     'consph',
@@ -47,20 +47,11 @@ MATRIX_NAMES = [
     'crankseg_2',
 ]
 
-OPERATION_LABELS_TO_IDX_MAP = OrderedDict(
-    [
-        ('Dot', 0),
-        ('SpMV', 1),
-        ('Saxpy', 2),
-    ]
-)
-
-
 VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
 GPU_COLUMN_NAMES = None
 
 
-def get_perf_data_string(result_map, column_labels):
+def get_perf_data_string(version_to_matrix_to_result_map, column_labels):
     ephemereal_csv_file = io.StringIO('')
 
     csv_writer = csv.writer(ephemereal_csv_file, delimiter=',')
@@ -70,8 +61,8 @@ def get_perf_data_string(result_map, column_labels):
 
     csv_writer.writerow(padded_column_labels)
 
-    for row_label, perf_data in result_map.items():
-        final_row = [row_label] + perf_data
+    for row_label, runtimes in version_to_matrix_to_result_map.items():
+        final_row = [row_label] + runtimes
         csv_writer.writerow(final_row)
 
     perf_data_string = ephemereal_csv_file.getvalue()
@@ -82,37 +73,29 @@ def get_perf_data_string(result_map, column_labels):
 def parse_nsys_stats_output(stats_string):
     ephemereal_csv_file = io.StringIO(stats_string)
 
-    print(stats_string)
-
     csv_reader = csv.DictReader(ephemereal_csv_file)
 
-    operation_runtimes = [0] * len(OPERATION_LABELS_TO_IDX_MAP)
+    labels = []
+    relative_runtimes = []
 
     for row in csv_reader:
-        operation_label = row['Range']
-        operation_runtimes[OPERATION_LABELS_TO_IDX_MAP[operation_label]
-                           ] = row['Time (%)']
+        labels.append(row['Range'])
+        relative_runtimes.append(row['Time (%)'])
 
-    return operation_runtimes
+    sorted_labels, relative_runtimes = (
+        list(t) for t in zip(*sorted(zip(labels, relative_runtimes))))
+
+    return sorted_labels, relative_runtimes
 
 
-def save_results(save_result_to_path, matrix_to_version_to_result_map, version_to_matrix_to_result_map, operation_labels):
+def save_results(save_result_to_path, version_to_matrix_to_result_map, version_to_operation_labels_map):
     with open(save_result_to_path, 'w') as output_file:
-        output_file.write('Results per matrix; rows are versions')
-        output_file.write('\n\n')
-
-        for matrix_name, version_to_result_map in matrix_to_version_to_result_map.items():
-            output_file.write(f'Results for matrix {matrix_name} =>')
-            output_file.write('\n')
-            output_file.write(get_perf_data_string(
-                version_to_result_map, operation_labels))
-            output_file.write('\n\n')
-
-        output_file.write('\n')
         output_file.write('Results per version; rows are matrices')
         output_file.write('\n\n')
 
         for version_name, matrix_to_result_map in version_to_matrix_to_result_map.items():
+            operation_labels = version_to_operation_labels_map[version_name]
+
             output_file.write(f'Results for version {version_name} =>')
             output_file.write('\n')
             output_file.write(get_perf_data_string(
@@ -125,19 +108,20 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
         cuda_string = CUDA_VISIBLE_DEVICES_SETTING[num_gpus]
         os.environ['CUDA_VISIBLE_DEVICES'] = cuda_string
 
-        matrix_to_version_to_result_map = dict.fromkeys(MATRIX_NAMES)
         version_to_matrix_to_result_map = dict.fromkeys(
             VERSION_LABELS)
+        version_to_operation_labels_map = dict.fromkeys(VERSION_LABELS)
 
-        for matrix_name in MATRIX_NAMES:
-            matrix_path = MATRICES_FOLDER_PATH + '/' + matrix_name + '.mtx'
+        for version_name, version_idx in VERSION_NAME_TO_IDX_MAP.items():
+            matrix_to_result_map = defaultdict(list)
+            operation_labels = None
 
-            if 'generated' in matrix_name:
-                matrix_path = None
+            for matrix_name in MATRIX_NAMES:
+                matrix_path = MATRICES_FOLDER_PATH + '/' + matrix_name + '.mtx'
 
-            version_to_result_map = defaultdict(list)
+                if 'generated' in matrix_name:
+                    matrix_path = None
 
-            for version_name, version_idx in VERSION_NAME_TO_IDX_MAP.items():
                 executable_path = executable_dir + '/' + EXECUTABLE_NAME
                 full_executable = f'{executable_path} -s 1 -v {version_idx} -niter {NUM_ITERATIONS}'
 
@@ -180,28 +164,21 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
                 nsys_stats_output = '\n'.join([
                     line for line in newline_slices if line.strip() != ''])
 
-                operation_runtimes = parse_nsys_stats_output(
+                sorted_labels, relative_runtimes = parse_nsys_stats_output(
                     nsys_stats_output)
 
-                version_to_result_map[version_name][:] = operation_runtimes[:]
+                if not operation_labels:
+                    operation_labels = sorted_labels
 
-            matrix_to_version_to_result_map[matrix_name] = version_to_result_map
-
-        for version_name in VERSION_LABELS:
-            matrix_to_result_map = dict()
-
-            for matrix_name in MATRIX_NAMES:
-                result = matrix_to_version_to_result_map[matrix_name][version_name]
-                matrix_to_result_map[matrix_name] = result
+                matrix_to_result_map[matrix_name][:] = relative_runtimes[:]
 
             version_to_matrix_to_result_map[version_name] = matrix_to_result_map
+            version_to_operation_labels_map[version_name] = operation_labels
 
         per_gpu_result_path = save_result_to_path + f'_{num_gpus}GPU' + '.txt'
 
-        operation_labels = list(OPERATION_LABELS_TO_IDX_MAP.keys())
-
-        save_results(per_gpu_result_path, matrix_to_version_to_result_map,
-                     version_to_matrix_to_result_map, operation_labels)
+        save_results(per_gpu_result_path, version_to_matrix_to_result_map,
+                     version_to_operation_labels_map)
 
 
 if __name__ == "__main__":
