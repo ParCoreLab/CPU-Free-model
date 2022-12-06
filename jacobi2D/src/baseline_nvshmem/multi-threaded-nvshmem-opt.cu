@@ -53,38 +53,35 @@ namespace BaselineMultiThreadedNvshmemOpt
         /* Wait for neighbors notification */
         nvshmem_uint64_wait_until_all(sync_arr, 2, NULL, NVSHMEM_CMP_GE, counter);
     }
-    template <int BLOCK_DIM_X, int BLOCK_DIM_Y, int BLOCK_DIM_Z>
+    template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
     __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
-                                  const int iz_start, const int iz_end, const int ny, const int nx,
-                                  const int top_pe, const int top_iz, const int bottom_pe, const int bottom_iz)
+                                  const int iy_start, const int iy_end, const int nx,
+                                  const int top_pe, const int top_iy, const int bottom_pe, const int bottom_iy)
     {
-        int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
-        int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
+        int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
         int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
-        if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
+        if (iy < iy_end && ix < (nx - 1))
         {
-            const real new_val = (real(1) / real(6)) *
-                                 (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
-                                  a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
-                                  a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
+            const real new_val = (real(1) / real(4)) *
+                                 (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                  a[(iy + 1) * nx + ix] + a[+(iy - 1) * nx + ix]);
 
-            a_new[iz * ny * nx + iy * nx + ix] = new_val;
+            a_new[iy * nx + ix] = new_val;
         }
 
-        int block_iz = iz - threadIdx.z;
         int block_iy = iy - threadIdx.y; /* Alternatively, block_iy = blockIdx.y * blockDim.y + 1 */
         int block_ix = ix - threadIdx.x; /* Alternatively, block_ix = blockIdx.x * blockDim.x + 1 */
 
-        if ((block_iz <= iz_start) && (iz_start < block_iz + blockDim.z))
+        if ((block_iy <= iy_start) && (iy_start < block_iy + blockDim.y))
         {
-            nvshmemx_float_put_nbi_block(a_new + top_iz * nx * ny + block_iy * nx + block_ix, a_new + iz_start * nx * ny + block_iy * nx + block_ix,
-                                         min(blockDim.y * blockDim.x, (nx * (ny - 1)) - 1 - (block_iy * nx + block_ix)), top_pe);
+            nvshmemx_float_put_nbi_block(a_new + top_iy * nx + block_ix, a_new + iy_start * nx + block_ix,
+                                         min(blockDim.x, nx - 1 - block_ix), top_pe);
         }
-        if ((block_iz < iz_end) && (iz_end <= block_iz + blockDim.z))
+        if ((block_iy < iy_end) && (iy_end <= block_iy + blockDim.y))
         {
-            nvshmemx_float_put_nbi_block(a_new + bottom_iz * nx * ny + block_iy * nx + block_ix, a_new + (iz_end - 1) * nx * ny + block_iy * nx + block_ix,
-                                         min(blockDim.y * blockDim.x, (nx * (ny - 1)) - 1 - (block_iy * nx + block_ix)), bottom_pe);
+            nvshmemx_float_put_nbi_block(a_new + bottom_iy * nx + block_ix, a_new + (iy_end - 1) * nx + block_ix,
+                                         min(blockDim.x, nx - 1 - block_ix), bottom_pe);
         }
     }
 
@@ -95,7 +92,6 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
-    const int nz = get_argval<int>(argv, argv + argc, "-nz", 512);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
     real *a;
@@ -149,7 +145,7 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 2);
+    long long unsigned int mesh_size_per_rank = nx * (((ny - 2) + size - 1) / size + 2);
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -185,10 +181,10 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
     double runtime_serial_non_persistent = 0.0;
     if (compare_to_single_gpu)
     {
-        CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
-        CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));
+        CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
+        CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
-        runtime_serial_non_persistent = single_gpu(nz, ny, nx, iter_max, a_ref_h, 0, true);
+        runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
     }
 
     nvshmem_barrier_all();
@@ -196,54 +192,54 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
     // that each rank gets either (ny - 2) / size or (ny - 2) / size + 1 rows.
     // This optimizes load balancing when (ny - 2) % size != 0
     int chunk_size;
-    int chunk_size_low = (nz - 2) / npes;
+    int chunk_size_low = (ny - 2) / npes;
     int chunk_size_high = chunk_size_low + 1;
     // To calculate the number of ranks that need to compute an extra row,
     // the following formula is derived from this equation:
     // num_ranks_low * chunk_size_low + (size - num_ranks_low) * (chunk_size_low + 1) = ny - 2
     int num_ranks_low = npes * chunk_size_low + npes -
-                        (nz - 2); // Number of ranks with chunk_size = chunk_size_low
+                        (ny - 2); // Number of ranks with chunk_size = chunk_size_low
     if (mype < num_ranks_low)
         chunk_size = chunk_size_low;
     else
         chunk_size = chunk_size_high;
 
     a = (real *)nvshmem_malloc(
-        nx * ny * (chunk_size_high + 2) *
+        nx * (chunk_size_high + 2) *
         sizeof(real)); // Using chunk_size_high so that it is same across all PEs
-    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
+    a_new = (real *)nvshmem_malloc(nx * (chunk_size_high + 2) * sizeof(real));
 
-    cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real));
-    cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real));
+    cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real));
+    cudaMemset(a_new, 0, nx * (chunk_size + 2) * sizeof(real));
 
     // Calculate local domain boundaries
-    int iz_start_global; // My start index in the global array
+    int iy_start_global; // My start index in the global array
     if (mype < num_ranks_low)
     {
-        iz_start_global = mype * chunk_size_low + 1;
+        iy_start_global = mype * chunk_size_low + 1;
     }
     else
     {
-        iz_start_global =
+        iy_start_global =
             num_ranks_low * chunk_size_low + (mype - num_ranks_low) * chunk_size_high + 1;
     }
-    int iz_end_global = iz_start_global + chunk_size - 1; // My last index in the global array
+    int iy_end_global = iy_start_global + chunk_size - 1; // My last index in the global array
     // do not process boundaries
-    iz_end_global = std::min(iz_end_global, nz - 4);
+    iy_end_global = std::min(iy_end_global, ny - 4);
 
-    int iz_start = 1;
-    int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
+    int iy_start = 1;
+    int iy_end = (iy_end_global - iy_start_global + 1) + iy_start;
 
     // calculate boundary indices for top and bottom boundaries
     int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     int bottom_pe = (mype + 1) % npes;
 
-    int iz_end_top = (top_pe < num_ranks_low) ? chunk_size_low + 1 : chunk_size_high + 1;
-    int iz_start_bottom = 0;
+    int iy_end_top = (top_pe < num_ranks_low) ? chunk_size_low + 1 : chunk_size_high + 1;
+    int iy_start_bottom = 0;
 
     // Set diriclet boundary conditions on left and right boundary
-    initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(
-        a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
+    initialize_boundaries<<<(ny / npes) / 128 + 1, 128>>>(
+        a_new, a, PI, iy_start_global - 1, nx, chunk_size + 2, ny);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -256,11 +252,9 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
 
     constexpr int dim_block_x = 1024;
     constexpr int dim_block_y = 1;
-    constexpr int dim_block_z = 1;
 
     dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
-                  (ny + dim_block_y - 1) / dim_block_y,
-                  (chunk_size + dim_block_z - 1) / dim_block_z);
+                  (chunk_size + dim_block_y - 1) / dim_block_y);
 
     int iter = 0;
 
@@ -283,10 +277,10 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
         // int prev = iter % 2;
         // int curr = (iter + 1) % 2;
 
-        jacobi_kernel<dim_block_x, dim_block_y, dim_block_z>
-            <<<dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0, compute_stream>>>(
-                a_new, a, iz_start, iz_end, ny, nx, top_pe, iz_end_top, bottom_pe,
-                iz_start_bottom);
+        jacobi_kernel<dim_block_x, dim_block_y>
+            <<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
+                a_new, a, iy_start, iy_end, nx, top_pe, iy_end_top, bottom_pe,
+                iy_start_bottom);
         CUDA_RT_CALL(cudaGetLastError());
 
         /* Instead of using nvshmemx_barrier_all_on_stream, we are using a custom implementation
@@ -311,27 +305,24 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
     {
 
         CUDA_RT_CALL(cudaMemcpy(
-            a_h + iz_start_global * ny * nx, a + ny * nx,
-            std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
+            a_h + iy_start_global * nx, a + nx,
+            std::min(ny - iy_start_global, chunk_size) * nx * sizeof(real),
             cudaMemcpyDeviceToHost));
 
-        for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz)
+        for (int iy = iy_start_global; result_correct && (iy <= iy_end_global); ++iy)
         {
-            for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy)
+            for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix)
             {
-                for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix)
+                if (std::fabs(a_h[iy * nx + ix] -
+                              a_ref_h[iy * nx + ix]) > tol)
                 {
-                    if (std::fabs(a_h[iz * ny * nx + iy * nx + ix] -
-                                  a_ref_h[iz * ny * nx + iy * nx + ix]) > tol)
-                    {
-                        fprintf(stderr,
-                                "ERROR on rank %d: a[%d * %d + %d * %d + %d] = %f does "
-                                "not match %f "
-                                "(reference)\n",
-                                rank, iz, ny * nx, iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix],
-                                a_ref_h[iz * ny * nx + iy * nx + ix]);
-                        result_correct = 0;
-                    }
+                    fprintf(stderr,
+                            "ERROR on rank %d: a[%d * %d + %d] = %f does "
+                            "not match %f "
+                            "(reference)\n",
+                            rank, iy, nx, ix, a_h[iy * nx + ix],
+                            a_ref_h[iy * nx + ix]);
+                    result_correct = 0;
                 }
             }
         }
@@ -348,12 +339,12 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
         if (compare_to_single_gpu)
         {
             printf(
-                "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: "
+                "Non-persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: "
                 "%8.4f "
                 "s, speedup: "
                 "%8.2f, "
                 "efficiency: %8.2f \n",
-                nz, ny, nx, runtime_serial_non_persistent, npes, (stop - start),
+                nx, ny, runtime_serial_non_persistent, npes, (stop - start),
                 runtime_serial_non_persistent / (stop - start),
                 runtime_serial_non_persistent / (npes * (stop - start)) * 100);
         }

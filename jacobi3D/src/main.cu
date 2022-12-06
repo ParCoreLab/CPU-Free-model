@@ -8,7 +8,7 @@
 #include "../include/baseline_nvshmem/multi-threaded-nvshmem-opt.cuh"
 
 #include "../include/single-stream/multi-threaded-one-block-comm.cuh"
-#include "../include/single-stream/multi-threaded-one-block-warp-comm.cuh"
+#include "../include/single-stream/multi-threaded-one-block-comm-layer.cuh"
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
 
 
@@ -20,9 +20,6 @@
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-original-get.cuh"
 #include "../include/single-stream_nvshmem/multi-threaded-one-block-comm-original-put.cuh"
 
-//#include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-warp.cuh"
-//#include "../include/single-stream_nvshmem/multi-threaded-two-block-comm-contiguous.cuh"
-//#include "../include/single-stream_nvshmem/multi-threaded-two-block-comm.cuh"
 
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
 //#include "../include/multi-stream_nvshmem/multi-gpu-peer-tiling.cuh"
@@ -58,10 +55,10 @@ int main(int argc, char *argv[]) {
         make_pair("Baseline Multi Threaded NVSHMEM", BaselineMultiThreadedNvshmem::init),
         make_pair("Baseline Single Threaded NVSHMEM Optimized", BaselineMultiThreadedNvshmemOpt::init),
 
-        make_pair("Naive Single stream multi threaded (one thread block communicates)",
+        make_pair("Naive Single stream multi threaded Tile-by-Tile (one thread block communicates)",
                   SSMultiThreadedOneBlockComm::init),
-        make_pair("Naive Single stream multi threaded warp (one thread block communicates)",
-                  SSMultiThreadedOneBlockWarpComm::init),
+        make_pair("Naive Single stream multi threaded Plane-by-Plane (one thread block communicates)",
+                  SSMultiThreadedOneBlockCommLayer::init),
         make_pair("Naive Single stream multi threaded (two thread blocks communicate)",
                   SSMultiThreadedTwoBlockComm::init),
         make_pair("Naive Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),

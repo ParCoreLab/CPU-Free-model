@@ -9,7 +9,6 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
 
-#include "../../include/common.h"
 #include "../../include/single-stream/multi-threaded-one-block-comm.cuh"
 
 namespace cg = cooperative_groups;
@@ -129,7 +128,7 @@ namespace SSMultiThreadedOneBlockComm
             }
             else
             {
-                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+                /*for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
                      iz < (iz_end - 1) * ny * nx; iz += comp_tile_size_z * ny * nx)
                 {
                     for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx;
@@ -142,6 +141,30 @@ namespace SSMultiThreadedOneBlockComm
                                                    a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
                                                    a[iz - ny * nx + iy + ix]);
                         }
+                    }
+                }*/
+                const unsigned int num_comp_tiles_x = nx / blockDim.x + (nx % blockDim.x != 0);
+                const unsigned int num_comp_tiles_y = ny / blockDim.y + (ny % blockDim.y != 0);
+                const unsigned int num_comp_tiles_z = (iz_end - iz_start -2) / blockDim.z + ((iz_end - iz_start - 2) % blockDim.z != 0);
+                const unsigned int num_comp_tiles = num_comp_tiles_x*num_comp_tiles_y*num_comp_tiles_z;
+                for (int block_idx = blockIdx.x; block_idx < num_comp_tiles; block_idx += (gridDim.x - 1))
+                {
+                    //Are these too expensive??
+                    const unsigned int block_idx_z = block_idx / (num_comp_tiles_x * num_comp_tiles_y);
+                    const unsigned int block_idx_y = (block_idx / num_comp_tiles_x) % num_comp_tiles_y;
+                    const unsigned int block_idx_x = block_idx % num_comp_tiles_x;
+
+                    const unsigned int iz = (block_idx_z * blockDim.z + threadIdx.z + iz_start + 1);
+                    const unsigned int iy = (block_idx_y * blockDim.y + threadIdx.y + 1);
+                    const unsigned int ix = (block_idx_x * blockDim.x + threadIdx.x + 1);
+
+                    if (ix % nx > 0 && ix % nx < (nx - 1) && iy % ny > 0 && iy % ny < (ny - 1) && iz < (iz_end - 1))
+                    {
+                        int idx = iz * ny * nx + iy * nx + ix;
+                        a_new[idx] = (real(1) / real(6)) *
+                                     (a[idx + 1] + a[idx - 1] +
+                                      a[idx + nx] + a[idx - nx] +
+                                      a[idx + ny * nx] + a[idx - ny * nx]);
                     }
                 }
             }
@@ -217,8 +240,8 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
         int numSms = deviceProp.multiProcessorCount * maxActiveBlocksPerSM;
 
         constexpr int dim_block_x = 32;
-        constexpr int dim_block_y = 32;
-        constexpr int dim_block_z = 1;
+        constexpr int dim_block_y = 8;
+        constexpr int dim_block_z = 4;
 
         constexpr int comp_tile_size_x = dim_block_x;
         constexpr int comp_tile_size_y = dim_block_y;
@@ -230,9 +253,9 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
         constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
         constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
 
-        int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+        //int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
-        comp_tile_size_z = dim_block_z * max_thread_blocks_z;
+        comp_tile_size_z = dim_block_z;// * max_thread_blocks_z;
 
         int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
         int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);

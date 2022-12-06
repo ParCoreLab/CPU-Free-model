@@ -38,52 +38,58 @@
 #include "../../include/common.h"
 #include "../../include/no-compute/multi-threaded-p2p-no-compute.cuh"
 
-namespace BaselineMultiThreadedP2PNoCompute {
-__global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
-                              const int iy_start, const int iy_end, const int nx,
-                              real* __restrict__ const a_new_top, const int top_iy,
-                              real* __restrict__ const a_new_bottom, const int bottom_iy) {
-    int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
-    int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    // real local_l2_norm = 0.0;
+namespace BaselineMultiThreadedP2PNoCompute
+{
+    __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
+                                  const int iy_start, const int iy_end, const int nx,
+                                  real *__restrict__ const a_new_top, const int top_iy,
+                                  real *__restrict__ const a_new_bottom, const int bottom_iy)
+    {
+        int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
+        int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+        // real local_l2_norm = 0.0;
 
-    if (iy < iy_end && ix < (nx - 1)) {
-        // const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-        //                              a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-        // a_new[iy * nx + ix] = new_val;
+        if (iy < iy_end && ix < (nx - 1))
+        {
+            // const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+            //                              a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+            // a_new[iy * nx + ix] = new_val;
 
-        const real new_val = 0.25;
+            const real new_val = 0.25;
 
-        if (iy_start == iy) {
-            a_new_top[top_iy * nx + ix] = new_val;
-        }
+            if (iy_start == iy)
+            {
+                a_new_top[top_iy * nx + ix] = new_val;
+            }
 
-        if ((iy_end - 1) == iy) {
-            a_new_bottom[bottom_iy * nx + ix] = new_val;
+            if ((iy_end - 1) == iy)
+            {
+                a_new_bottom[bottom_iy * nx + ix] = new_val;
+            }
+
+            // if (calculate_norm) {
+            //     real residue = new_val - a[iy * nx + ix];
+            //     local_l2_norm += residue * residue;
+            // }
         }
 
         // if (calculate_norm) {
-        //     real residue = new_val - a[iy * nx + ix];
-        //     local_l2_norm += residue * residue;
+        //     atomicAdd(l2_norm, local_l2_norm);
         // }
     }
+} // namespace BaselineMultiThreadedP2PNoCompute
 
-    // if (calculate_norm) {
-    //     atomicAdd(l2_norm, local_l2_norm);
-    // }
-}
-}  // namespace BaselineMultiThreadedP2PNoCompute
-
-int BaselineMultiThreadedP2PNoCompute::init(int argc, char* argv[]) {
+int BaselineMultiThreadedP2PNoCompute::init(int argc, char *argv[])
+{
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
-    real* a_new[MAX_NUM_DEVICES];
+    real *a_new[MAX_NUM_DEVICES];
 
-    real* a_ref_h;
-    real* a_h;
+    real *a_ref_h;
+    real *a_h;
     double runtime_serial_non_persistent = 0.0;
 
     int iy_end[MAX_NUM_DEVICES];
@@ -96,7 +102,7 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char* argv[]) {
 
 #pragma omp parallel num_threads(num_devices)
     {
-        real* a;
+        real *a;
 
         cudaStream_t compute_stream;
         cudaStream_t push_top_stream;
@@ -109,7 +115,8 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(0));
 
-        if (compare_to_single_gpu && 0 == dev_id) {
+        if (compare_to_single_gpu && 0 == dev_id)
+        {
             CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
             runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
@@ -125,7 +132,7 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char* argv[]) {
         // the following formula is derived from this equation:
         // num_ranks_low * chunk_size_low + (size - num_ranks_low) * (chunk_size_low + 1) = ny - 2
         int num_ranks_low = num_devices * chunk_size_low + num_devices -
-                            (ny - 2);  // Number of ranks with chunk_size = chunk_size_low
+                            (ny - 2); // Number of ranks with chunk_size = chunk_size_low
         if (dev_id < num_ranks_low)
             chunk_size = chunk_size_low;
         else
@@ -133,29 +140,39 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char* argv[]) {
 
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         const int bottom = (dev_id + 1) % num_devices;
-        if (top != dev_id) {
+        if (top != dev_id)
+        {
             int canAccessPeer = 0;
             CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
-            if (canAccessPeer) {
+            if (canAccessPeer)
+            {
                 CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
-            } else {
+            }
+            else
+            {
                 std::cerr << "P2P access required from " << dev_id << " to " << top << std::endl;
 #pragma omp critical
                 {
-                    if (p2p_works) p2p_works = false;
+                    if (p2p_works)
+                        p2p_works = false;
                 }
             }
-            if (top != bottom) {
+            if (top != bottom)
+            {
                 canAccessPeer = 0;
                 CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, bottom));
-                if (canAccessPeer) {
+                if (canAccessPeer)
+                {
                     CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom, 0));
-                } else {
+                }
+                else
+                {
                     std::cerr << "P2P access required from " << dev_id << " to " << bottom
                               << std::endl;
 #pragma omp critical
                     {
-                        if (p2p_works) p2p_works = false;
+                        if (p2p_works)
+                            p2p_works = false;
                     }
                 }
             }
@@ -163,7 +180,8 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char* argv[]) {
 
 #pragma omp barrier
 
-        if (p2p_works) {
+        if (p2p_works)
+        {
             CUDA_RT_CALL(cudaMalloc(&a, nx * (chunk_size + 2) * sizeof(real)));
             CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + 2) * sizeof(real)));
 
@@ -171,15 +189,18 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char* argv[]) {
             CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
             // Calculate local domain boundaries
-            int iy_start_global;  // My start index in the global array
-            if (dev_id < num_ranks_low) {
+            int iy_start_global; // My start index in the global array
+            if (dev_id < num_ranks_low)
+            {
                 iy_start_global = dev_id * chunk_size_low + 1;
-            } else {
+            }
+            else
+            {
                 iy_start_global =
                     num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
             }
             int iy_end_global =
-                iy_start_global + chunk_size - 1;  // My last index in the global array
+                iy_start_global + chunk_size - 1; // My last index in the global array
 
             int iy_start = 1;
             iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
@@ -213,7 +234,8 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char* argv[]) {
 #pragma omp barrier
             double start = omp_get_wtime();
 
-            while (iter < iter_max) {
+            while (iter < iter_max)
+            {
 // need to wait for other threads due to sharing of a_new and compute_done
 // between threads
 #pragma omp barrier
@@ -236,7 +258,8 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char* argv[]) {
 #pragma omp barrier
             double stop = omp_get_wtime();
 
-            if (compare_to_single_gpu) {
+            if (compare_to_single_gpu)
+            {
                 CUDA_RT_CALL(cudaMemcpy(
                     a_h + iy_start_global * nx, a + nx,
                     std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
@@ -262,7 +285,8 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char* argv[]) {
             CUDA_RT_CALL(cudaFree(a_new[dev_id]));
             CUDA_RT_CALL(cudaFree(a));
 
-            if (compare_to_single_gpu && 0 == dev_id) {
+            if (compare_to_single_gpu && 0 == dev_id)
+            {
                 CUDA_RT_CALL(cudaFreeHost(a_h));
                 CUDA_RT_CALL(cudaFreeHost(a_ref_h));
             }

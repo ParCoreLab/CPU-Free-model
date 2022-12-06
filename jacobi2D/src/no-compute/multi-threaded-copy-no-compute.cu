@@ -34,40 +34,44 @@
 #include "../../include/common.h"
 #include "../../include/no-compute/multi-threaded-copy-no-compute.cuh"
 
-namespace BaselineMultiThreadedCopyNoCompute {
-__global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
-                              const int iy_start, const int iy_end, const int nx) {
-    int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
-    int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    // real local_l2_norm = 0.0;
+namespace BaselineMultiThreadedCopyNoCompute
+{
+    __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
+                                  const int iy_start, const int iy_end, const int nx)
+    {
+        int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
+        int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+        // real local_l2_norm = 0.0;
 
-    if (iy < iy_end && ix < (nx - 1)) {
-        // const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-        //                              a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-        // a_new[iy * nx + ix] = new_val;
+        if (iy < iy_end && ix < (nx - 1))
+        {
+            // const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+            //                              a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+            // a_new[iy * nx + ix] = new_val;
+
+            // if (calculate_norm) {
+            //     real residue = new_val - a[iy * nx + ix];
+            //     local_l2_norm += residue * residue;
+            // }
+        }
 
         // if (calculate_norm) {
-        //     real residue = new_val - a[iy * nx + ix];
-        //     local_l2_norm += residue * residue;
+        //     atomicAdd(l2_norm, local_l2_norm);
         // }
     }
+} // namespace BaselineMultiThreadedCopyNoCompute
 
-    // if (calculate_norm) {
-    //     atomicAdd(l2_norm, local_l2_norm);
-    // }
-}
-}  // namespace BaselineMultiThreadedCopyNoCompute
-
-int BaselineMultiThreadedCopyNoCompute::init(int argc, char* argv[]) {
+int BaselineMultiThreadedCopyNoCompute::init(int argc, char *argv[])
+{
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
-    real* a_new[MAX_NUM_DEVICES];
+    real *a_new[MAX_NUM_DEVICES];
 
-    real* a_ref_h;
-    real* a_h;
+    real *a_ref_h;
+    real *a_h;
     double runtime_serial_non_persistent = 0.0;
 
     int iy_end[MAX_NUM_DEVICES];
@@ -80,7 +84,7 @@ int BaselineMultiThreadedCopyNoCompute::init(int argc, char* argv[]) {
 
 #pragma omp parallel num_threads(num_devices)
     {
-        real* a;
+        real *a;
 
         cudaStream_t compute_stream;
         cudaStream_t push_top_stream;
@@ -92,7 +96,8 @@ int BaselineMultiThreadedCopyNoCompute::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(0));
 
-        if (compare_to_single_gpu && 0 == dev_id) {
+        if (compare_to_single_gpu && 0 == dev_id)
+        {
             CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
@@ -109,7 +114,7 @@ int BaselineMultiThreadedCopyNoCompute::init(int argc, char* argv[]) {
         // the following formula is derived from this equation:
         // num_ranks_low * chunk_size_low + (size - num_ranks_low) * (chunk_size_low + 1) = ny - 2
         int num_ranks_low = num_devices * chunk_size_low + num_devices -
-                            (ny - 2);  // Number of ranks with chunk_size = chunk_size_low
+                            (ny - 2); // Number of ranks with chunk_size = chunk_size_low
         if (dev_id < num_ranks_low)
             chunk_size = chunk_size_low;
         else
@@ -122,10 +127,13 @@ int BaselineMultiThreadedCopyNoCompute::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
         // Calculate local domain boundaries
-        int iy_start_global;  // My start index in the global array
-        if (dev_id < num_ranks_low) {
+        int iy_start_global; // My start index in the global array
+        if (dev_id < num_ranks_low)
+        {
             iy_start_global = dev_id * chunk_size_low + 1;
-        } else {
+        }
+        else
+        {
             iy_start_global =
                 num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
         }
@@ -153,14 +161,17 @@ int BaselineMultiThreadedCopyNoCompute::init(int argc, char* argv[]) {
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         int canAccessPeer = 0;
         CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
-        if (canAccessPeer) {
+        if (canAccessPeer)
+        {
             CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
         }
         const int bottom = (dev_id + 1) % num_devices;
-        if (top != bottom) {
+        if (top != bottom)
+        {
             canAccessPeer = 0;
             CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, bottom));
-            if (canAccessPeer) {
+            if (canAccessPeer)
+            {
                 CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom, 0));
             }
         }
@@ -177,7 +188,8 @@ int BaselineMultiThreadedCopyNoCompute::init(int argc, char* argv[]) {
 #pragma omp barrier
         double start = omp_get_wtime();
 
-        while (iter < iter_max) {
+        while (iter < iter_max)
+        {
             int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
             int bottom = (dev_id + 1) % num_devices;
 
@@ -222,7 +234,8 @@ int BaselineMultiThreadedCopyNoCompute::init(int argc, char* argv[]) {
 #pragma omp barrier
         double stop = omp_get_wtime();
 
-        if (compare_to_single_gpu) {
+        if (compare_to_single_gpu)
+        {
             CUDA_RT_CALL(
                 cudaMemcpy(a_h + iy_start_global * nx, a + nx,
                            std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
@@ -248,7 +261,8 @@ int BaselineMultiThreadedCopyNoCompute::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaFree(a_new[dev_id]));
         CUDA_RT_CALL(cudaFree(a));
 
-        if (compare_to_single_gpu && 0 == dev_id) {
+        if (compare_to_single_gpu && 0 == dev_id)
+        {
             CUDA_RT_CALL(cudaFreeHost(a_h));
             CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }
