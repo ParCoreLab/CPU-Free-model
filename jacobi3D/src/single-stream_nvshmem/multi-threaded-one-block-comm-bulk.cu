@@ -17,12 +17,17 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max, real *halo_buffer_top,
+                      const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max, real *halo_buffer_top,
                       real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
+
+        int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
+        int block_idx_y = blockIdx.x / grid_dim_x % grid_dim_y;
+        int block_idx_x = blockIdx.x % grid_dim_x;
+        int grid_dim_z = (gridDim.x - 1) / (grid_dim_x * grid_dim_y);
 
         int iter = 0;
         int cur_iter_mod = 0;
@@ -90,64 +95,20 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
             else
             {
 
-                // reorganize the SM layout, add a another for loop for SM location hopping. or reorganize the 3 for loops for SMs.
-                // move to outside since to much work per thread ???
-                const unsigned int num_comp_tiles_x = nx / blockDim.x + (nx % blockDim.x != 0);
-                const unsigned int num_comp_tiles_y = ny / blockDim.y + (ny % blockDim.y != 0);
-                const unsigned int num_comp_tiles_z = (iz_end - iz_start -2) / blockDim.z + ((iz_end - iz_start - 2) % blockDim.z != 0);
-                const unsigned int num_comp_tiles = num_comp_tiles_x*num_comp_tiles_y*num_comp_tiles_z;
-                /*              
-                const unsigned int grid_dim_z = max((gridDim.x - 1) / (num_comp_tiles_x * num_comp_tiles_y), 1);
-                const unsigned int grid_dim_y = min(max((gridDim.x - 1) / num_comp_tiles_x, 1), num_comp_tiles_y);
-                const unsigned int grid_dim_x = min(max((gridDim.x - 1), 1), num_comp_tiles_x);
-
-                const unsigned int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
-                const unsigned int block_idx_y = (blockIdx.x / grid_dim_x) % grid_dim_y;
-                const unsigned int block_idx_x = blockIdx.x % grid_dim_x;
-
-                const unsigned int comp_tile_dim_x = grid_dim_x * blockDim.x;
-                const unsigned int comp_tile_dim_y = grid_dim_y * blockDim.y;
-                const unsigned int comp_tile_dim_z = grid_dim_z * blockDim.z;
-                
-                               for (unsigned int iz = (block_idx_z * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-                                    iz < (iz_end - 1) * ny * nx; iz += comp_tile_dim_z * ny * nx)
-                               {
-                                   for (unsigned int iy = (block_idx_y * blockDim.y + threadIdx.y + 1) * nx;
-                                        iy < (ny - 1) * nx; iy += comp_tile_dim_y * nx)
-                                   {
-                                       for (unsigned int ix = (block_idx_x * blockDim.x + threadIdx.x + 1);
-                                            ix < (nx - 1); ix += comp_tile_dim_x)
-                                       {
-                                           a_new[iz + iy + ix] = (real(1) / real(6)) *
-                                                                 (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
-                                                                  a[iz + iy + nx + ix] + a[iz + iy - nx + ix] +
-                                                                  a[iz + ny * nx + iy + ix] + a[iz - ny * nx + iy + ix]);
-                                       }
-                                   }
-                               }
-                               */
-                
-                for (int block_idx = blockIdx.x; block_idx < num_comp_tiles; block_idx += (gridDim.x - 1))
+                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+                     iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
-                    //Are these too expensive??
-                    const unsigned int block_idx_z = block_idx / (num_comp_tiles_x * num_comp_tiles_y);
-                    const unsigned int block_idx_y = (block_idx / num_comp_tiles_x) % num_comp_tiles_y;
-                    const unsigned int block_idx_x = block_idx % num_comp_tiles_x;
-
-                    const unsigned int iz = (block_idx_z * blockDim.z + threadIdx.z + iz_start + 1);
-                    const unsigned int iy = (block_idx_y * blockDim.y + threadIdx.y + 1);
-                    const unsigned int ix = (block_idx_x * blockDim.x + threadIdx.x + 1);
-
-                    if (ix % nx > 0 && ix % nx < (nx - 1) && iy % ny > 0 && iy % ny < (ny - 1) && iz < (iz_end - 1))
+                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
                     {
-                        int idx = iz * ny * nx + iy * nx + ix;
-                        a_new[idx] = (real(1) / real(6)) *
-                                     (a[idx + 1] + a[idx - 1] +
-                                      a[idx + nx] + a[idx - nx] +
-                                      a[idx + ny * nx] + a[idx - ny * nx]);
+                        for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
+                        {
+                            a_new[iz + iy + ix] = (real(1) / real(6)) *
+                                                  (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
+                                                   a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
+                                                   a[iz - ny * nx + iy + ix]);
+                        }
                     }
                 }
-                
             }
 
             real *temp_pointer = a_new;
@@ -229,14 +190,14 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
     attr.mpi_comm = &mpi_comm;
 
     constexpr int dim_block_x = 32;
-    constexpr int dim_block_y = 4;
+    constexpr int dim_block_y = 8;
     constexpr int dim_block_z = 4;
 
     // constexpr int comm_tile_size_x = dim_block_x;
     // constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
 
-    int num_comp_tiles_x = nx / dim_block_x + (nx % dim_block_x != 0);
-    int num_comp_tiles_y = ny / dim_block_y + (ny % dim_block_y != 0);
+    // int num_comp_tiles_x = nx / dim_block_x + (nx % dim_block_x != 0);
+    // int num_comp_tiles_y = ny / dim_block_y + (ny % dim_block_y != 0);
 
     // constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
     // constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
@@ -310,12 +271,9 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
     // int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
     // int num_tiles_z = (nz / npes) / dim_block_z + ((nz / npes) % dim_block_z != 0);
 
-    const unsigned int grid_dim_z = max((numSms - 1) / (num_comp_tiles_x * num_comp_tiles_y), 1);
-    //+((numSms - 1) % (num_comp_tiles_x * num_comp_tiles_y) != 0);
-    const unsigned int grid_dim_y = min(max((numSms - 1) / num_comp_tiles_x, 1) //+ ((numSms - 1) % num_comp_tiles_x != 0)
-                                        ,
-                                        num_comp_tiles_y);
-    const unsigned int grid_dim_x = min(max((numSms - 1), 1), num_comp_tiles_x);
+    constexpr int grid_dim_x = 1;
+    constexpr int grid_dim_y = 8;
+    const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
@@ -385,7 +343,7 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(numSms, 1, 1);
+    dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 1, 1, 1);
     dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
     void *kernelArgs[] = {(void *)&a_new,
@@ -394,6 +352,8 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
                           (void *)&iz_end,
                           (void *)&ny,
                           (void *)&nx,
+                          (void *)&grid_dim_y,
+                          (void *)&grid_dim_x,
                           (void *)&iter_max,
                           (void *)&halo_buffer_top,
                           (void *)&halo_buffer_bottom,
