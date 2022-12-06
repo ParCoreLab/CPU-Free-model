@@ -17,7 +17,7 @@ namespace SSMultiThreadedOneBlockCommLayer
 {
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
-                      const int grid_dim_x, const int iter_max,
+                    const int iter_max,
                       volatile real *local_halo_buffer_for_top_neighbor,
                       volatile real *local_halo_buffer_for_bottom_neighbor,
                       volatile real *remote_my_halo_buffer_on_top_neighbor,
@@ -29,18 +29,6 @@ namespace SSMultiThreadedOneBlockCommLayer
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
-
-        int block_idx_y = blockIdx.x / grid_dim_x;
-        int block_idx_x = blockIdx.x % grid_dim_x;
-
-        int base_iy = (block_idx_y * blockDim.y + threadIdx.y + iy_start + 1) * nx;
-        int base_ix = block_idx_x * blockDim.x + threadIdx.x + 1;
-
-        int comp_tile_size_y = ((gridDim.x - 1) / grid_dim_x) * blockDim.y * nx;
-        int comp_tile_size_x = grid_dim_x * blockDim.x;
-
-        int comp_end_idx_y = (iy_end - 1) * nx;
-        int end_idx_x = (nx - 1);
 
         int iter = 0;
 
@@ -63,7 +51,7 @@ namespace SSMultiThreadedOneBlockCommLayer
 
                 int iy = iy_start * nx;
 
-                for (int ix = (threadIdx.y * blockDim.x + threadIdx.x + 1); ix < end_idx_x; ix += blockDim.y * blockDim.x)
+                for (int ix = (threadIdx.y * blockDim.x + threadIdx.x + 1); ix < (nx - 1); ix += blockDim.y * blockDim.x)
                 {
                     const real first_row_val =
                         0.25 * (a[iy + ix + 1] + a[iy + ix - 1] +
@@ -91,7 +79,7 @@ namespace SSMultiThreadedOneBlockCommLayer
 
                 iy = (iy_end - 1) * nx;
 
-                for (int ix = (threadIdx.y * blockDim.x + threadIdx.x + 1); ix < end_idx_x; ix += blockDim.y * blockDim.x)
+                for (int ix = (threadIdx.y * blockDim.x + threadIdx.x + 1); ix < (nx - 1); ix += blockDim.y * blockDim.x)
                 {
                     const real last_row_val =
                         0.25 * (a[iy + ix + 1] + a[iy + ix - 1] +
@@ -112,9 +100,10 @@ namespace SSMultiThreadedOneBlockCommLayer
             }
             else
             {
-                for (int iy = base_iy; iy < comp_end_idx_y; iy += comp_tile_size_y)
+                for (int iy = (blockIdx.x * blockDim.y + threadIdx.y + iy_start + 1) * nx;
+                 iy < (iy_end - 1) * nx; iy += (gridDim.x - 1) * blockDim.y * nx)
                 {
-                    for (int ix = base_ix; ix < end_idx_x; ix += comp_tile_size_x)
+                    for (int ix = threadIdx.x + 1; ix < (nx - 1); ix += blockDim.x)
                     {
                         const real new_val = 0.25 * (a[iy + ix + 1] + a[iy + ix - 1] +
                                                      a[iy + nx + ix] + a[iy - nx + ix]);
@@ -192,8 +181,8 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
 
-        int grid_dim_x = 8;
-        int grid_dim_y = (numSms - 1) / grid_dim_x;
+        //int grid_dim_x = 8;
+        //int grid_dim_y = (numSms - 1) / grid_dim_x;
 
         // int comp_tile_size_y = dim_block_y * grid_dim_y;
 
@@ -291,7 +280,7 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        dim3 dim_grid(grid_dim_y * grid_dim_x + 1);
+        dim3 dim_grid(numSms);
         dim3 dim_block(dim_block_x, dim_block_y);
 
         void *kernelArgs[] = {(void *)&a_new[dev_id],
@@ -299,7 +288,6 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
                               (void *)&iy_start,
                               (void *)&iy_end[dev_id],
                               (void *)&nx,
-                              (void *)&grid_dim_x,
                               (void *)&iter_max,
                               (void *)&halo_buffer_for_top_neighbor[dev_id],
                               (void *)&halo_buffer_for_bottom_neighbor[dev_id],

@@ -18,7 +18,7 @@ namespace SSMultiThreadedOneBlockComm
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int grid_dim_y, const int grid_dim_x,
+                      const int nx,
                       const int num_comm_tiles_x, const int num_comm_tiles_y, const int iter_max,
                       volatile real *local_halo_buffer_for_top_neighbor,
                       volatile real *local_halo_buffer_for_bottom_neighbor,
@@ -32,11 +32,6 @@ namespace SSMultiThreadedOneBlockComm
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
-        int block_idx_y = blockIdx.x / grid_dim_x % grid_dim_y;
-        int block_idx_x = blockIdx.x % grid_dim_x;
-        int grid_dim_z = (gridDim.x - 1) / (grid_dim_x * grid_dim_y);
-        
         int iter = 0;
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
@@ -129,14 +124,12 @@ namespace SSMultiThreadedOneBlockComm
             }
             else
             {
-                for (int iz = (block_idx_z * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-                 iz < (iz_end - 1) * ny * nx; iz += grid_dim_z * blockDim.z * ny * nx)
+                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+                     iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
-                    for (int iy = (block_idx_y * blockDim.y + threadIdx.y + 1) * nx;
-                     iy < (ny - 1) * nx; iy += grid_dim_y * blockDim.y * nx)
+                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
                     {
-                        for (int ix = block_idx_x * blockDim.x + threadIdx.x + 1;
-                         ix < (nx - 1); ix += grid_dim_x * blockDim.x)
+                        for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
                         {
                             a_new[iz + iy + ix] = (real(1) / real(6)) *
                                                   (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
@@ -224,9 +217,9 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
         // constexpr int comp_tile_size_x = dim_block_x;
         // constexpr int comp_tile_size_y = dim_block_y;
 
-        constexpr int grid_dim_x = 2;
-        constexpr int grid_dim_y = 4;
-        const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+        //constexpr int grid_dim_x = 2;
+        //constexpr int grid_dim_y = 4;
+        //const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
         // int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
@@ -328,7 +321,7 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 1);
+        dim3 dim_grid(numSms);
         dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
         void *kernelArgs[] = {(void *)&a_new[dev_id],
@@ -337,8 +330,6 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
                               (void *)&iz_end[dev_id],
                               (void *)&ny,
                               (void *)&nx,
-                              (void *)&grid_dim_y,
-                              (void *)&grid_dim_x,
                               (void *)&num_comm_tiles_x,
                               (void *)&num_comm_tiles_y,
                               (void *)&iter_max,

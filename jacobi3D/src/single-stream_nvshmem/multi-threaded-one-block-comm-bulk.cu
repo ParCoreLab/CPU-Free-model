@@ -17,17 +17,12 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max, real *halo_buffer_top,
+                      const int nx, const int iter_max, real *halo_buffer_top,
                       real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
-
-        int block_idx_z = blockIdx.x / (grid_dim_x * grid_dim_y);
-        int block_idx_y = blockIdx.x / grid_dim_x % grid_dim_y;
-        int block_idx_x = blockIdx.x % grid_dim_x;
-        int grid_dim_z = (gridDim.x - 1) / (grid_dim_x * grid_dim_y);
 
         int iter = 0;
         int cur_iter_mod = 0;
@@ -271,9 +266,9 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
     // int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
     // int num_tiles_z = (nz / npes) / dim_block_z + ((nz / npes) % dim_block_z != 0);
 
-    constexpr int grid_dim_x = 1;
-    constexpr int grid_dim_y = 8;
-    const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+    //constexpr int grid_dim_x = 1;
+    //constexpr int grid_dim_y = 8;
+    //const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
@@ -343,7 +338,7 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 1, 1, 1);
+    dim3 dim_grid(numSms);
     dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
     void *kernelArgs[] = {(void *)&a_new,
@@ -352,8 +347,6 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
                           (void *)&iz_end,
                           (void *)&ny,
                           (void *)&nx,
-                          (void *)&grid_dim_y,
-                          (void *)&grid_dim_x,
                           (void *)&iter_max,
                           (void *)&halo_buffer_top,
                           (void *)&halo_buffer_bottom,
