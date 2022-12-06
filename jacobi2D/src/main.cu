@@ -17,8 +17,6 @@
 
 #include "../include/multi-stream_nvshmem/multi-gpu-peer-tiling.cuh"
 
-#include "../include/PERKS/multi-stream-perks.cuh"
-
 #include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-copy-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-copy-overlap-no-compute.cuh"
@@ -56,8 +54,6 @@ int main(int argc, char *argv[])
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate)",
                   SSMultiThreadedTwoBlockCommNvshmem::init),
         make_pair("Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
-
-        make_pair("Multi Stream PERKS", MultiStreamPERKS::init),
 
         make_pair("Baseline Multi Threaded Copy (No computation)",
                   BaselineMultiThreadedCopyNoCompute::init),
