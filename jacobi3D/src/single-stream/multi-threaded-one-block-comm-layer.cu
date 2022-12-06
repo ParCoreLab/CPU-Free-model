@@ -19,7 +19,7 @@ namespace SSMultiThreadedOneBlockCommLayer
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max,
+                      const int nx, const int grid_dim_y, const int grid_dim_x,const int iter_max,
                       volatile real *local_halo_buffer_for_top_neighbor,
                       volatile real *local_halo_buffer_for_bottom_neighbor,
                       volatile const real *remote_my_halo_buffer_on_top_neighbor,
@@ -32,6 +32,10 @@ namespace SSMultiThreadedOneBlockCommLayer
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
+        int grid_dim_z = (gridDim.x - 1) / (grid_dim_y * grid_dim_x);
+        int block_idx_x = blockIdx.x % grid_dim_x;
+        int block_idx_y = blockIdx.x / grid_dim_x % grid_dim_y;
+        int block_idx_z = blockIdx.x / (grid_dim_y * grid_dim_x);
 
         int iter = 0;
         int cur_iter_mod = 0;
@@ -104,11 +108,13 @@ namespace SSMultiThreadedOneBlockCommLayer
             else
             {
                 for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-                     iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
+                     iz < (iz_end - 1) * ny * nx; iz += grid_dim_z * blockDim.z * ny * nx)
                 {
-                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
+                    for (int iy = (block_idx_y * blockDim.y + threadIdx.y + 1) * nx;
+                         iy < (ny - 1) * nx; iy += grid_dim_y * blockDim.y * nx)
                     {
-                        for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
+                        for (int ix = (block_idx_x * blockDim.x + threadIdx.x + 1);
+                             ix < (nx - 1); ix += grid_dim_x * blockDim.x)
                         {
                             a_new[iz + iy + ix] = (real(1) / real(6)) *
                                                   (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
@@ -190,18 +196,18 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         constexpr int dim_block_y = 8;
         constexpr int dim_block_z = 4;
 
-        //constexpr int comp_tile_size_x = dim_block_x;
-        //constexpr int comp_tile_size_y = 8 * dim_block_y;
-        //int comp_tile_size_z;
+        // constexpr int comp_tile_size_x = dim_block_x;
+        // constexpr int comp_tile_size_y = 8 * dim_block_y;
+        // int comp_tile_size_z;
 
-        //constexpr int comm_tile_size_x = dim_block_x;
-        //constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
+        // constexpr int comm_tile_size_x = dim_block_x;
+        // constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
 
-        //constexpr int grid_dim_x = 1;
-        //constexpr int grid_dim_y = 8;
-        //const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+        constexpr int grid_dim_x = 2;
+        constexpr int grid_dim_y = 8;
+        const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
-        //comp_tile_size_z = dim_block_z * grid_dim_z;
+        // comp_tile_size_z = dim_block_z * grid_dim_z;
 
         // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
         // int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
@@ -296,7 +302,7 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        dim3 dim_grid(numSms);
+        dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 1);
         dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
         void *kernelArgs[] = {(void *)&a_new[dev_id],
@@ -305,6 +311,8 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
                               (void *)&iz_end[dev_id],
                               (void *)&ny,
                               (void *)&nx,
+                              (void *)&grid_dim_y,
+                              (void *)&grid_dim_x,
                               (void *)&iter_max,
                               (void *)&halo_buffer_for_top_neighbor[dev_id],
                               (void *)&halo_buffer_for_bottom_neighbor[dev_id],
