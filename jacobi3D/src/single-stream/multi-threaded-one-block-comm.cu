@@ -126,7 +126,7 @@ namespace SSMultiThreadedOneBlockComm
                                                        a[comm_base_iz_end + iy + nx + ix] +
                                                        a[comm_base_iz_end + iy - nx + ix] +
                                                        remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
-                                                                                                iy * nx + ix] +
+                                                                                                iy + ix] +
                                                        a[comm_base_iz_end - ny * nx + iy + ix]);
 
                             a_new[comm_base_iz_end + iy + ix] = last_row_val;
@@ -240,8 +240,8 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
         // constexpr int comp_tile_size_x = dim_block_x;
         // constexpr int comp_tile_size_y = dim_block_y;
 
-        constexpr int grid_dim_x = 1;
-        constexpr int grid_dim_y = 8;
+        constexpr int grid_dim_x = 2;
+        constexpr int grid_dim_y = 4;
         const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
         // int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
