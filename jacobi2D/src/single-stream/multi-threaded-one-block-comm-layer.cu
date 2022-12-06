@@ -144,7 +144,7 @@ namespace SSMultiThreadedOneBlockCommLayer
 
                     if (ix % nx > 0 && ix % nx < (nx - 1) && iy < (iy_end - 1))
                     {
-                        int idx = +iy * nx + ix;
+                        int idx = iy * nx + ix;
                         a_new[idx] = (real(1) / real(4)) *
                                      (a[idx + 1] + a[idx - 1] +
                                       a[idx + nx] + a[idx - nx]);
@@ -221,13 +221,13 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
 
-        int comp_tile_size_x = 256;
+        int comp_tile_size_x = dim_block_x;
         int comp_tile_size_y;
 
         int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
         int max_thread_blocks_y = (numSms - 1) / grid_dim_x; // without the modulo for the remaining, doesnt this overcompute the remaining SM's???
 
-        comp_tile_size_y = dim_block_y * max_thread_blocks_y;
+        comp_tile_size_y = dim_block_y ;//* max_thread_blocks_y;
 
         // printf("Computation tile dimensions: %dx%d\n", comp_tile_size_x, comp_tile_size_y);
 
@@ -237,7 +237,7 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
 
         int comm_tile_size = dim_block_x * dim_block_y;
         int num_comm_tiles = nx / comm_tile_size + (nx % comm_tile_size != 0);
-        int num_flags = 4 * num_comm_tiles;
+        int num_flags = 4;
 
         // printf("Number of communication tiles: %d\n", num_comm_tiles);
 
@@ -317,12 +317,12 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
 
         // Set diriclet boundary conditions on left and right border
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, chunk_size + 2, ny);
+            a_new[dev_id], a[dev_id], PI, iy_start_global - 1, nx, chunk_size + 2, ny);
         CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        dim3 dim_grid(numSms, 1, 1);
+        dim3 dim_grid(numSms);
         dim3 dim_block(dim_block_x, dim_block_y);
 
         void *kernelArgs[] = {(void *)&a_new[dev_id],
