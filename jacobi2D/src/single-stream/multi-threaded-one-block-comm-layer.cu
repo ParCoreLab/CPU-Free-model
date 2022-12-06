@@ -31,12 +31,12 @@ namespace SSMultiThreadedOneBlockCommLayer
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
-        int block_idx_y = blockIdx.x / grid_dim_x;
-        int block_idx_x = blockIdx.x % grid_dim_x;
+        //int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
+        //int block_idx_y = blockIdx.x / grid_dim_x;
+        //int block_idx_x = blockIdx.x % grid_dim_x;
 
-        int base_iy = block_idx_y * blockDim.y + threadIdx.y;
-        int base_ix = block_idx_x * blockDim.x + threadIdx.x;
+        //int base_iy = block_idx_y * blockDim.y + threadIdx.y;
+        //int base_ix = block_idx_x * blockDim.x + threadIdx.x;
 
         int iter = 0;
 

@@ -182,6 +182,7 @@ namespace MultiGPUPeerTilingNoCompute
 
                     cg::sync(cta);
 
+                    /*
                     if (col < comm_tile_end)
                     {
                         // const real first_row_val =
@@ -192,7 +193,13 @@ namespace MultiGPUPeerTilingNoCompute
                         // a_new[iy_start * nx + col] = first_row_val;
                         // local_halo_buffer_for_top_neighbor[nx * next_iter_mod + col] = first_row_val;
                     }
+                    */
 
+                    if (col < comm_tile_end)
+                    {
+                        const real first_row_val = remote_my_halo_buffer_on_top_neighbor[nx * cur_iter_mod + col];
+                        local_halo_buffer_for_top_neighbor[nx * next_iter_mod + col] = first_row_val;
+                    }
                     cg::sync(cta);
 
                     if (cta.thread_rank() == 0)
@@ -227,6 +234,7 @@ namespace MultiGPUPeerTilingNoCompute
 
                     cg::sync(cta);
 
+                    /*
                     if (col < comm_tile_end)
                     {
                         // const real last_row_val =
@@ -237,6 +245,12 @@ namespace MultiGPUPeerTilingNoCompute
                         // a_new[(iy_end - 1) * nx + col] = last_row_val;
                         // local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + col] =
                         // last_row_val;
+                    }
+                    */
+                    if (col < comm_tile_end)
+                    {
+                        const real last_row_val = remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + col];
+                        local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + col] = last_row_val;
                     }
 
                     cg::sync(cta);

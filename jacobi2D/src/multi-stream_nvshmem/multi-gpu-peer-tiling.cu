@@ -30,9 +30,6 @@ namespace MultiGPUPeerTilingNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        int iy;
-        int ix;
-
         while (iter < iter_max)
         {
             for (int iy = (blockIdx.x * blockDim.y + threadIdx.y + 1) * nx;
@@ -79,15 +76,11 @@ namespace MultiGPUPeerTilingNvshmem
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        int num_flags = 2;
-
         int iter = 0;
 
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        int iy = 0;
-        int ix = 0;
 
         while (iter < iter_max)
         {
