@@ -32,12 +32,12 @@ namespace MultiGPUPeerTilingNoCompute
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
-        int block_idx_y = blockIdx.x / grid_dim_x;
-        int block_idx_x = blockIdx.x % grid_dim_x;
+        //int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
+        //int block_idx_y = blockIdx.x / grid_dim_x;
+        //int block_idx_x = blockIdx.x % grid_dim_x;
 
-        int base_iy = block_idx_y * blockDim.y + threadIdx.y;
-        int base_ix = block_idx_x * blockDim.x + threadIdx.x;
+        //int base_iy = block_idx_y * blockDim.y + threadIdx.y;
+        //int base_ix = block_idx_x * blockDim.x + threadIdx.x;
 
         int iter = 0;
 
@@ -45,26 +45,26 @@ namespace MultiGPUPeerTilingNoCompute
         int next_iter_mod = 1;
         int temp_iter_mod = 0;
 
-        int cur_iter_comm_tile_flag_idx;
-        int next_iter_comm_tile_flag_idx;
+        //int cur_iter_comm_tile_flag_idx;
+        //int next_iter_comm_tile_flag_idx;
 
-        int comm_tile_idx;
-        int comp_tile_idx_x;
-        int comp_tile_idx_y;
+        //int comm_tile_idx;
+        //int comp_tile_idx_x;
+        //int comp_tile_idx_y;
 
-        int comm_tile_start;
-        int comm_tile_end;
-        int comp_tile_start_ny;
-        int comp_tile_end_ny;
-        int comp_tile_start_nx;
-        int comp_tile_end_nx;
+        //int comm_tile_start;
+        //int comm_tile_end;
+        //int comp_tile_start_ny;
+        //int comp_tile_end_ny;
+        //int comp_tile_start_nx;
+        //int comp_tile_end_nx;
 
-        int iy;
-        int ix;
+        //int iy;
+        //int ix;
 
         while (iter < iter_max)
         {
-            for (comp_tile_idx_y = 0; comp_tile_idx_y < num_comp_tiles_y; comp_tile_idx_y++)
+            /*for (comp_tile_idx_y = 0; comp_tile_idx_y < num_comp_tiles_y; comp_tile_idx_y++)
             {
                 comp_tile_start_ny =
                     (comp_tile_idx_y == 0) ? iy_start + 1 : comp_tile_idx_y * comp_tile_size_y;
@@ -92,6 +92,7 @@ namespace MultiGPUPeerTilingNoCompute
                     }
                 }
             }
+            */
 
             real *temp_pointer_first = a_new;
             a_new = a;

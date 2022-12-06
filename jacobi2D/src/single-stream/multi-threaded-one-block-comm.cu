@@ -215,19 +215,18 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
 
-        int comp_tile_size_x = 256;
-        int comp_tile_size_y;
+        // int comp_tile_size_x = 256;
 
-        int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
-        int max_thread_blocks_y = (numSms - 1) / grid_dim_x;
+        int grid_dim_x = 8;
+        int grid_dim_y = (numSms - 1) / grid_dim_x;
 
-        comp_tile_size_y = dim_block_y * max_thread_blocks_y;
+        // int comp_tile_size_y = dim_block_y * grid_dim_y;
 
         // printf("Computation tile dimensions: %dx%d\n", comp_tile_size_x, comp_tile_size_y);
 
-        int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
-        int num_comp_tiles_y =
-            height_per_gpu / comp_tile_size_y + (height_per_gpu % comp_tile_size_y != 0);
+        // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
+        // int num_comp_tiles_y =
+        //     height_per_gpu / comp_tile_size_y + (height_per_gpu % comp_tile_size_y != 0);
 
         int comm_tile_size = dim_block_x * dim_block_y;
         int num_comm_tiles = nx / comm_tile_size + (nx % comm_tile_size != 0);
@@ -316,7 +315,7 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        dim3 dim_grid(numSms, 1, 1);
+        dim3 dim_grid(grid_dim_x * grid_dim_y + 1);
         dim3 dim_block(dim_block_x, dim_block_y);
 
         void *kernelArgs[] = {(void *)&a_new[dev_id],
@@ -324,11 +323,7 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
                               (void *)&iy_start,
                               (void *)&iy_end[dev_id],
                               (void *)&nx,
-                              (void *)&comp_tile_size_x,
-                              (void *)&comp_tile_size_y,
-                              (void *)&comm_tile_size,
-                              (void *)&num_comp_tiles_x,
-                              (void *)&num_comp_tiles_y,
+                              (void *)&grid_dim_x,
                               (void *)&num_comm_tiles,
                               (void *)&iter_max,
                               (void *)&halo_buffer_for_top_neighbor[dev_id],
