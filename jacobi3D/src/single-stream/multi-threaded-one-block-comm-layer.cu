@@ -20,7 +20,7 @@ namespace SSMultiThreadedOneBlockCommLayer
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
                       const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max,
-                      real *halo_buffer_local_blocks, volatile real *local_halo_buffer_for_top_neighbor,
+                      volatile real *local_halo_buffer_for_top_neighbor,
                       volatile real *local_halo_buffer_for_bottom_neighbor,
                       volatile const real *remote_my_halo_buffer_on_top_neighbor,
                       volatile const real *remote_my_halo_buffer_on_bottom_neighbor,
