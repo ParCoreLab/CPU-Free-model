@@ -2,8 +2,6 @@
 
 #include <cooperative_groups.h>
 
-#include "./PERKS/common/jacobi_reference.hpp"
-
 namespace cg = cooperative_groups;
 
 bool get_arg(char **begin, char **end, const std::string &arg)
@@ -134,13 +132,13 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
     //    }
 }
 
-double single_cpu(real *a_h_input, const int nx, const int ny, const int iter_max,
+/*double single_cpu(real *a_h_input, const int nx, const int ny, const int iter_max,
                   real *const a_ref_h, const int nccheck, const bool print)
 {
     double start = omp_get_wtime();
     jacobi_gold_iterative(a_h_input, ny, nx, a_ref_h, iter_max);
     return omp_get_wtime() - start;
-}
+}*/
 
 double single_gpu(const int nx, const int ny, const int iter_max, real *const a_ref_h,
                   const int nccheck, const bool print)
