@@ -234,7 +234,7 @@ int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
 
-        int comp_tile_size_x = 256;
+        int comp_tile_size_x = dim_block_x;
         int comp_tile_size_y;
 
         int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
@@ -250,7 +250,7 @@ int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
 
         int comm_tile_size = dim_block_x * dim_block_y;
         int num_comm_tiles = nx / comm_tile_size + (nx % comm_tile_size != 0);
-        int num_flags = 4 * num_comm_tiles;
+        int num_flags = 4;
 
         // printf("Number of communication tiles: %d\n", num_comm_tiles);
 
