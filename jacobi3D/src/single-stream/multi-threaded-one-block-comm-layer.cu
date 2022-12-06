@@ -225,12 +225,12 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
 
         comp_tile_size_z = dim_block_z * grid_dim_z;
 
-        int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
-        int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
-        int num_comp_tiles_z = nz_per_gpu / comp_tile_size_z + (nz_per_gpu % comp_tile_size_z != 0);
+        // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
+        // int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
+        // int num_comp_tiles_z = nz_per_gpu / comp_tile_size_z + (nz_per_gpu % comp_tile_size_z != 0);
 
-        int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
-        int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
+        // int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
+        // int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
 
         int total_num_flags = 4;
 
@@ -318,7 +318,7 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z);
+        dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 1);
         dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
         void *kernelArgs[] = {(void *)&a_new[dev_id],

@@ -17,8 +17,7 @@ namespace SSMultiThreadedOneBlockComm
 {
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
-                      const int comp_tile_size_x, const int comp_tile_size_y, const int comm_tile_size,
-                      const int num_comp_tiles_x, const int num_comp_tiles_y, const int num_comm_tiles,
+                      const int grid_dim_x, const int num_comm_tiles,
                       const int iter_max, volatile real *local_halo_buffer_for_top_neighbor,
                       volatile real *local_halo_buffer_for_bottom_neighbor,
                       volatile real *remote_my_halo_buffer_on_top_neighbor,
@@ -31,30 +30,38 @@ namespace SSMultiThreadedOneBlockComm
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
+        int comm_base_iy_start = iy_start * nx;
+        int comm_base_iy_end = (iy_end - 1) * nx;
+        int comm_base_ix = threadIdx.y * blockDim.x + threadIdx.x + 1;
+
+        int comm_tile_size = blockDim.x * blockDim.y;
+
         int block_idx_y = blockIdx.x / grid_dim_x;
         int block_idx_x = blockIdx.x % grid_dim_x;
 
-        int base_iy = block_idx_y * blockDim.y + threadIdx.y;
-        int base_ix = block_idx_x * blockDim.x + threadIdx.x;
+        int base_iy = (block_idx_y * blockDim.y + threadIdx.y + iy_start + 1) * nx;
+        int base_ix = block_idx_x * blockDim.x + threadIdx.x + 1;
+
+        int comp_tile_size_y = ((gridDim.x - 1) / grid_dim_x) * blockDim.y * nx;
+        int comp_tile_size_x = grid_dim_x * blockDim.x;
+
+        int comp_end_idx_y = (iy_end - 1) * nx;
+        int end_idx_x = (nx - 1);
 
         int iter = 0;
 
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
+        const int num_flags = 2 * num_comm_tiles;
+
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                int num_flags = 2 * num_comm_tiles;
-
-                for (int comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++)
+                int ix = comm_base_ix;
+                for (int comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++, ix += comm_tile_size)
                 {
-                    int comm_tile_start = (comm_tile_idx == 0) ? 1 : comm_tile_idx * comm_tile_size;
-
-                    int col = threadIdx.y * blockDim.x + threadIdx.x + comm_tile_start;
-
                     if (cta.thread_rank() == 0)
                     {
                         int cur_iter_comm_tile_flag_idx = comm_tile_idx + cur_iter_mod * num_flags;
@@ -67,19 +74,15 @@ namespace SSMultiThreadedOneBlockComm
 
                     cg::sync(cta);
 
-                    int comm_tile_end = (comm_tile_idx == (num_comm_tiles - 1))
-                                            ? nx - 1
-                                            : (comm_tile_idx + 1) * comm_tile_size;
-
-                    if (col < comm_tile_end)
+                    if (ix < end_idx_x)
                     {
                         const real first_row_val =
-                            0.25 * (a[iy_start * nx + col + 1] + a[iy_start * nx + col - 1] +
-                                    a[(iy_start + 1) * nx + col] +
-                                    remote_my_halo_buffer_on_top_neighbor[nx * cur_iter_mod + col]);
+                            0.25 * (a[comm_base_iy_start + ix + 1] + a[comm_base_iy_start + ix - 1] +
+                                    a[comm_base_iy_start + nx + ix] +
+                                    remote_my_halo_buffer_on_top_neighbor[nx * cur_iter_mod + ix]);
 
-                        a_new[iy_start * nx + col] = first_row_val;
-                        local_halo_buffer_for_top_neighbor[nx * next_iter_mod + col] = first_row_val;
+                        a_new[comm_base_iy_start + ix] = first_row_val;
+                        local_halo_buffer_for_top_neighbor[nx * next_iter_mod + ix] = first_row_val;
                     }
 
                     cg::sync(cta);
@@ -108,15 +111,15 @@ namespace SSMultiThreadedOneBlockComm
 
                     cg::sync(cta);
 
-                    if (col < comm_tile_end)
+                    if (ix < end_idx_x)
                     {
                         const real last_row_val =
-                            0.25 * (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-                                    remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + col] +
-                                    a[(iy_end - 2) * nx + col]);
+                            0.25 * (a[comm_base_iy_end + ix + 1] + a[comm_base_iy_end + ix - 1] +
+                                    remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + ix] +
+                                    a[comm_base_iy_end - nx + ix]);
 
-                        a_new[(iy_end - 1) * nx + col] = last_row_val;
-                        local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + col] = last_row_val;
+                        a_new[comm_base_iy_end + ix] = last_row_val;
+                        local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + ix] = last_row_val;
                     }
 
                     cg::sync(cta);
@@ -132,35 +135,13 @@ namespace SSMultiThreadedOneBlockComm
             }
             else
             {
-                for (int comp_tile_idx_y = 0; comp_tile_idx_y < num_comp_tiles_y; comp_tile_idx_y++)
+                for (int iy = base_iy; iy < comp_end_idx_y; iy += comp_tile_size_y)
                 {
-                    int comp_tile_start_ny =
-                        (comp_tile_idx_y == 0) ? iy_start + 1 : comp_tile_idx_y * comp_tile_size_y;
-
-                    int iy = base_iy + comp_tile_start_ny;
-
-                    int comp_tile_end_ny = (comp_tile_idx_y == (num_comp_tiles_y - 1))
-                                               ? iy_end - 1
-                                               : (comp_tile_idx_y + 1) * comp_tile_size_y;
-
-                    for (int comp_tile_idx_x = 0; comp_tile_idx_x < num_comp_tiles_x;
-                         comp_tile_idx_x++)
+                    for (int ix = base_ix; ix < end_idx_x; ix += comp_tile_size_x)
                     {
-                        int comp_tile_start_nx =
-                            (comp_tile_idx_x == 0) ? 1 : comp_tile_idx_x * comp_tile_size_x;
-
-                        int ix = base_ix + comp_tile_start_nx;
-
-                        int comp_tile_end_nx = (comp_tile_idx_x == (num_comp_tiles_x - 1))
-                                                   ? nx - 1
-                                                   : (comp_tile_idx_x + 1) * comp_tile_size_x;
-
-                        if (iy < comp_tile_end_ny && ix < comp_tile_end_nx)
-                        {
-                            const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                                         a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                            a_new[iy * nx + ix] = new_val;
-                        }
+                        const real new_val = 0.25 * (a[iy + ix + 1] + a[iy + ix - 1] +
+                                                     a[iy + nx + ix] + a[iy - nx + ix]);
+                        a_new[iy + ix] = new_val;
                     }
                 }
             }
