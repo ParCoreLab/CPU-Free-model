@@ -203,7 +203,7 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         // constexpr int comm_tile_size_x = dim_block_x;
         // constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
 
-        constexpr int grid_dim_x = 2;
+        constexpr int grid_dim_x = 1;
         constexpr int grid_dim_y = 8;
         const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
