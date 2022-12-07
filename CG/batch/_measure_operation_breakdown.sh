@@ -31,7 +31,7 @@ echo "--- RUNNING ---"
 date
 
 python3 ./scripts/measure_operation_breakdown.py --num_iter $NUM_ITER --matrices_folder $MATRICES_FOLDER --num_gpus $NUM_GPUS --gpu_model $GPU_MODEL
-
+rm ./nsys_reports/*
 echo ""
 
 echo "--- DONE ---"
