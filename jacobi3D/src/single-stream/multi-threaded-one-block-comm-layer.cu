@@ -69,7 +69,7 @@ namespace SSMultiThreadedOneBlockCommLayer
                 cg::sync(cta);
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
-                    for (int ix = comm_size_ix; ix < end_ix; ix += comm_size_ix)
+                    for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                     {
                         const real first_row_val = (real(1) / real(6)) * (a[comm_start_iz + iy + ix + 1] +
                                                                           a[comm_start_iz + iy + ix - 1] +
@@ -97,7 +97,7 @@ namespace SSMultiThreadedOneBlockCommLayer
                 cg::sync(cta);
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
-                    for (int ix = comm_size_ix; ix < end_ix; ix += comm_size_ix)
+                    for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                     {
                         const real last_row_val = (real(1) / real(6)) * (a[end_iz + iy + ix + 1] +
                                                                          a[end_iz + iy + ix - 1] +
