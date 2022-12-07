@@ -189,8 +189,12 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         int nz_per_gpu = nz / num_devices;
 
         cudaDeviceProp deviceProp{};
+        int maxActiveBlocksPerSM = 0;
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
-        int numSms = deviceProp.multiProcessorCount;
+        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &maxActiveBlocksPerSM, (void *)SSMultiThreadedOneBlockCommLayer::jacobi_kernel, 512, 0));
+
+        int numSms = deviceProp.multiProcessorCount * maxActiveBlocksPerSM;
 
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 8;
@@ -203,10 +207,10 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         // constexpr int comm_tile_size_x = dim_block_x;
         // constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
 
-        constexpr int grid_dim_x = 1;
+        constexpr int grid_dim_x = 2;
         constexpr int grid_dim_y = 8;
         const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
-
+        printf("Grid Dim: %dx%dx%d\n",grid_dim_x,grid_dim_y,grid_dim_z);
         // comp_tile_size_z = dim_block_z * grid_dim_z;
 
         // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
