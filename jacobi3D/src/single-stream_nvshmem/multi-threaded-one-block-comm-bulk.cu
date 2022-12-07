@@ -17,7 +17,7 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max, real *halo_buffer_top,
+                      const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max, real *halo_buffer_top,
                       real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
@@ -27,6 +27,25 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
         int iter = 0;
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
+
+        const int comp_size_iz = ((gridDim.x - 1) / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
+        const int comp_size_iy = grid_dim_y * blockDim.y * nx;
+        const int comp_size_ix = grid_dim_x * blockDim.x;
+
+        const int comp_start_iz = ((blockIdx.x / (grid_dim_y * grid_dim_x)) * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+        const int comp_start_iy = ((blockIdx.x / grid_dim_x % grid_dim_y) * blockDim.y + threadIdx.y + 1) * nx;
+        const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
+
+        const int end_iz = (iz_end - 1) * ny * nx;
+        const int end_iy = (ny - 1) * nx;
+        const int end_ix = (nx - 1);
+
+        const int comm_size_iy = blockDim.y * blockDim.z * nx;
+        const int comm_size_ix = blockDim.x;
+
+        const int comm_start_iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx;
+        const int comm_start_ix = threadIdx.x + 1;
+        const int comm_start_iz = iz_start * ny * nx;
 
         while (iter < iter_max)
         {
@@ -38,22 +57,22 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
                 }
                 cg::sync(cta);
 
-                for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
+                for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
-                    for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
+                    for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                     {
-                        const real first_row_val = (real(1) / real(6)) * (a[iz_start * ny * nx + iy * nx + ix + 1] +
-                                                                          a[iz_start * ny * nx + iy * nx + ix - 1] +
-                                                                          a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                                                                          a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                                                                          a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
-                        a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
+                        const real first_row_val = (real(1) / real(6)) * (a[comm_start_iz + iy + ix + 1] +
+                                                                          a[comm_start_iz + iy + ix - 1] +
+                                                                          a[comm_start_iz + iy + nx + ix] +
+                                                                          a[comm_start_iz + iy - nx + ix] +
+                                                                          a[comm_start_iz + ny * nx + iy + ix] +
+                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
+                        a_new[comm_start_iz + iy + ix] = first_row_val;
                     }
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx, ny * nx * sizeof(real),
+                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + comm_start_iz, ny * nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
 
@@ -63,23 +82,23 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
                 }
                 cg::sync(cta);
 
-                for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
+                for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
-                    for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
+                    for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                     {
 
-                        const real last_row_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                                                                         a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                                                                         a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                                                                         a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix] +
-                                                                         a[(iz_end - 2) * ny * nx + iy * nx + ix]);
-                        a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
+                        const real last_row_val = (real(1) / real(6)) * (a[end_iz + iy + ix + 1] +
+                                                                         a[end_iz + iy + ix - 1] +
+                                                                         a[end_iz + iy + nx + ix] +
+                                                                         a[end_iz + iy - nx + ix] +
+                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix] +
+                                                                         a[end_iz - ny * nx + iy + ix]);
+                        a_new[end_iz + iy + ix] = last_row_val;
                     }
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * ny * nx, ny * nx * sizeof(real),
+                    halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
                 if (cta.thread_rank() == cta.num_threads() - 1)
@@ -90,12 +109,11 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
             else
             {
 
-                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-                     iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
+                for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
                 {
-                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
+                    for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
                     {
-                        for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
+                        for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                         {
                             a_new[iz + iy + ix] = (real(1) / real(6)) *
                                                   (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
@@ -266,9 +284,9 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
     // int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
     // int num_tiles_z = (nz / npes) / dim_block_z + ((nz / npes) % dim_block_z != 0);
 
-    //constexpr int grid_dim_x = 1;
-    //constexpr int grid_dim_y = 8;
-    //const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+    constexpr int grid_dim_x = 2;
+    constexpr int grid_dim_y = 4;
+    const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
@@ -347,6 +365,8 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
                           (void *)&iz_end,
                           (void *)&ny,
                           (void *)&nx,
+                          (void *)&grid_dim_y,
+                          (void *)&grid_dim_x,
                           (void *)&iter_max,
                           (void *)&halo_buffer_top,
                           (void *)&halo_buffer_bottom,
