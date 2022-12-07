@@ -32,11 +32,6 @@ namespace SSMultiThreadedOneBlockCommLayer
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        int grid_dim_z = (gridDim.x - 1) / (grid_dim_y * grid_dim_x);
-        int block_idx_x = blockIdx.x % grid_dim_x;
-        int block_idx_y = blockIdx.x / grid_dim_x % grid_dim_y;
-        int block_idx_z = blockIdx.x / (grid_dim_y * grid_dim_x);
-
         int iter = 0;
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
@@ -111,7 +106,7 @@ namespace SSMultiThreadedOneBlockCommLayer
                 const int block_idx_x = blockIdx.x % grid_dim_x;
                 const int block_idx_y = blockIdx.x / grid_dim_x % grid_dim_y;
                 const int block_idx_z = blockIdx.x / (grid_dim_y * grid_dim_x);
-                
+
                 for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
                      iz < (iz_end - 1) * ny * nx; iz += grid_dim_z * blockDim.z * ny * nx)
                 {
