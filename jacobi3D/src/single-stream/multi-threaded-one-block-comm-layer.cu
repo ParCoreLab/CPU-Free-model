@@ -44,7 +44,7 @@ namespace SSMultiThreadedOneBlockCommLayer
         const int comp_start_iy = ((blockIdx.x / grid_dim_x % grid_dim_y) * blockDim.y + threadIdx.y + 1) * nx;
         const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
 
-        const int comp_end_iz = (iz_end - 1) * ny * nx;
+        const int end_iz = (iz_end - 1) * ny * nx;
         const int end_iy = (ny - 1) * nx;
         const int end_ix = (nx - 1);
 
@@ -53,6 +53,7 @@ namespace SSMultiThreadedOneBlockCommLayer
 
         const int comm_start_iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx;
         const int comm_start_ix = threadIdx.x + 1;
+        const int comm_start_iz = iz_start * ny * nx ;
 
         while (iter < iter_max)
         {
@@ -70,14 +71,14 @@ namespace SSMultiThreadedOneBlockCommLayer
                 {
                     for (int ix = comm_size_ix; ix < end_ix; ix += comm_size_ix)
                     {
-                        const real first_row_val = (real(1) / real(6)) * (a[iz_start * ny * nx + iy + ix + 1] +
-                                                                          a[iz_start * ny * nx + iy + ix - 1] +
-                                                                          a[iz_start * ny * nx + iy + nx + ix] +
-                                                                          a[iz_start * ny * nx + iy - nx + ix] +
-                                                                          a[iz_start * ny * nx + ny * nx + iy + ix] +
+                        const real first_row_val = (real(1) / real(6)) * (a[comm_start_iz + iy + ix + 1] +
+                                                                          a[comm_start_iz + iy + ix - 1] +
+                                                                          a[comm_start_iz + iy + nx + ix] +
+                                                                          a[comm_start_iz + iy - nx + ix] +
+                                                                          a[comm_start_iz + ny * nx + iy + ix] +
                                                                           remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +
                                                                                                                 iy + ix]);
-                        a_new[iz_start * ny * nx + iy + ix] = first_row_val;
+                        a_new[comm_start_iz + iy + ix] = first_row_val;
                         local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy + ix] =
                             first_row_val;
                     }
@@ -98,14 +99,14 @@ namespace SSMultiThreadedOneBlockCommLayer
                 {
                     for (int ix = comm_size_ix; ix < end_ix; ix += comm_size_ix)
                     {
-                        const real last_row_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + iy + ix + 1] +
-                                                                         a[(iz_end - 1) * ny * nx + iy + ix - 1] +
-                                                                         a[(iz_end - 1) * ny * nx + iy + nx + ix] +
-                                                                         a[(iz_end - 1) * ny * nx + iy - nx + ix] +
+                        const real last_row_val = (real(1) / real(6)) * (a[end_iz + iy + ix + 1] +
+                                                                         a[end_iz + iy + ix - 1] +
+                                                                         a[end_iz + iy + nx + ix] +
+                                                                         a[end_iz + iy - nx + ix] +
                                                                          remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
                                                                                                                   iy + ix] +
-                                                                         a[(iz_end - 1) * ny * nx - ny * nx + iy + ix]);
-                        a_new[(iz_end - 1) * ny * nx + iy + ix] = last_row_val;
+                                                                         a[end_iz - ny * nx + iy + ix]);
+                        a_new[end_iz + iy + ix] = last_row_val;
                         local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy +
                                                               ix] = last_row_val;
                     }
@@ -120,7 +121,7 @@ namespace SSMultiThreadedOneBlockCommLayer
             }
             else
             {
-                for (int iz = comp_start_iz; iz < comp_end_iz; iz += comp_size_iz)
+                for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
                 {
                     for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
                     {
