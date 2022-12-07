@@ -356,7 +356,7 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(numSms);
+    dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 1);
     dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
     void *kernelArgs[] = {(void *)&a_new,
@@ -444,7 +444,7 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
                 "s, speedup: "
                 "%8.2f, "
                 "efficiency: %8.2f \n",
-                nz, ny, nx, runtime_serial_non_persistent, npes, (stop - start),
+                nx, ny, nz, runtime_serial_non_persistent, npes, (stop - start),
                 runtime_serial_non_persistent / (stop - start),
                 runtime_serial_non_persistent / (npes * (stop - start)) * 100);
         }
