@@ -37,14 +37,6 @@ namespace SSMultiThreadedOneBlockComm
         const int block_idx_y = blockIdx.x / grid_dim_x % grid_dim_y;
         const int block_idx_z = blockIdx.x / (grid_dim_y * grid_dim_x);
 
-        const int comp_start_iz = (block_idx_z * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-        const int comp_start_iy = (block_idx_y * blockDim.y + threadIdx.y + 1) * nx;
-        const int comp_start_ix = (block_idx_x * blockDim.x + threadIdx.x + 1);
-
-        const int comp_size_iz = grid_dim_z * blockDim.z * ny * nx;
-        const int comp_size_iy = grid_dim_y * blockDim.y * nx;
-        const int comp_size_ix = grid_dim_x * blockDim.x;
-
         int iter = 0;
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
@@ -137,11 +129,19 @@ namespace SSMultiThreadedOneBlockComm
             }
             else
             {
-                for (int iz = comp_start_iz; iz < (iz_end - 1) * ny * nx; iz += comp_size_iz)
+                const int grid_dim_z = (gridDim.x - 1) / (grid_dim_y * grid_dim_x);
+                const int block_idx_x = blockIdx.x % grid_dim_x;
+                const int block_idx_y = blockIdx.x / grid_dim_x % grid_dim_y;
+                const int block_idx_z = blockIdx.x / (grid_dim_y * grid_dim_x);
+                
+                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+                     iz < (iz_end - 1) * ny * nx; iz += grid_dim_z * blockDim.z * ny * nx)
                 {
-                    for (int iy = comp_start_iy; iy < (ny - 1) * nx; iy += comp_size_iy)
+                    for (int iy = (block_idx_y * blockDim.y + threadIdx.y + 1) * nx;
+                         iy < (ny - 1) * nx; iy += grid_dim_y * blockDim.y * nx)
                     {
-                        for (int ix = comp_start_ix; ix < (nx - 1); ix += comp_size_ix)
+                        for (int ix = (block_idx_x * blockDim.x + threadIdx.x + 1);
+                             ix < (nx - 1); ix += grid_dim_x * blockDim.x)
                         {
                             a_new[iz + iy + ix] = (real(1) / real(6)) *
                                                   (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
