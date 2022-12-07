@@ -16,7 +16,7 @@ namespace cg = cooperative_groups;
 namespace SSMultiThreadedOneBlockComm
 {
 
-    __global__ void __launch_bounds__(512, 1)
+    __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
                       const int nx, const int grid_dim_y, const int grid_dim_x,
                       const int num_comm_tiles_x, const int num_comm_tiles_y, const int iter_max,
@@ -36,30 +36,46 @@ namespace SSMultiThreadedOneBlockComm
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
+        const int comp_size_iz = ((gridDim.x - 1) / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
+        const int comp_size_iy = grid_dim_y * blockDim.y * nx;
+        const int comp_size_ix = grid_dim_x * blockDim.x;
+
+        const int comp_start_iz = ((blockIdx.x / (grid_dim_y * grid_dim_x)) * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+        const int comp_start_iy = ((blockIdx.x / grid_dim_x % grid_dim_y) * blockDim.y + threadIdx.y + 1) * nx;
+        const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
+
+        const int comp_end_iz = (iz_end - 1) * ny * nx;
+        const int end_iy = (ny - 1) * nx;
+        const int end_ix = (nx - 1);
+
+        const int comm_size_iy = blockDim.y * blockDim.z * nx;
+        const int comm_size_ix = blockDim.x;
+
+        const int comm_start_iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx;
+        const int comm_start_ix = threadIdx.x + 1;
 
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx;
-                for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++, iy += blockDim.y * blockDim.z * nx)
+                int iy = comm_start_iy;
+                for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++, iy += comm_size_iy)
                 {
-                    int ix = threadIdx.x + 1;
-                    for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++, ix += blockDim.x)
+                    int ix = comm_start_ix;
+                    for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++, ix += comm_start_ix)
                     {
                         if (cta.thread_rank() == 0)
                         {
                             while (local_is_top_neighbor_done_writing_to_me
                                        [comm_tile_idx_y * num_comm_tiles_x +
                                         comm_tile_idx_x +
-                                        cur_iter_mod * num_flags] != iter)
+                                        cur_iter_mod * 2 * num_comm_tiles_x * num_comm_tiles_y] != iter)
                             {
                             }
                         }
                         cg::sync(cta);
 
-                        if (iy < (ny - 1) * nx && ix < (nx - 1))
+                        if (iy < end_iy && ix < end_ix)
                         {
                             const real first_row_val = (real(1) / real(6)) *
                                                        (a[iz_start * ny * nx + iy + ix + 1] +
@@ -82,19 +98,19 @@ namespace SSMultiThreadedOneBlockComm
                             remote_am_done_writing_to_top_neighbor
                                 [comm_tile_idx_y * num_comm_tiles_x +
                                  comm_tile_idx_x + num_comm_tiles_x * num_comm_tiles_y +
-                                 next_iter_mod * num_flags] = iter + 1;
+                                 next_iter_mod * 2 * num_comm_tiles_x * num_comm_tiles_y] = iter + 1;
 
                             while (local_is_bottom_neighbor_done_writing_to_me
                                        [comm_tile_idx_y * num_comm_tiles_x +
                                         comm_tile_idx_x + num_comm_tiles_x * num_comm_tiles_y +
-                                        cur_iter_mod * num_flags] != iter)
+                                        cur_iter_mod * 2 * num_comm_tiles_x * num_comm_tiles_y] != iter)
                             {
                             }
                         }
 
                         cg::sync(cta);
 
-                        if (iy < (ny - 1) * nx && ix < (nx - 1))
+                        if (iy < end_iy && ix < end_ix)
                         {
                             const real last_row_val = (real(1) / real(6)) *
                                                       (a[(iz_end - 1) * ny * nx + iy + ix + 1] +
@@ -117,26 +133,18 @@ namespace SSMultiThreadedOneBlockComm
                             remote_am_done_writing_to_bottom_neighbor
                                 [comm_tile_idx_y * num_comm_tiles_x +
                                  comm_tile_idx_x +
-                                 next_iter_mod * num_flags] = iter + 1;
+                                 next_iter_mod * 2 * num_comm_tiles_x * num_comm_tiles_y] = iter + 1;
                         }
                     }
                 }
             }
             else
             {
-                const int grid_dim_z = (gridDim.x - 1) / (grid_dim_y * grid_dim_x);
-                const int block_idx_x = blockIdx.x % grid_dim_x;
-                const int block_idx_y = blockIdx.x / grid_dim_x % grid_dim_y;
-                const int block_idx_z = blockIdx.x / (grid_dim_y * grid_dim_x);
-
-                for (int iz = (block_idx_z * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-                     iz < (iz_end - 1) * ny * nx; iz += grid_dim_z * blockDim.z * ny * nx)
+                for (int iz = comp_start_iz; iz < comp_end_iz; iz += comp_size_iz)
                 {
-                    for (int iy = (block_idx_y * blockDim.y + threadIdx.y + 1) * nx;
-                         iy < (ny - 1) * nx; iy += grid_dim_y * blockDim.y * nx)
+                    for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
                     {
-                        for (int ix = (block_idx_x * blockDim.x + threadIdx.x + 1);
-                             ix < (nx - 1); ix += grid_dim_x * blockDim.x)
+                        for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                         {
                             a_new[iz + iy + ix] = (real(1) / real(6)) *
                                                   (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
@@ -213,19 +221,19 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
         int maxActiveBlocksPerSM = 0;
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
         CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocksPerSM, (void *)SSMultiThreadedOneBlockComm::jacobi_kernel, 512, 0));
+            &maxActiveBlocksPerSM, (void *)SSMultiThreadedOneBlockComm::jacobi_kernel, 1024, 0));
 
         int numSms = deviceProp.multiProcessorCount * maxActiveBlocksPerSM;
 
         constexpr int dim_block_x = 32;
-        constexpr int dim_block_y = 4;
+        constexpr int dim_block_y = 8;
         constexpr int dim_block_z = 4;
 
         // constexpr int comp_tile_size_x = dim_block_x;
         // constexpr int comp_tile_size_y = dim_block_y;
 
         constexpr int grid_dim_x = 2;
-        constexpr int grid_dim_y = 8;
+        constexpr int grid_dim_y = 4;
         const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
         printf("Grid Dim: %dx%dx%d\n", grid_dim_x, grid_dim_y, grid_dim_z);
         // int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
