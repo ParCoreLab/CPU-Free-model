@@ -197,7 +197,7 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         int numSms = deviceProp.multiProcessorCount * maxActiveBlocksPerSM;
 
         constexpr int dim_block_x = 32;
-        constexpr int dim_block_y = 8;
+        constexpr int dim_block_y = 4;
         constexpr int dim_block_z = 4;
 
         // constexpr int comp_tile_size_x = dim_block_x;
