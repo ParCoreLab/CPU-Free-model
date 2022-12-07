@@ -129,7 +129,7 @@ namespace SSMultiThreadedOneBlockComm
                 const int block_idx_y = blockIdx.x / grid_dim_x % grid_dim_y;
                 const int block_idx_z = blockIdx.x / (grid_dim_y * grid_dim_x);
 
-                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+                for (int iz = (block_idx_z * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
                      iz < (iz_end - 1) * ny * nx; iz += grid_dim_z * blockDim.z * ny * nx)
                 {
                     for (int iy = (block_idx_y * blockDim.y + threadIdx.y + 1) * nx;
