@@ -382,7 +382,7 @@ void report_results(const int nz, const int ny, const int nx, real *a_ref_h,
                    "s, speedup: "
                    "%8.2f, "
                    "efficiency: %8.2f \n",
-                   nz, ny, nx, runtime_serial_non_persistent, num_devices,
+                   nx, ny, nz, runtime_serial_non_persistent, num_devices,
                    (stop - start), runtime_serial_non_persistent / (stop - start),
                    runtime_serial_non_persistent / (num_devices * (stop - start)) *
                        100);
