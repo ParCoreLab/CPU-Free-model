@@ -8,6 +8,7 @@
 #SBATCH --output=sbatch_output_%j.log
 
 NUM_ITER=${NUM_ITER:-1000}
+NUM_RUNS=${NUM_RUNS:-5}
 FILENAME=${FILENAME:-USE_DEFAULT_FILENAME}
 MATRICES_FOLDER=${MATRICES_FOLDER:-USE_DEFAULT_MATRICES_FOLDER}
 NUM_GPUS=${NUM_GPUS:-8}
@@ -30,7 +31,7 @@ cd ~/multi-perks/CG
 echo "--- RUNNING ---"
 date
 
-python3 ./scripts/measure_runtime.py --num_iter $NUM_ITER --filename $FILENAME --matrices_folder $MATRICES_FOLDER -only_measure_total --num_gpus $NUM_GPUS --gpu_model $GPU_MODEL
+python3 ./scripts/measure_runtime.py --num_iter $NUM_ITER --num_runs $NUM_RUNS --filename $FILENAME --matrices_folder $MATRICES_FOLDER --num_gpus $NUM_GPUS --gpu_model $GPU_MODEL
 
 echo ""
 

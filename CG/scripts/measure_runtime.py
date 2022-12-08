@@ -192,6 +192,11 @@ if __name__ == "__main__":
 
             GPU_MODEL = sys.argv[arg_idx]
 
+        if sys.argv[arg_idx] == '--num_runs':
+            arg_idx += 1
+
+            NUM_RUNS = int(sys.argv[arg_idx])
+
         arg_idx += 1
 
     if FILENAME == None:
