@@ -347,7 +347,7 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
         int k = 1;
 
         while (k <= iter_max) {
-            PUSH_RANGE("SpMV", 1)
+            PUSH_RANGE("SpMV", 0)
 
             // SpMV
             MultiGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
@@ -358,25 +358,11 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("Dot", 0)
-
             resetLocalDotProduct<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1, gpu_idx);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
-                um_p, um_s, num_rows, gpu_idx, num_devices);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+            PUSH_RANGE("Peer sync 1 (Before Dot 1)", 1)
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
@@ -385,17 +371,47 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("Saxpy", 2)
+            PUSH_RANGE("Dot 1", 2)
+
+            gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
+                um_p, um_s, num_rows, gpu_idx, num_devices);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            POP_RANGE
+
+            PUSH_RANGE("atomicAdd 1", 3)
+
+            addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            POP_RANGE
+
+            PUSH_RANGE("Peer sync 2 (After atomicAdd 1)", 4)
+
+            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
+                                                         hostMemoryArrivedList);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            POP_RANGE
 
             MultiGPU::r1_div_x<<<1, 1, 0, mainStream>>>(
                 *um_tmp_dot_gamma0, (real)*um_tmp_dot_delta1, um_alpha, gpu_idx);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
+            PUSH_RANGE("Peer sync 3 (Before Saxpy 1)", 5)
+
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            POP_RANGE
+
+            PUSH_RANGE("Saxpy 1", 6)
 
             // x_(k+1) = x_k + alpha_k * p_k
             MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
@@ -403,20 +419,13 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
+            POP_RANGE
+
             MultiGPU::a_minus<<<1, 1, 0, mainStream>>>(*um_alpha, um_negative_alpha, gpu_idx);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            // r_(k+1) = r_k - alpha_k * s
-            MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
-                um_s, um_r, *um_negative_alpha, num_rows, gpu_idx, num_devices);
-
-            resetLocalDotProduct<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1, gpu_idx);
+            PUSH_RANGE("Peer sync 4 (After Saxpy 1)", 7)
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
@@ -425,14 +434,47 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("Dot", 0)
+            PUSH_RANGE("Saxpy 2", 8)
+
+            // r_(k+1) = r_k - alpha_k * s
+            MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+                um_s, um_r, *um_negative_alpha, num_rows, gpu_idx, num_devices);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            POP_RANGE
+
+            resetLocalDotProduct<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1, gpu_idx);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            PUSH_RANGE("Peer sync 5 (After Saxpy 2, Before Dot 2)", 9)
+
+            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
+                                                         hostMemoryArrivedList);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            POP_RANGE
+
+            PUSH_RANGE("Dot 2", 10)
 
             gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
                 um_r, um_r, num_rows, gpu_idx, num_devices);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
+            POP_RANGE
+
+            PUSH_RANGE("atomicAdd 2 (After Dot 2)", 11)
+
             addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            POP_RANGE
+
+            PUSH_RANGE("Peer sync 6 (After atomicAdd 2)", 12)
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
@@ -441,31 +483,43 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("Saxpy", 2)
-
             MultiGPU::r1_div_x<<<1, 1, 0, mainStream>>>((real)*um_tmp_dot_gamma1,
                                                         *um_tmp_dot_gamma0, um_beta, gpu_idx);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            PUSH_RANGE("Peer sync 7 (Before Saxpy 3)", 13)
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
-            // p_(k+1) = r_(k+1) = beta_k * p_(k)
+            POP_RANGE
+
+            PUSH_RANGE("Saxpy 3", 14)
+
+            // p_(k+1) = r_(k+1) + beta_k * p_(k)
             MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_r, um_p, real_positive_one, *um_beta, num_rows, gpu_idx, num_devices);
+
+            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            POP_RANGE
 
             *um_tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
             *um_tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
-            POP_RANGE
+            PUSH_RANGE("Peer sync 8 (End of iteration)", 15)
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+            POP_RANGE
 
 #pragma omp barrier
 
