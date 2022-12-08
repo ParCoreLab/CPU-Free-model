@@ -3,6 +3,8 @@
 #include "../include/baseline/discrete-non-pipelined.cuh"
 #include "../include/baseline/discrete-pipelined.cuh"
 #include "../include/baseline/persistent-non-pipelined.cuh"
+#include "../include/profiling/discrete-non-pipelined.cuh"
+#include "../include/profiling/discrete-pipelined.cuh"
 #include "../include/single-stream/pipelined.cuh"
 
 #include "../include/common.h"
@@ -16,6 +18,8 @@ int main(int argc, char *argv[]) {
         make_pair("Baseline Persistent Non-Pipelined (with Prefetching)",
                   BaselinePersistentNonPipelined::init),
         make_pair("Single Stream Pipelined ", SingleStreamPipelined::init),
+        make_pair("Profiling Discrete Non-Pipelined", ProfilingDiscreteNonPipelined::init),
+        make_pair("Profiling Discrete Pipelined", ProfilingDiscretePipelined::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
