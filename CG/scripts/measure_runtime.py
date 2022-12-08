@@ -2,11 +2,12 @@ import subprocess
 import re
 import os
 from os.path import dirname, realpath
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 import sys
 from datetime import datetime
-
-import pandas as pd
+import csv
+import io
+import csv
 
 MAX_NUM_GPUS = 8
 CUDA_VISIBLE_DEVICES_SETTING = [
@@ -22,10 +23,10 @@ CUDA_VISIBLE_DEVICES_SETTING = [
 ]
 
 MATRICES_FOLDER_PATH = '/global/D1/homes/iismayilov/matrices'
-NUM_RUNS = 3
-NUM_ITERATIONS = 100
-EXECUTION_TIME_REGEX = 'Execution time:\s+(?P<exec_time>[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) s'
+NUM_RUNS = 5
+NUM_ITERATIONS = 1000
 EXECUTABLE_NAME = 'cg'
+GPU_MODEL = None
 
 VERSION_NAME_TO_IDX_MAP = {
     'Baseline Discrete Standard': 0,
@@ -48,23 +49,32 @@ MATRIX_NAMES = [
     'crankseg_2',
 ]
 
+
+EXECUTION_TIME_REGEX = 'Execution time:\s+(?P<exec_time>[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) s'
 VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
 GPU_COLUMN_NAMES = None
 
 
 def get_perf_data_string(version_to_result_map, column_labels):
-    row_labels = version_to_result_map.keys()
-    full_perf_data = version_to_result_map.values()
+    ephemereal_csv_file = io.StringIO('')
 
-    df = pd.DataFrame(full_perf_data, columns=column_labels,
-                      index=row_labels)
+    csv_writer = csv.writer(ephemereal_csv_file, delimiter=',')
 
-    perf_data_string = df.to_csv()
+    # Add empty string column to get table-like output
+    padded_column_labels = [''] + column_labels
+
+    csv_writer.writerow(padded_column_labels)
+
+    for row_label, runtimes in version_to_result_map.items():
+        final_row = [row_label] + runtimes
+        csv_writer.writerow(final_row)
+
+    perf_data_string = ephemereal_csv_file.getvalue()
 
     return perf_data_string
 
 
-def benchmark_runtime(save_result_to_path, executable_dir):
+def measure_runtime(save_result_to_path, executable_dir):
     execution_time_regex_pattern = re.compile(EXECUTION_TIME_REGEX)
 
     matrix_to_version_to_result_map = dict.fromkeys(MATRIX_NAMES)
@@ -106,8 +116,6 @@ def benchmark_runtime(save_result_to_path, executable_dir):
                     execution_times.append(execution_time_on_run)
 
                 min_execution_time = min(execution_times)
-
-                print(min_execution_time)
 
                 version_to_result_map[version_name].append(min_execution_time)
 
@@ -179,15 +187,21 @@ if __name__ == "__main__":
 
             MAX_NUM_GPUS = int(sys.argv[arg_idx])
 
+        if sys.argv[arg_idx] == '--gpu_model':
+            arg_idx += 1
+
+            GPU_MODEL = sys.argv[arg_idx]
+
         arg_idx += 1
 
     if FILENAME == None:
-        BASE = 'cg_benchmark'
-        FILENAME = BASE + '-' + datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + '.txt'
+        BASE = 'cg_runtime'
+        FILENAME = BASE + '-' + datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + \
+            f'-{GPU_MODEL}' + '.txt'
 
     GPU_COLUMN_NAMES = [str(num_gpus) + ' GPU' + ('s' if num_gpus != 1 else '')
                         for num_gpus in range(1, MAX_NUM_GPUS + 1)]
 
     SAVE_RESULT_TO_FILE_PATH = SAVE_RESULT_TO_DIR_PATH + '/' + FILENAME
 
-    benchmark_runtime(SAVE_RESULT_TO_FILE_PATH, EXECUTABLE_DIR)
+    measure_runtime(SAVE_RESULT_TO_FILE_PATH, EXECUTABLE_DIR)

@@ -4,13 +4,14 @@
 #SBATCH --ntasks=8
 #SBATCH --gres=gpu:8
 #SBATCH --partition=dgx2q
-#SBATCH --time=12:00:00
+#SBATCH --time=06:00:00
 #SBATCH --output=sbatch_output_%j.log
 
-NUM_ITER=${NUM_ITER:-100}
+NUM_ITER=${NUM_ITER:-1000}
 FILENAME=${FILENAME:-USE_DEFAULT_FILENAME}
 MATRICES_FOLDER=${MATRICES_FOLDER:-USE_DEFAULT_MATRICES_FOLDER}
 NUM_GPUS=${NUM_GPUS:-8}
+GPU_MODEL=${GPU_MODEL:-V100}
 
 while [ $# -gt 0 ]; do
 
@@ -29,7 +30,7 @@ cd ~/multi-perks/CG
 echo "--- RUNNING ---"
 date
 
-./scripts/venv/bin/python3 ./scripts/benchmark_runtime.py --num_iter $NUM_ITER --filename $FILENAME --matrices_folder $MATRICES_FOLDER --num_gpus $NUM_GPUS
+python3 ./scripts/measure_runtime.py --num_iter $NUM_ITER --filename $FILENAME --matrices_folder $MATRICES_FOLDER -only_measure_total --num_gpus $NUM_GPUS --gpu_model $GPU_MODEL
 
 echo ""
 
