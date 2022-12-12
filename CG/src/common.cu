@@ -64,7 +64,8 @@ void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu,
         std::cout << "Comparing correctness against Single GPU" << std::endl;
 
         for (i = 0; result_correct_single_gpu && (i < num_rows); i++) {
-            if (std::fabs(x_ref_single_gpu[i] - x[i]) > tol || isnan(x[i])) {
+            if (std::fabs(x_ref_single_gpu[i] - x[i]) > tol || isnan(x[i]) ||
+                isnan(x_ref_single_gpu[i])) {
                 fprintf(stderr,
                         "ERROR: x[%d] = %.8f does not match %.8f "
                         "(reference)\n",
@@ -79,7 +80,7 @@ void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu,
         std::cout << "Comparing correctness against CPU" << std::endl;
 
         for (i = 0; result_correct_cpu && (i < num_rows); i++) {
-            if (std::fabs(x_ref_cpu[i] - x[i]) > tol || isnan(x[i])) {
+            if (std::fabs(x_ref_cpu[i] - x[i]) > tol || isnan(x[i]) || isnan(x_ref_cpu[i])) {
                 fprintf(stderr,
                         "ERROR: x[%d] = %.8f does not match %.8f "
                         "(reference)\n",
