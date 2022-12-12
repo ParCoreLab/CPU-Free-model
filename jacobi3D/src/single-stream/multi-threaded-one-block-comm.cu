@@ -63,14 +63,14 @@ __global__ void __launch_bounds__(1024, 1)
 
                     if (iy < ny - 1 && ix < nx - 1) {
                         const real first_row_val =
-                            (a[iz_start * ny * nx + iy * nx + ix + 1] +
-                             a[iz_start * ny * nx + iy * nx + ix - 1] +
-                             a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                             a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                             a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                             remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +
-                                                                   iy * nx + ix]) /
-                            real(6.0);
+                            0.161f * a[iz_start * ny * nx + iy * nx + ix + 1]       // easy
+                            + 0.162f * a[iz_start * ny * nx + iy * nx + ix - 1]     // west
+                            + 0.163f * a[iz_start * ny * nx + (iy + 1) * nx + ix]   // north
+                            + 0.164f * a[iz_start * ny * nx + (iy - 1) * nx + ix]   // south
+                            + 0.166f * a[(iz_start + 1) * ny * nx + iy * nx + ix]   // bottom
+                            + remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +
+                                                                   iy * nx + ix]    // top
+                            - 1.67f * a[iz_start * ny * nx + iy * nx + ix];         // center
 
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                         local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy * nx + ix] =
@@ -102,14 +102,14 @@ __global__ void __launch_bounds__(1024, 1)
 
                     if (iy < ny - 1 && ix < nx - 1) {
                         const real last_row_val =
-                            (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                             a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                             a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                             a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                             remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
-                                                                      iy * nx + ix] +
-                             a[(iz_end - 2) * ny * nx + iy * nx + ix]) /
-                            real(6.0);
+                            0.161f * a[(iz_end - 1) * ny * nx + iy * nx + ix + 1]       // easy
+                            + 0.162f * a[(iz_end - 1) * ny * nx + iy * nx + ix - 1]     // west
+                            + 0.163f * a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix]   // north
+                            + 0.164f * a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix]   // south
+                            + 0.165f * a[(iz_end - 2) * ny * nx + iy * nx + ix]         // top
+                            + 0.166f * remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
+                                                                     iy * nx + ix]      // bottom
+                            - 1.67f * a[(iz_end - 1) * ny * nx + iy * nx + ix];        // center
 
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                         local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy * nx +
@@ -214,9 +214,9 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[]) {
 
         int numSms = deviceProp.multiProcessorCount*maxActiveBlocksPerSM;
 
-        if (dev_id == 0) {
-            printf("%d\n", maxActiveBlocksPerSM);
-        }
+//        if (dev_id == 0) {
+//            printf("%d\n", maxActiveBlocksPerSM);
+//        }
 
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;

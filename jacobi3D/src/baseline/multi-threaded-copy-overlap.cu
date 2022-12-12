@@ -44,11 +44,15 @@ __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__rest
     // real local_l2_norm = 0.0;
 
     if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
+        // PERKS formula
         const real new_val =
-            (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
-             a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
-             a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]) /
-            real(6.0);
+            0.161f * a[iz * ny * nx + iy * nx + ix + 1]         // east
+            + 0.162f * a[iz * ny * nx + iy * nx + ix - 1]       // west
+            + 0.163f * a[iz * ny * nx + (iy + 1) * nx + ix]     // north
+            + 0.164f * a[iz * ny * nx + (iy - 1) * nx + ix]     // south
+            + 0.165f * a[(iz - 1) * ny * nx + iy * nx + ix]     // top      // might be bottom
+            + 0.166f * a[(iz + 1) * ny * nx + iy * nx + ix]     // bottom
+            - 1.67f * a[iz * ny * nx + iy * nx + ix];           // center
 
         a_new[iz * ny * nx + iy * nx + ix] = new_val;
 
