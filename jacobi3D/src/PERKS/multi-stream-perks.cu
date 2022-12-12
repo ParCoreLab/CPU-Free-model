@@ -405,10 +405,9 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         iz_end[dev_id] = (iz_end_global - iz_start_global + 1) + iz_start;
 
         // Set diriclet boundary conditions on left and right border
-        //        initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
-        //            a[dev_id], a_new[dev_id], PI, iz_start_global - 1, nx, ny, chunk_size + 2,
-        //            nz);
-        //        CUDA_RT_CALL(cudaGetLastError());
+        initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
+            a[dev_id], a_new[dev_id], PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
+        CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
