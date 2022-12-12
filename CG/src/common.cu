@@ -531,7 +531,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, 0);
 
-    int numBlocks = (num_rows / THREADS_PER_BLOCK) + 1;
+    int numBlocks = (num_rows + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
     CUDA_RT_CALL(cudaStreamCreate(&streamOtherOps));
     CUDA_RT_CALL(cudaStreamCreate(&streamDot));
@@ -772,7 +772,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     int sMemSize = (sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1));
 
-    int numBlocks = (num_rows / THREADS_PER_BLOCK) + 1;
+    int numBlocks = (num_rows + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
