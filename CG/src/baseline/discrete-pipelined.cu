@@ -135,6 +135,7 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
         *dot_result_gamma = 0.0;
     }
 }
+
 }  // namespace BaselineDiscretePipelined
 
 int BaselineDiscretePipelined::init(int argc, char *argv[]) {
@@ -326,7 +327,7 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
         }
 
         int sMemSize = 2 * (sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1));
-        int numBlocks = (num_rows / THREADS_PER_BLOCK) + 1;
+        int numBlocks = (num_rows + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
 #pragma omp barrier
 
@@ -374,13 +375,6 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
             resetLocalDotProducts<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1,
                                                           gpu_idx);
 
-            MultiGPU::syncPeers<<<1, 1, 0, streamDot>>>(gpu_idx, num_devices,
-                                                        hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(streamDot))
-
-            // Overlap happens below between Dot and SpMV
-
             // Dot
             gpuDotProductsMerged<<<numBlocks, THREADS_PER_BLOCK, sMemSize, streamDot>>>(
                 um_r, um_r, um_r, um_w, num_rows, gpu_idx, num_devices, sMemSize);
@@ -390,14 +384,13 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
                 um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_w, um_q, gpu_idx,
                 num_devices);
 
-            CUDA_RT_CALL(cudaStreamSynchronize(streamDot))
-
             addLocalDotContributions<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
 
             // streamSpMV is implicit synchronized using default stream (stream 0) semantics
-            MultiGPU::syncPeers<<<1, 1, 0, 0>>>(gpu_idx, num_devices, hostMemoryArrivedList);
+            MultiGPU::syncPeers<<<1, 1, 0, streamDot>>>(gpu_idx, num_devices,
+                                                        hostMemoryArrivedList);
 
-            CUDA_RT_CALL(cudaStreamSynchronize(0))
+            CUDA_RT_CALL(cudaStreamSynchronize(streamDot))
 
             if (k > 1) {
                 MultiGPU::update_b_k<<<1, 1, 0, streamOtherOps>>>(
@@ -415,6 +408,7 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
                                                              hostMemoryArrivedList);
 
             CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
+            CUDA_RT_CALL(cudaStreamSynchronize(streamSpMV));
 
             // z_k = q_k + beta_k * z_(k-1)
             MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
