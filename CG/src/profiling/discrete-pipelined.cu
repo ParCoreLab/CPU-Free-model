@@ -137,7 +137,7 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
 }
 }  // namespace ProfilingDiscretePipelined
 
-int ProfilingDiscretePipelinedNoOverlap::init(int argc, char *argv[]) {
+int ProfilingDiscretePipelined::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
