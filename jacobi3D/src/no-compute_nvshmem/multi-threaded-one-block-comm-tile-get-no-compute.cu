@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <iostream>
 
-#include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-warp.cuh"
+#include "../../include/no-compute_nvshmem/multi-threaded-one-block-comm-tile-get-no-compute.cuh"
 #include <cooperative_groups.h>
 
 #include <nvshmem.h>
@@ -12,9 +12,8 @@
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedOneBlockCommWarpNvshmem
+namespace SSMultiThreadedOneBlockCommTileGetNvshmemNoCompute
 {
-
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end,
                       const int ny, const int nx, const int iter_max,
@@ -24,7 +23,6 @@ namespace SSMultiThreadedOneBlockCommWarpNvshmem
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
-        auto warp = cg::tiled_partition<32>(cta);
 
         int iter = 0;
         int cur_iter_mod = 0;
@@ -32,7 +30,7 @@ namespace SSMultiThreadedOneBlockCommWarpNvshmem
 
         const int num_comm_tiles_x = nx / blockDim.x + (nx % blockDim.x != 0);
         const int num_comm_tiles_y = ny / (blockDim.y * blockDim.z) + (ny % (blockDim.y * blockDim.z) != 0);
-        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size();
+        const int num_flags = 2 * num_comm_tiles_x * num_comm_tiles_y;
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
@@ -45,75 +43,82 @@ namespace SSMultiThreadedOneBlockCommWarpNvshmem
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x;
                          comm_tile_idx_x++, ix += blockDim.x)
                     {
-                        if (warp.thread_rank() == warp.num_threads() - 1)
+                        if (cta.thread_rank() == cta.num_threads() - 1)
                         {
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
-                                    comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
-                                    comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
+                                    comm_tile_idx_y * num_comm_tiles_x + comm_tile_idx_x,
                                 NVSHMEM_CMP_EQ, iter);
                         }
-                        cg::sync(warp);
-
+                        cg::sync(cta);
+                        /*
                         if (iy < ny - 1 && ix < nx - 1)
                         {
-                            const real first_row_val = (real(1) / real(6)) *
-                                                       (a[iz_start * ny * nx + iy * nx + ix + 1] +
-                                                        a[iz_start * ny * nx + iy * nx + ix - 1] +
-                                                        a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                                                        a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                                                        a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                                                        halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
-
+                            const real first_row_val = (real(1) / real(6)) * (a[iz_start * ny * nx + iy * nx + ix + 1] +
+                                                                              a[iz_start * ny * nx + iy * nx + ix - 1] +
+                                                                              a[iz_start * ny * nx + (iy + 1) * nx + ix] +
+                                                                              a[iz_start * ny * nx + (iy - 1) * nx + ix] +
+                                                                              a[(iz_start + 1) * ny * nx + iy * nx + ix] +
+                                                                              nvshmem_float_g(halo_buffer_bottom + cur_iter_mod * ny * nx + iy * nx + ix, top));
                             a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
+                            halo_buffer_top[next_iter_mod * ny * nx + iy * nx + ix] = first_row_val;
                         }
+                        cg::sync(cta);
+                        */
 
-                        nvshmemx_putmem_signal_nbi_warp(
-                            halo_buffer_bottom + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
-                            a_new + iz_start * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
-                            min(warp.num_threads(), nx - comm_tile_idx_x * warp.num_threads()) * sizeof(real),
-                            is_done_computing_flags + next_iter_mod * num_flags +
-                                num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
-                                comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
-                                comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
-                            iter + 1, NVSHMEM_SIGNAL_SET, top);
-
-                        if (warp.thread_rank() == warp.num_threads() - 1)
+                       if (iy < ny - 1 && ix < nx - 1)
                         {
+                            const real first_row_val = nvshmem_float_g(halo_buffer_bottom + cur_iter_mod * ny * nx + iy * nx + ix, top);
+                            halo_buffer_top[next_iter_mod * ny * nx + iy * nx + ix] = first_row_val;
+                        }
+                        cg::sync(cta);
+                        if (cta.thread_rank() == cta.num_threads() - 1)
+                        {
+                            nvshmemx_signal_op(
+                                is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y +
+                                    comm_tile_idx_y * num_comm_tiles_x + comm_tile_idx_x,
+                                iter + 1, NVSHMEM_SIGNAL_SET, top);
+
                             nvshmem_signal_wait_until(
-                                is_done_computing_flags + cur_iter_mod * num_flags +
-                                    num_comm_tiles_x * num_comm_tiles_y * warp.meta_group_size() +
-                                    comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
-                                    comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
+                                is_done_computing_flags + cur_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y +
+                                    comm_tile_idx_y * num_comm_tiles_x + comm_tile_idx_x,
                                 NVSHMEM_CMP_EQ, iter);
                         }
-                        cg::sync(warp);
+                        cg::sync(cta);
+                        /*
                         if (iy < ny - 1 && ix < nx - 1)
                         {
-                            const real last_row_val = (real(1) / real(6)) *
-                                                      (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                                                       a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                                                       a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                                                       a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                                                       halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix] +
-                                                       a[(iz_end - 2) * ny * nx + iy * nx + ix]);
-
+                            const real last_row_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
+                                                                             a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
+                                                                             a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
+                                                                             a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
+                                                                             nvshmem_float_g(halo_buffer_top + cur_iter_mod * ny * nx + iy * nx + ix, bottom) +
+                                                                             a[(iz_end - 2) * ny * nx + iy * nx + ix]);
                             a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
+                            halo_buffer_bottom[next_iter_mod * ny * nx + iy * nx + ix] = last_row_val;
                         }
+                        cg::sync(cta);
+                        */
 
-                        nvshmemx_putmem_signal_nbi_warp(
-                            halo_buffer_top + next_iter_mod * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
-                            a_new + (iz_end - 1) * ny * nx + iy * nx + (comm_tile_idx_x * warp.num_threads()),
-                            min(warp.num_threads(), nx - comm_tile_idx_x * warp.num_threads()) * sizeof(real),
-                            is_done_computing_flags + next_iter_mod * num_flags +
-                                comm_tile_idx_y * num_comm_tiles_x * warp.meta_group_size() +
-                                comm_tile_idx_x * warp.meta_group_size() + warp.meta_group_rank(),
-                            iter + 1, NVSHMEM_SIGNAL_SET, bottom);
+                       if (iy < ny - 1 && ix < nx - 1)
+                        {
+                            const real last_row_val = nvshmem_float_g(halo_buffer_top + cur_iter_mod * ny * nx + iy * nx + ix, bottom);
+                            halo_buffer_bottom[next_iter_mod * ny * nx + iy * nx + ix] = last_row_val;
+                        }
+                        cg::sync(cta);
+                        if (cta.thread_rank() == cta.num_threads() - 1)
+                        {
+                            nvshmemx_signal_op(
+                                is_done_computing_flags + next_iter_mod * num_flags +
+                                    comm_tile_idx_y * num_comm_tiles_x + comm_tile_idx_x,
+                                iter + 1, NVSHMEM_SIGNAL_SET, bottom);
+                        }
                     }
                 }
             }
             else
             {
+                /*
                 for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
                      iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
                 {
@@ -133,6 +138,7 @@ namespace SSMultiThreadedOneBlockCommWarpNvshmem
                         }
                     }
                 }
+                */
             }
 
             real *temp_pointer = a_new;
@@ -143,16 +149,16 @@ namespace SSMultiThreadedOneBlockCommWarpNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            if (grid.thread_rank()==grid.num_threads()-1)
+            if (grid.thread_rank()==grid.num_threads() - 1)
             {
                 nvshmem_quiet();
             }
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedOneBlockCommWarpNvshmem
+} // namespace SSMultiThreadedOneBlockCommTileGetNvshmemNoCompute
 
-int SSMultiThreadedOneBlockCommWarpNvshmem::init(int argc, char *argv[])
+int SSMultiThreadedOneBlockCommTileGetNvshmemNoCompute::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -391,7 +397,7 @@ int SSMultiThreadedOneBlockCommWarpNvshmem::init(int argc, char *argv[])
     double start = MPI_Wtime();
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)SSMultiThreadedOneBlockCommWarpNvshmem::jacobi_kernel, dim_grid, dim_block,
+        (void *)SSMultiThreadedOneBlockCommTileGetNvshmemNoCompute::jacobi_kernel, dim_grid, dim_block,
         kernelArgs, 0, nullptr));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());

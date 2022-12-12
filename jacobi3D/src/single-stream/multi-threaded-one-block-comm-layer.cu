@@ -7,7 +7,6 @@
 #include <omp.h>
 
 #include <cooperative_groups.h>
-#include <cooperative_groups/memcpy_async.h>
 
 #include "../../include/single-stream/multi-threaded-one-block-comm-layer.cuh"
 

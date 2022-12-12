@@ -7,16 +7,19 @@
 #include <omp.h>
 
 #include <cooperative_groups.h>
-#include "../../include/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
+#include <cooperative_groups/memcpy_async.h>
+
+#include "../../include/no-compute/multi-threaded-one-block-comm-layer-no-compute.cuh"
 
 namespace cg = cooperative_groups;
-
-namespace SSMultiThreadedOneBlockCommNoCompute
+// Plan 1 turn comm remote acesseses to local, after a iteration finishes, use every thread in grid
+// to copy halos to top and bottom sections.
+namespace SSMultiThreadedOneBlockCommLayerNoCompute
 {
+
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int grid_dim_y, const int grid_dim_x,
-                      const int num_comm_tiles_x, const int num_comm_tiles_y, const int iter_max,
+                      const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max,
                       volatile real *local_halo_buffer_for_top_neighbor,
                       volatile real *local_halo_buffer_for_bottom_neighbor,
                       volatile const real *remote_my_halo_buffer_on_top_neighbor,
@@ -56,107 +59,90 @@ namespace SSMultiThreadedOneBlockCommNoCompute
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                int iy = comm_start_iy;
-                for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++, iy += comm_size_iy)
+                if (cta.thread_rank() == 0)
                 {
-                    int ix = comm_start_ix;
-                    for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++, ix += comm_start_ix)
+                    while (local_is_top_neighbor_done_writing_to_me[cur_iter_mod * 2] !=
+                           iter)
                     {
-                        if (cta.thread_rank() == 0)
-                        {
-                            while (local_is_top_neighbor_done_writing_to_me
-                                       [comm_tile_idx_y * num_comm_tiles_x +
-                                        comm_tile_idx_x +
-                                        cur_iter_mod * 2 * num_comm_tiles_x * num_comm_tiles_y] != iter)
-                            {
-                            }
-                        }
-                        cg::sync(cta);
-                        /*
-                        if (iy < end_iy && ix < end_ix)
-                        {
-                            const real first_row_val = (real(1) / real(6)) *
-                                                       (a[comm_start_iz + iy + ix + 1] +
-                                                        a[comm_start_iz + iy + ix - 1] +
-                                                        a[comm_start_iz + iy + nx + ix] +
-                                                        a[comm_start_iz + iy - nx + ix] +
-                                                        a[comm_start_iz + ny * nx + iy + ix] +
-                                                        remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +
-                                                                                              iy + ix]);
-
-                            a_new[comm_start_iz + iy + ix] = first_row_val;
-                            local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy + ix] =
-                                first_row_val;
-                        }
-
-                        cg::sync(cta);
-                        */
-                        if (iy < end_iy && ix < end_ix)
-                        {
-                            const real first_row_val =
-                                remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +
-                                                                      iy + ix];
-
-                            local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy + ix] =
-                                first_row_val;
-                        }
-
-                        cg::sync(cta);
-                        if (cta.thread_rank() == 0)
-                        {
-                            remote_am_done_writing_to_top_neighbor
-                                [comm_tile_idx_y * num_comm_tiles_x +
-                                 comm_tile_idx_x + num_comm_tiles_x * num_comm_tiles_y +
-                                 next_iter_mod * 2 * num_comm_tiles_x * num_comm_tiles_y] = iter + 1;
-
-                            while (local_is_bottom_neighbor_done_writing_to_me
-                                       [comm_tile_idx_y * num_comm_tiles_x +
-                                        comm_tile_idx_x + num_comm_tiles_x * num_comm_tiles_y +
-                                        cur_iter_mod * 2 * num_comm_tiles_x * num_comm_tiles_y] != iter)
-                            {
-                            }
-                        }
-
-                        cg::sync(cta);
-                        /*
-                        if (iy < end_iy && ix < end_ix)
-                        {
-                            const real last_row_val = (real(1) / real(6)) *
-                                                      (a[end_iz + iy + ix + 1] +
-                                                       a[end_iz + iy + ix - 1] +
-                                                       a[end_iz + iy + nx + ix] +
-                                                       a[end_iz + iy - nx + ix] +
-                                                       remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
-                                                                                                iy + ix] +
-                                                       a[end_iz - ny * nx + iy + ix]);
-
-                            a_new[end_iz + iy + ix] = last_row_val;
-                            local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy +
-                                                                  ix] = last_row_val;
-                        }
-
-                        cg::sync(cta);
-
-                        */
-
-                        if (iy < end_iy && ix < end_ix)
-                        {
-                            const real last_row_val = remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
-                                                                                               iy + ix];
-
-                            local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy +
-                                                                  ix] = last_row_val;
-                        }
-
-                        cg::sync(cta);
-                        if (cta.thread_rank() == 0)
-                        {
-                            remote_am_done_writing_to_bottom_neighbor
-                                [comm_tile_idx_y * num_comm_tiles_x +
-                                 comm_tile_idx_x +
-                                 next_iter_mod * 2 * num_comm_tiles_x * num_comm_tiles_y] = iter + 1;
-                        }
                     }
+                }
+                cg::sync(cta);
+                /* for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
+                {
+                    for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
+                    {
+                        const real first_row_val = (real(1) / real(6)) * (a[comm_start_iz + iy + ix + 1] +
+                                                                          a[comm_start_iz + iy + ix - 1] +
+                                                                          a[comm_start_iz + iy + nx + ix] +
+                                                                          a[comm_start_iz + iy - nx + ix] +
+                                                                          a[comm_start_iz + ny * nx + iy + ix] +
+                                                                          remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +
+                                                                                                                iy + ix]);
+                        a_new[comm_start_iz + iy + ix] = first_row_val;
+                        local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy + ix] =
+                            first_row_val;
+                    }
+                }
+                cg::sync(cta); */
+
+                for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
+                {
+                    for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
+                    {
+                        const real first_row_val =
+                            remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx +
+                                                                  iy + ix];
+
+                        local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy + ix] =
+                            first_row_val;
+                    }
+                }
+                cg::sync(cta);
+                if (cta.thread_rank() == 0)
+                {
+                    remote_am_done_writing_to_top_neighbor[next_iter_mod * 2 + 1] = iter + 1;
+
+                    while (
+                        local_is_bottom_neighbor_done_writing_to_me[cur_iter_mod * 2 + 1] !=
+                        iter)
+                    {
+                    }
+                }
+                cg::sync(cta);
+                /* for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
+                {
+                    for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
+                    {
+                        const real last_row_val = (real(1) / real(6)) * (a[end_iz + iy + ix + 1] +
+                                                                         a[end_iz + iy + ix - 1] +
+                                                                         a[end_iz + iy + nx + ix] +
+                                                                         a[end_iz + iy - nx + ix] +
+                                                                         remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx +
+                                                                                                                  iy + ix] +
+                                                                         a[end_iz - ny * nx + iy + ix]);
+                        a_new[end_iz + iy + ix] = last_row_val;
+                        local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy +
+                                                              ix] = last_row_val;
+                    }
+                }
+                cg::sync(cta); */
+
+                for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
+                {
+                    for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
+                    {
+                        const real last_row_val =
+                            remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * ny * nx + iy + ix];
+
+                        local_halo_buffer_for_bottom_neighbor[next_iter_mod * ny * nx + iy +
+                                                              ix] = last_row_val;
+                    }
+                }
+                cg::sync(cta);
+                if (cta.thread_rank() == 0)
+                {
+                    remote_am_done_writing_to_bottom_neighbor[next_iter_mod * 2] =
+                        iter + 1;
                 }
             }
             else
@@ -190,9 +176,9 @@ namespace SSMultiThreadedOneBlockCommNoCompute
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedOneBlockCommNoCompute
+} // namespace SSMultiThreadedOneBlockCommLayerNoCompute
 
-int SSMultiThreadedOneBlockCommNoCompute::init(int argc, char *argv[])
+int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -250,27 +236,26 @@ int SSMultiThreadedOneBlockCommNoCompute::init(int argc, char *argv[])
         constexpr int dim_block_z = 4;
 
         // constexpr int comp_tile_size_x = dim_block_x;
-        // constexpr int comp_tile_size_y = dim_block_y;
+        // constexpr int comp_tile_size_y = 8 * dim_block_y;
+        // int comp_tile_size_z;
+
+        // constexpr int comm_tile_size_x = dim_block_x;
+        // constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
 
         constexpr int grid_dim_x = 2;
         constexpr int grid_dim_y = 4;
         const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
-        
-        // int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
-        // int comp_tile_size_z = dim_block_z; // * max_thread_blocks_z;
+        // comp_tile_size_z = dim_block_z * grid_dim_z;
 
         // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
         // int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
         // int num_comp_tiles_z = nz_per_gpu / comp_tile_size_z + (nz_per_gpu % comp_tile_size_z != 0);
 
-        constexpr int comm_tile_size_x = dim_block_x;
-        constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
+        // int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
+        // int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
 
-        int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
-        int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
-
-        int total_num_flags = 4 * num_comm_tiles_x * num_comm_tiles_y;
+        int total_num_flags = 4;
 
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (nz - 2);
         if (dev_id < num_ranks_low)
@@ -316,7 +301,6 @@ int SSMultiThreadedOneBlockCommNoCompute::init(int argc, char *argv[])
 
         CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
-
         CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
         CUDA_RT_CALL(
             cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
@@ -368,8 +352,6 @@ int SSMultiThreadedOneBlockCommNoCompute::init(int argc, char *argv[])
                               (void *)&nx,
                               (void *)&grid_dim_y,
                               (void *)&grid_dim_x,
-                              (void *)&num_comm_tiles_x,
-                              (void *)&num_comm_tiles_y,
                               (void *)&iter_max,
                               (void *)&halo_buffer_for_top_neighbor[dev_id],
                               (void *)&halo_buffer_for_bottom_neighbor[dev_id],
@@ -383,9 +365,8 @@ int SSMultiThreadedOneBlockCommNoCompute::init(int argc, char *argv[])
 #pragma omp barrier
         double start = omp_get_wtime();
 
-        CUDA_RT_CALL(
-            cudaLaunchCooperativeKernel((void *)SSMultiThreadedOneBlockCommNoCompute::jacobi_kernel,
-                                        dim_grid, dim_block, kernelArgs, 0, nullptr));
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)SSMultiThreadedOneBlockCommLayerNoCompute::jacobi_kernel,
+                                                 dim_grid, dim_block, kernelArgs, 0, nullptr));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
         CUDA_RT_CALL(cudaGetLastError());

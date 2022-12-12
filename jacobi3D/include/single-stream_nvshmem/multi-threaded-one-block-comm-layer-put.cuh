@@ -1,0 +1,10 @@
+#ifndef INC_NVSHMEM_3D_STENCIL_MULTI_THREADED_ONE_BLOCK_COMM_LAYER_PUT_CUH
+#define INC_NVSHMEM_3D_STENCIL_MULTI_THREADED_ONE_BLOCK_COMM_LAYER_PUT_CUH
+
+#include "../common.h"
+
+namespace SSMultiThreadedOneBlockCommLayerPutNvshmem {
+int init(int argc, char** argv);
+}
+
+#endif  // INC_NVSHMEM_3D_STENCIL_MULTI_THREADED_ONE_BLOCK_COMM_LAYER_PUT_CUH

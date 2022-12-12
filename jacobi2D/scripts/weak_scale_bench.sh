@@ -19,33 +19,31 @@ version_name_to_idx_map["Baseline Copy Overlap"]=1
 version_name_to_idx_map["Baseline P2P"]=2
 #version_name_to_idx_map["Baseline Single Copy"]=3
 
-version_name_to_idx_map["Single Stream 1TB Tile-by-Tile"]=6
-version_name_to_idx_map["Single Stream 1TB Plane-by-Plane"]=7
-#version_name_to_idx_map["Single Stream 2TB"]=8
-#version_name_to_idx_map["Double Stream"]=9
+version_name_to_idx_map["Single Stream 1TB Tile-by-Tile"]=4
+version_name_to_idx_map["Single Stream 1TB Plane-by-Plane"]=5
+#version_name_to_idx_map["Single Stream 2TB"]=6
+#version_name_to_idx_map["Double Stream"]=7
 
-#version_name_to_idx_map["PERKS"]=13
+#version_name_to_idx_map["Baseline Copy (No compute)"]=8
+version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=9
+version_name_to_idx_map["Baseline P2P (No Compute)"]=10
 
-#version_name_to_idx_map["Baseline Copy (No compute)"]=14
-version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=15
-version_name_to_idx_map["Baseline P2P (No Compute)"]=16
-
-version_name_to_idx_map["Single Stream 1TB Tile-by-Tile (No Compute)"]=19
-#version_name_to_idx_map["Single Stream 2TB Tile-by-Tile (No Compute)"]=20
-#version_name_to_idx_map["Double Stream (No Compute)"]=21
+version_name_to_idx_map["Single Stream 1TB Tile-by-Tile (No Compute)"]=11
+version_name_to_idx_map["Single Stream 1TB Tile-by-Tile (No Compute)"]=12
+#version_name_to_idx_map["Single Stream 2TB Tile-by-Tile (No Compute)"]=13
+#version_name_to_idx_map["Double Stream (No Compute)"]=14
 
 declare -A version_name_to_idx_map_nvshmem
 
+version_name_to_idx_map_nvshmem["Baseline NVSHMEM"]=15
+version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=16
 
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM"]=4
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=5
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Plane-by-Plane"]=17
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB Plane-by-Plane"]=18
+#version_name_to_idx_map_nvshmem["NVSHMEM Double Stream Plane-by-Plane"]=19
 
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Plane-by-Plane"]=10
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB Plane-by-Plane"]=11
-version_name_to_idx_map_nvshmem["NVSHMEM Double Stream Plane-by-Plane"]=12
-
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM (No Compute)"]=17
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized (No Compute)"]=18
+version_name_to_idx_map_nvshmem["Baseline NVSHMEM (No Compute)"]=20
+version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized (No Compute)"]=21
 
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Plane-by-Plane (No Compute)"]=22
 

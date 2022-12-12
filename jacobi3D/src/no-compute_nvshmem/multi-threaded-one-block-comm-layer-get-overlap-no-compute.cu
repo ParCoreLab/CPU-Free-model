@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <iostream>
 
-#include "../../include/no-compute_nvshmem/multi-threaded-one-block-comm-bulk-get-no-compute.cuh"
+#include "../../include/no-compute_nvshmem/multi-threaded-one-block-comm-layer-get-overlap-no-compute.cuh"
 #include <cooperative_groups.h>
 
 #include <nvshmem.h>
@@ -12,7 +12,7 @@
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedOneBlockCommBulkGetNvshmemNoCompute
+namespace SSMultiThreadedOneBlockCommLayerGetOverlapNvshmemNoCompute
 {
 
     __global__ void __launch_bounds__(1024, 1)
@@ -35,8 +35,12 @@ namespace SSMultiThreadedOneBlockCommBulkGetNvshmemNoCompute
                 if (cta.thread_rank() == cta.num_threads() - 1)
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
-                nvshmemx_getmem_block(halo_buffer_top + cur_iter_mod * ny * nx, halo_buffer_bottom + cur_iter_mod * ny * nx, ny * nx * sizeof(real),top);
+                nvshmemx_getmem_nbi_block(halo_buffer_bottom + cur_iter_mod * ny * nx, halo_buffer_top + cur_iter_mod * ny * nx, ny * nx * sizeof(real), bottom);
+
+                nvshmemx_getmem_block(halo_buffer_top + cur_iter_mod * ny * nx, halo_buffer_bottom + cur_iter_mod * ny * nx, ny * nx * sizeof(real), top);
+
                 /*
                 for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
                 {
@@ -59,11 +63,10 @@ namespace SSMultiThreadedOneBlockCommBulkGetNvshmemNoCompute
                     nvshmemx_signal_op(
                         is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                         top);
-                    
-                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
+
+                    nvshmem_quiet();
                 }
 
-                nvshmemx_getmem_block(halo_buffer_bottom + cur_iter_mod * ny * nx, halo_buffer_top + cur_iter_mod * ny * nx , ny * nx * sizeof(real),bottom);
                 /*
                 for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
                 {
@@ -86,27 +89,28 @@ namespace SSMultiThreadedOneBlockCommBulkGetNvshmemNoCompute
                 {
                     nvshmemx_signal_op(
                         is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
-                        bottom);  
+                        bottom);
+                    nvshmem_quiet();
                 }
             }
             else
             {
-               /* 
-               for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-                     iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
-                {
-                    for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
-                    {
-                        for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
-                        {
-                            a_new[iz + iy + ix] = (real(1) / real(6)) *
-                                                  (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
-                                                   a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
-                                                   a[iz - ny * nx + iy + ix]);
-                        }
-                    }
-                }
-                */
+                /*
+                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+                      iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
+                 {
+                     for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
+                     {
+                         for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
+                         {
+                             a_new[iz + iy + ix] = (real(1) / real(6)) *
+                                                   (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
+                                                    a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
+                                                    a[iz - ny * nx + iy + ix]);
+                         }
+                     }
+                 }
+                 */
             }
 
             real *temp_pointer = a_new;
@@ -117,16 +121,13 @@ namespace SSMultiThreadedOneBlockCommBulkGetNvshmemNoCompute
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            if (grid.thread_rank() == grid.num_threads() - 1)
-            {
-                nvshmem_quiet();
-            }
+          
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedOneBlockCommBulkGetNvshmemNoCompute
+} // namespace SSMultiThreadedOneBlockCommLayerGetOverlapNvshmemNoCompute
 
-int SSMultiThreadedOneBlockCommBulkGetNvshmemNoCompute::init(int argc, char *argv[])
+int SSMultiThreadedOneBlockCommLayerGetOverlapNvshmemNoCompute::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -364,7 +365,7 @@ int SSMultiThreadedOneBlockCommBulkGetNvshmemNoCompute::init(int argc, char *arg
     double start = MPI_Wtime();
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)SSMultiThreadedOneBlockCommBulkGetNvshmemNoCompute::jacobi_kernel, dim_grid, dim_block, kernelArgs,
+        (void *)SSMultiThreadedOneBlockCommLayerGetOverlapNvshmemNoCompute::jacobi_kernel, dim_grid, dim_block, kernelArgs,
         0, nullptr));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());

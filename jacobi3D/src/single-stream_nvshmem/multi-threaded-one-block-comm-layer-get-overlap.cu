@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <iostream>
 
-#include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-bulk.cuh"
+#include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-layer-get-overlap.cuh"
 #include <cooperative_groups.h>
 
 #include <nvshmem.h>
@@ -12,7 +12,7 @@
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedOneBlockCommBulkNvshmem
+namespace SSMultiThreadedOneBlockCommLayerGetOverlapNvshmem
 {
 
     __global__ void __launch_bounds__(1024, 1)
@@ -54,8 +54,11 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
                 if (cta.thread_rank() == cta.num_threads() - 1)
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
-                cg::sync(cta);
+                nvshmemx_getmem_nbi_block(halo_buffer_bottom + cur_iter_mod * ny * nx, halo_buffer_top + cur_iter_mod * ny * nx, ny * nx * sizeof(real), bottom);
+
+                nvshmemx_getmem_block(halo_buffer_top + cur_iter_mod * ny * nx, halo_buffer_bottom + cur_iter_mod * ny * nx, ny * nx * sizeof(real), top);
 
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
@@ -68,25 +71,23 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
                                                                           a[comm_start_iz + ny * nx + iy + ix] +
                                                                           halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
                         a_new[comm_start_iz + iy + ix] = first_row_val;
+                        halo_buffer_top[next_iter_mod * ny * nx + iy + ix] = first_row_val;
                     }
                 }
-
-                nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + comm_start_iz, ny * nx * sizeof(real),
-                    is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
-                    top);
-
+                cg::sync(cta);
                 if (cta.thread_rank() == cta.num_threads() - 1)
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
+                    nvshmemx_signal_op(
+                        is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
+                        top);
+
+                    nvshmem_quiet();
                 }
-                cg::sync(cta);
 
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                     {
-
                         const real last_row_val = (real(1) / real(6)) * (a[end_iz + iy + ix + 1] +
                                                                          a[end_iz + iy + ix - 1] +
                                                                          a[end_iz + iy + nx + ix] +
@@ -94,21 +95,20 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
                                                                          halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix] +
                                                                          a[end_iz - ny * nx + iy + ix]);
                         a_new[end_iz + iy + ix] = last_row_val;
+                        halo_buffer_bottom[next_iter_mod * ny * nx + iy + ix] = last_row_val;
                     }
                 }
-
-                nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
-                    is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
-                    bottom);
+                cg::sync(cta);
                 if (cta.thread_rank() == cta.num_threads() - 1)
                 {
+                    nvshmemx_signal_op(
+                        is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
+                        bottom);
                     nvshmem_quiet();
                 }
             }
             else
             {
-
                 for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
                 {
                     for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
@@ -135,9 +135,9 @@ namespace SSMultiThreadedOneBlockCommBulkNvshmem
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedOneBlockCommBulkNvshmem
+} // namespace SSMultiThreadedOneBlockCommLayerGetOverlapNvshmem
 
-int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
+int SSMultiThreadedOneBlockCommLayerGetOverlapNvshmem::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -206,14 +206,17 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
     constexpr int dim_block_y = 8;
     constexpr int dim_block_z = 4;
 
+    // constexpr int comp_tile_size_x = dim_block_x;
+    // constexpr int comp_tile_size_y = dim_block_y;
+
     // constexpr int comm_tile_size_x = dim_block_x;
     // constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
 
-    // int num_comp_tiles_x = nx / dim_block_x + (nx % dim_block_x != 0);
-    // int num_comp_tiles_y = ny / dim_block_y + (ny % dim_block_y != 0);
-
     // constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
     // constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
+
+    // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
+    // int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
 
     // int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
     // int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
@@ -282,7 +285,7 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
 
     // int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
     // int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
-    // int num_tiles_z = (nz / npes) / dim_block_z + ((nz / npes) % dim_block_z != 0);
+    // int num_comp_tiles_z = (nz / npes) / comp_tile_size_z + ((nz / npes) % comp_tile_size_z != 0);
 
     constexpr int grid_dim_x = 2;
     constexpr int grid_dim_y = 4;
@@ -378,7 +381,7 @@ int SSMultiThreadedOneBlockCommBulkNvshmem::init(int argc, char *argv[])
     double start = MPI_Wtime();
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)SSMultiThreadedOneBlockCommBulkNvshmem::jacobi_kernel, dim_grid, dim_block, kernelArgs,
+        (void *)SSMultiThreadedOneBlockCommLayerGetOverlapNvshmem::jacobi_kernel, dim_grid, dim_block, kernelArgs,
         0, nullptr));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
