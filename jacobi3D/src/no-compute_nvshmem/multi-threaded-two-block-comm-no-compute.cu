@@ -9,11 +9,11 @@
 #include <nvshmem.h>
 #include <nvshmemx.h>
 
-#include "../../include/single-stream_nvshmem/multi-threaded-two-block-comm.cuh"
+#include "../../include/no-compute_nvshmem/multi-threaded-two-block-comm-no-compute.cuh"
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedTwoBlockCommNvshmem
+namespace SSMultiThreadedTwoBlockCommNvshmemNoCompute
 {
 
     __global__ void __launch_bounds__(1024, 1)
@@ -57,7 +57,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
-
+                /*
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
@@ -71,6 +71,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
                         a_new[comm_start_iz + iy + ix] = first_row_val;
                     }
                 }
+                */
 
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + comm_start_iz, ny * nx * sizeof(real),
@@ -88,7 +89,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
-
+                /*
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
@@ -103,6 +104,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
                         a_new[end_iz + iy + ix] = last_row_val;
                     }
                 }
+                */
 
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
@@ -115,7 +117,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
             }
             else
             {
-
+                /*
                 for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
                 {
                     for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
@@ -129,6 +131,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
                         }
                     }
                 }
+                */
             }
 
             real *temp_pointer = a_new;
@@ -142,9 +145,9 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedTwoBlockCommNvshmem
+} // namespace SSMultiThreadedTwoBlockCommNvshmemNoCompute
 
-int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
+int SSMultiThreadedTwoBlockCommNvshmemNoCompute::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -369,7 +372,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     double start = MPI_Wtime();
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)SSMultiThreadedTwoBlockCommNvshmem::jacobi_kernel, dim_grid, dim_block, kernelArgs,
+        (void *)SSMultiThreadedTwoBlockCommNvshmemNoCompute::jacobi_kernel, dim_grid, dim_block, kernelArgs,
         0, nullptr));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());

@@ -1,26 +1,18 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-#include <cmath>
-#include <cstdio>
-#include <iostream>
-
 #include <cooperative_groups.h>
-
 #include <nvshmem.h>
 #include <nvshmemx.h>
-
-#include "../../include/single-stream_nvshmem/multi-threaded-two-block-comm.cuh"
+#include "../../include/no-compute_nvshmem/multi-gpu-peer-tiling-no-compute.cuh"
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedTwoBlockCommNvshmem
+namespace MultiGPUPeerTilingNvshmemNoCompute
 {
-
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max, real *halo_buffer_top,
-                      real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
-                      const int bottom)
+                      const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max,
+                      volatile int *iteration_done)
     {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
@@ -41,6 +33,61 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
         const int end_iy = (ny - 1) * nx;
         const int end_ix = (nx - 1);
 
+        while (iter < iter_max)
+        {
+            for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
+            {
+                for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
+                {
+                    for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
+                    {
+                        a_new[iz + iy + ix] = (real(1) / real(6)) *
+                                              (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
+                                               a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
+                                               a[iz - ny * nx + iy + ix]);
+                    }
+                }
+            }
+
+            real *temp_pointer = a_new;
+            a_new = a;
+            a = temp_pointer;
+
+            iter++;
+
+            next_iter_mod = cur_iter_mod;
+            cur_iter_mod = 1 - cur_iter_mod;
+            cg::sync(grid);
+
+            if (grid.thread_rank() == 0)
+            {
+                while (iteration_done[0] != iter)
+                {
+                }
+                iteration_done[1] = iter;
+            }
+
+            cg::sync(grid);
+        }
+    }
+
+    __global__ void __launch_bounds__(1024, 1)
+        boundary_sync_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
+                             const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max, real *halo_buffer_top,
+                             real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
+                             const int bottom, volatile int *iteration_done)
+    {
+        cg::thread_block cta = cg::this_thread_block();
+        cg::grid_group grid = cg::this_grid();
+
+        int iter = 0;
+        int cur_iter_mod = 0;
+        int next_iter_mod = 1;
+
+        const int end_iz = (iz_end - 1) * ny * nx;
+        const int end_iy = (ny - 1) * nx;
+        const int end_ix = (nx - 1);
+
         const int comm_size_iy = blockDim.y * blockDim.z * nx;
         const int comm_size_ix = blockDim.x;
 
@@ -50,6 +97,9 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
 
         while (iter < iter_max)
         {
+            while (iteration_done[1] != iter)
+            {
+            }
             if (blockIdx.x == gridDim.x - 1)
             {
                 if (cta.thread_rank() == cta.num_threads() - 1)
@@ -113,38 +163,29 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
                     nvshmem_quiet();
                 }
             }
-            else
-            {
 
-                for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
-                {
-                    for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
-                    {
-                        for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
-                        {
-                            a_new[iz + iy + ix] = (real(1) / real(6)) *
-                                                  (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
-                                                   a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
-                                                   a[iz - ny * nx + iy + ix]);
-                        }
-                    }
-                }
-            }
-
-            real *temp_pointer = a_new;
+            real *temp_pointer_first = a_new;
             a_new = a;
-            a = temp_pointer;
+            a = temp_pointer_first;
 
             iter++;
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
+
+            cg::sync(grid);
+
+            if (grid.thread_rank() == 0)
+            {
+                iteration_done[0] = iter;
+            }
+
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedTwoBlockCommNvshmem
+} // namespace MultiGPUPeerTilingNvshmemNoCompute
 
-int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
+int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -159,6 +200,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     real *halo_buffer_bottom;
 
     uint64_t *is_done_computing_flags;
+    int *iteration_done_flags;
 
     real *a_ref_h;
     real *a_h;
@@ -313,7 +355,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
 
     CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMalloc(&a_new , nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
 
     CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
@@ -324,8 +366,12 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaMemset((void *)halo_buffer_top, 0, 2 * nx * ny * sizeof(real)));
     CUDA_RT_CALL(cudaMemset((void *)halo_buffer_bottom, 0, 2 * nx * ny * sizeof(real)));
 
+    CUDA_RT_CALL(cudaMalloc(&iteration_done_flags, 2 * sizeof(int)));
+    CUDA_RT_CALL(cudaMemset(&iteration_done_flags, 0, 2 * sizeof(int)));
+
     is_done_computing_flags = (uint64_t *)nvshmem_malloc(total_num_flags * sizeof(uint64_t));
     CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));
+
     // Calculate local domain boundaries
     int iz_start_global; // My start index in the global array
     if (mype < num_ranks_low)
@@ -334,50 +380,74 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     }
     else
     {
-        iz_start_global =
-            num_ranks_low * chunk_size_low + (mype - num_ranks_low) * chunk_size_high + 1;
+        iz_start_global = num_ranks_low * chunk_size_low + (mype - num_ranks_low) * chunk_size_high + 1;
     }
     int iz_end_global = iz_start_global + chunk_size - 1; // My last index in the global array
 
     int iz_start = 1;
     int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
 
+    // Set diriclet boundary conditions on left and right border
     initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
         a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
+
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 1);
+    dim3 dim_grid(numSms - 2, 1, 1);
     dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
-    void *kernelArgs[] = {(void *)&a_new,
-                          (void *)&a,
-                          (void *)&iz_start,
-                          (void *)&iz_end,
-                          (void *)&ny,
-                          (void *)&nx,
-                          (void *)&grid_dim_y,
-                          (void *)&grid_dim_x,
-                          (void *)&iter_max,
-                          (void *)&halo_buffer_top,
-                          (void *)&halo_buffer_bottom,
-                          (void *)&is_done_computing_flags,
-                          (void *)&top,
-                          (void *)&bottom};
+    void *kernelArgsInner[] = {(void *)&a_new,
+                               (void *)&a,
+                               (void *)&iz_start,
+                               (void *)&iz_end,
+                               (void *)&ny,
+                               (void *)&nx,
+                               (void *)&grid_dim_y,
+                               (void *)&grid_dim_x,
+                               (void *)&iter_max,
+                               (void *)&iteration_done_flags};
+
+    void *kernelArgsBoundary[] = {(void *)&a_new,
+                                  (void *)&a,
+                                  (void *)&iz_start,
+                                  (void *)&iz_end,
+                                  (void *)&ny,
+                                  (void *)&nx,
+                                  (void *)&grid_dim_y,
+                                  (void *)&grid_dim_x,
+                                  (void *)&iter_max,
+                                  (void *)&halo_buffer_top,
+                                  (void *)&halo_buffer_bottom,
+                                  (void *)&is_done_computing_flags,
+                                  (void *)&top,
+                                  (void *)&bottom,
+                                  (void *)&iteration_done_flags};
 
     nvshmem_barrier_all();
-    double start = MPI_Wtime();
+    double start = omp_get_wtime();
 
-    CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)SSMultiThreadedTwoBlockCommNvshmem::jacobi_kernel, dim_grid, dim_block, kernelArgs,
-        0, nullptr));
+    cudaStream_t inner_domain_stream;
+    cudaStream_t boundary_sync_stream;
+
+    CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
+    CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
+
+    // THE KERNELS ARE SERIALIZED!
+    // perhaps only on V100
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmemNoCompute::jacobi_kernel,
+                                             dim_grid, dim_block, kernelArgsInner, 0,
+                                             inner_domain_stream));
+
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmemNoCompute::boundary_sync_kernel,
+                                             2, dim_block, kernelArgsBoundary, 0,
+                                             boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
-    CUDA_RT_CALL(cudaGetLastError());
 
     // Need to swap pointers on CPU if iteration count is odd
-    // Technically, we don't know the iteration number (since we'll be doing
-    // l2-norm) Could write iter to CPU when kernel is done
+    // Technically, we don't know the iteration number (since we'll be doing l2-norm)
+    // Could write iter to CPU when kernel is done
     if (iter_max % 2 == 1)
     {
         std::swap(a_new, a);

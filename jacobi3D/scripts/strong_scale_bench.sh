@@ -40,8 +40,8 @@ version_name_to_idx_map_nvshmem["Baseline NVSHMEM"]=15
 version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=16
 
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Put"]=17
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get"]=18
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous"]=19
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get"]=18
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get Overlap"]=19
 
 #version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Get"]=20
 #version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Put"]=21
@@ -49,18 +49,24 @@ version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get"]=18
 #version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Tile"]=22
 #version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Tile Put"]=23
 
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM (No Compute)"]=24
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized (No Compute)"]=25
+version_name_to_idx_map["NVSHMEM Single Stream 2TB"]=24
+version_name_to_idx_map["NVSHMEM Double Stream"]=25
 
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Put (No Compute)"]=26
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get (No Compute)"]=27
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Contiguous (No Compute)"]=28
+version_name_to_idx_map_nvshmem["Baseline NVSHMEM (No Compute)"]=26
+version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized (No Compute)"]=27
 
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Get (No Compute)"]=29
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Put (No Compute)"]=30
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Put (No Compute)"]=28
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get (No Compute)"]=29
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get Overlap (No Compute)"]=30
 
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Tile (No Compute)"]=31
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Tile Put (No Compute)"]=32
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Get (No Compute)"]=31
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Put (No Compute)"]=32
+
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Tile (No Compute)"]=33
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Tile Put (No Compute)"]=34
+
+version_name_to_idx_map["NVSHMEM Single Stream 2TB (No Compute)"]=35
+version_name_to_idx_map["NVSHMEM Double Stream (No Compute)"]=36
 
 BIN="./jacobi -s 1"
 
