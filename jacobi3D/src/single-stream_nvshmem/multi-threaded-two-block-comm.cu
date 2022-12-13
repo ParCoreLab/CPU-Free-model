@@ -240,7 +240,6 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    bool result_correct = true;
     if (compare_to_single_gpu)
     {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));

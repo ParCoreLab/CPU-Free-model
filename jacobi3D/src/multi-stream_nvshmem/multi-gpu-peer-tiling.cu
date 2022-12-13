@@ -445,7 +445,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
                                              boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
-
+    CUDA_RT_CALL(cudaGetLastError());
     // Need to swap pointers on CPU if iteration count is odd
     // Technically, we don't know the iteration number (since we'll be doing l2-norm)
     // Could write iter to CPU when kernel is done
