@@ -426,7 +426,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
                                   (void *)&iteration_done_flags};
 
     nvshmem_barrier_all();
-    double start = omp_get_wtime();
+    double start = MPI_Wtime();
 
     cudaStream_t inner_domain_stream;
     cudaStream_t boundary_sync_stream;
@@ -457,7 +457,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
     double stop = MPI_Wtime();
     nvshmem_barrier_all();
-   bool result_correct = true;
+    bool result_correct = 1;
     if (compare_to_single_gpu)
     {
 

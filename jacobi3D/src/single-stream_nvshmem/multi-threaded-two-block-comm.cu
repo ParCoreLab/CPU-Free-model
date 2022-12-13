@@ -381,7 +381,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
     double stop = MPI_Wtime();
     nvshmem_barrier_all();
-    bool result_correct = true;
+    bool result_correct = 1;
     if (compare_to_single_gpu)
     {
 
