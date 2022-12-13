@@ -43,8 +43,8 @@ version_name_to_idx_map_nvshmem["Baseline NVSHMEM"]=15
 version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=16
 
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Put"]=17
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get"]=18
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get Overlap"]=19
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get"]=18
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get Overlap"]=19
 
 #version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Get"]=20
 #version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Put"]=21
@@ -59,8 +59,8 @@ version_name_to_idx_map_nvshmem["Baseline NVSHMEM (No Compute)"]=26
 version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized (No Compute)"]=27
 
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Put (No Compute)"]=28
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get (No Compute)"]=29
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get Overlap (No Compute)"]=30
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get (No Compute)"]=29
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get Overlap (No Compute)"]=30
 
 #version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Get (No Compute)"]=31
 #version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Put (No Compute)"]=32
