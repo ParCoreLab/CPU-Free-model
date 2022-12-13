@@ -27,7 +27,7 @@ namespace MultiGPUPeerTilingNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int comp_size_iz = ((gridDim.x - 1) / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
+        const int comp_size_iz = (gridDim.x / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
         const int comp_size_iy = grid_dim_y * blockDim.y * nx;
         const int comp_size_ix = grid_dim_x * blockDim.x;
 
@@ -324,7 +324,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
 
     constexpr int grid_dim_x = 2;
     constexpr int grid_dim_y = 4;
-    const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+    const int grid_dim_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
     int total_num_flags = 4;
 
@@ -373,7 +373,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaMemset((void *)halo_buffer_bottom, 0, 2 * nx * ny * sizeof(real)));
 
     CUDA_RT_CALL(cudaMalloc(&iteration_done_flags, 2 * sizeof(int)));
-    CUDA_RT_CALL(cudaMemset(&iteration_done_flags, 0, 2 * sizeof(int)));
+    CUDA_RT_CALL(cudaMemset(iteration_done_flags, 0, 2 * sizeof(int)));
 
     is_done_computing_flags = (uint64_t *)nvshmem_malloc(total_num_flags * sizeof(uint64_t));
     CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));
@@ -400,7 +400,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(numSms - 2, 1, 1);
+    dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z);
     dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
     void *kernelArgsInner[] = {(void *)&a_new,

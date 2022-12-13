@@ -29,7 +29,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int comp_size_iz = ((gridDim.x - 1) / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
+        const int comp_size_iz = ((gridDim.x - 2) / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
         const int comp_size_iy = grid_dim_y * blockDim.y * nx;
         const int comp_size_ix = grid_dim_x * blockDim.x;
 
@@ -276,7 +276,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
 
     constexpr int grid_dim_x = 2;
     constexpr int grid_dim_y = 4;
-    const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+    const int grid_dim_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
     int total_num_flags = 4;
 
@@ -347,7 +347,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 1);
+    dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 2);
     dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
     void *kernelArgs[] = {(void *)&a_new,
