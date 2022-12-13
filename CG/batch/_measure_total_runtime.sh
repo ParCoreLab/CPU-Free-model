@@ -11,8 +11,13 @@ NUM_ITER=${NUM_ITER:-1000}
 NUM_RUNS=${NUM_RUNS:-5}
 FILENAME=${FILENAME:-USE_DEFAULT_FILENAME}
 MATRICES_FOLDER=${MATRICES_FOLDER:-USE_DEFAULT_MATRICES_FOLDER}
-NUM_GPUS=${NUM_GPUS:-8}
 GPU_MODEL=${GPU_MODEL:-V100}
+
+# This will be a comma delimited list of number of GPUs to run on
+# No spaces between numbers
+# Single numbers also work
+# (Example => 2,3,4,8)
+NUM_GPUS=${NUM_GPUS:-8}
 
 while [ $# -gt 0 ]; do
 

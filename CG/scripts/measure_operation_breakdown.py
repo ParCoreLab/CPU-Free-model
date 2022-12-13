@@ -10,6 +10,8 @@ import io
 import csv
 
 MAX_NUM_GPUS = 8
+GPU_NUMS_TO_RUN = range(1, MAX_NUM_GPUS + 1)
+
 CUDA_VISIBLE_DEVICES_SETTING = [
     "0",
     "0",
@@ -104,7 +106,8 @@ def save_results(save_result_to_path, version_to_matrix_to_result_map, version_t
 
 
 def measure_operation_breakdown(save_result_to_path, executable_dir):
-    for num_gpus in range(1, MAX_NUM_GPUS + 1):
+    for num_gpus in GPU_NUMS_TO_RUN:
+        print(num_gpus)
         cuda_string = CUDA_VISIBLE_DEVICES_SETTING[num_gpus]
         os.environ['CUDA_VISIBLE_DEVICES'] = cuda_string
 
@@ -207,7 +210,11 @@ if __name__ == "__main__":
         if sys.argv[arg_idx] == '--num_gpus':
             arg_idx += 1
 
-            MAX_NUM_GPUS = int(sys.argv[arg_idx])
+            gpu_nums_to_run = sys.argv[arg_idx].split(',')
+            gpu_nums_to_run = [int(gpu_num.strip())
+                               for gpu_num in gpu_nums_to_run]
+
+            GPU_NUMS_TO_RUN = gpu_nums_to_run[:]
 
         if sys.argv[arg_idx] == '--gpu_model':
             arg_idx += 1

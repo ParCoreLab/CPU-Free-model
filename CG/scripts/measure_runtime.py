@@ -10,6 +10,8 @@ import io
 import csv
 
 MAX_NUM_GPUS = 8
+GPU_NUMS_TO_RUN = range(1, MAX_NUM_GPUS + 1)
+
 CUDA_VISIBLE_DEVICES_SETTING = [
     "0",
     "0",
@@ -90,7 +92,7 @@ def measure_runtime(save_result_to_path, executable_dir):
         version_to_result_map = defaultdict(list)
 
         for version_name, version_idx in VERSION_NAME_TO_IDX_MAP.items():
-            for num_gpus in range(1, MAX_NUM_GPUS + 1):
+            for num_gpus in GPU_NUMS_TO_RUN:
                 cuda_string = CUDA_VISIBLE_DEVICES_SETTING[num_gpus]
                 os.environ['CUDA_VISIBLE_DEVICES'] = cuda_string
 
@@ -159,6 +161,7 @@ if __name__ == "__main__":
     SAVE_RESULT_TO_DIR_PATH = dir_path + '/../results'
     EXECUTABLE_DIR = dir_path + '/../bin'
     FILENAME = None
+    NUM_GPUS = range(1,)
 
     arg_idx = 1
 
@@ -185,7 +188,11 @@ if __name__ == "__main__":
         if sys.argv[arg_idx] == '--num_gpus':
             arg_idx += 1
 
-            MAX_NUM_GPUS = int(sys.argv[arg_idx])
+            gpu_nums_to_run = sys.argv[arg_idx].split(',')
+            gpu_nums_to_run = [int(gpu_num.strip())
+                               for gpu_num in gpu_nums_to_run]
+
+            GPU_NUMS_TO_RUN = gpu_nums_to_run[:]
 
         if sys.argv[arg_idx] == '--gpu_model':
             arg_idx += 1
