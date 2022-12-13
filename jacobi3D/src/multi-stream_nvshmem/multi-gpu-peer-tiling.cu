@@ -260,7 +260,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 2);
+    long long unsigned int mesh_size_per_rank = nx * ny * 2 + 2;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -294,7 +294,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
 
     bool result_correct = true;
-    if (compare_to_single_gpu && 0 == mype)
+    if (compare_to_single_gpu)
     {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
         CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));

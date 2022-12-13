@@ -172,7 +172,6 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
-
     int local_rank = -1;
     int local_size = 1;
     {
@@ -212,7 +211,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 2);
+    long long unsigned int mesh_size_per_rank = nx * ny * 2 + 2;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -246,7 +245,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
 
     bool result_correct = true;
-    if (compare_to_single_gpu && 0 == mype)
+    if (compare_to_single_gpu)
     {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
         CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));
@@ -313,7 +312,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
 
     CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMalloc(&a_new , nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
 
     CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
@@ -326,6 +325,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
 
     is_done_computing_flags = (uint64_t *)nvshmem_malloc(total_num_flags * sizeof(uint64_t));
     CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));
+
     // Calculate local domain boundaries
     int iz_start_global; // My start index in the global array
     if (mype < num_ranks_low)
