@@ -433,7 +433,7 @@ int SSMultiThreadedOneBlockCommLayerPutNvshmem::init(int argc, char *argv[])
 
     if (!mype && global_result_correct)
     {
-        // printf("Num GPUs: %d.\n", num_devices);
+        // printf("Num GPUs: %d.\n", npes);
         printf("Execution time: %8.4f s\n", (stop - start));
 
         if (compare_to_single_gpu)

@@ -1,9 +1,5 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-#include <cmath>
-#include <cstdio>
-#include <iostream>
-
 #include <cooperative_groups.h>
 
 #include <nvshmem.h>
@@ -256,10 +252,10 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
 
     int chunk_size;
-    int chunk_size_low = (nz - 2) / num_devices;
+    int chunk_size_low = (nz - 2) / npes;
     int chunk_size_high = chunk_size_low + 1;
 
-    int num_ranks_low = num_devices * chunk_size_low + num_devices - (nz - 2);
+    int num_ranks_low = npes * chunk_size_low + npes - (nz - 2);
     if (mype < num_ranks_low)
         chunk_size = chunk_size_low;
     else
@@ -279,8 +275,8 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
 
     int total_num_flags = 4;
 
-    const int top = mype > 0 ? mype - 1 : (num_devices - 1);
-    const int bottom = (mype + 1) % num_devices;
+    const int top = mype > 0 ? mype - 1 : (npes - 1);
+    const int bottom = (mype + 1) % npes;
 
     if (top != mype)
     {
@@ -342,7 +338,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     int iz_start = 1;
     int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
 
-    initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
+    initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(
         a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -415,7 +411,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
         }
         if (result_correct)
         {
-            // printf("Num GPUs: %d.\n", num_devices);
+            // printf("Num GPUs: %d.\n", npes);
             printf("Execution time: %8.4f s\n", (stop - start));
 
             if (compare_to_single_gpu)
@@ -426,9 +422,9 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
                     "s, speedup: "
                     "%8.2f, "
                     "efficiency: %8.2f \n",
-                    nz, ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
+                    nx, ny, nz, runtime_serial_non_persistent, npes, (stop - start),
                     runtime_serial_non_persistent / (stop - start),
-                    runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
+                    runtime_serial_non_persistent / (npes * (stop - start)) * 100);
             }
         }
     }
