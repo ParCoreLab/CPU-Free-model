@@ -475,23 +475,23 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
 
 double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *x_ref,
                       int num_rows, int nnz) {
-    real *um_x;
-    real *um_r;
-    real *um_p;
-    real *um_s;
-    real *um_z;
-    real *um_w;
-    real *um_q;
-    real *um_ax0;
+    real *device_x;
+    real *device_r;
+    real *device_p;
+    real *device_s;
+    real *device_z;
+    real *device_w;
+    real *device_q;
+    real *device_ax0;
 
     double *um_tmp_dot_delta1;
     double *um_tmp_dot_gamma1;
-    real *um_tmp_dot_delta0;
-    real *um_tmp_dot_gamma0;
+    real tmp_dot_delta0;
+    real tmp_dot_gamma0;
 
-    real *um_alpha;
-    real *um_negative_alpha;
-    real *um_beta;
+    real alpha;
+    real negative_alpha;
+    real beta;
 
     real real_positive_one = 1.0;
     real real_negative_one = -1.0;
@@ -501,30 +501,22 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     cudaStream_t streamDot;
     cudaStream_t streamSpMV;
 
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(real) * num_rows));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_x, sizeof(real) * num_rows));
 
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_delta1, sizeof(double)));
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_gamma1, sizeof(double)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_delta0, sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_gamma0, sizeof(real)));
 
     CUDA_RT_CALL(cudaMemset(um_tmp_dot_delta1, 0, sizeof(double)));
     CUDA_RT_CALL(cudaMemset(um_tmp_dot_gamma1, 0, sizeof(double)));
-    CUDA_RT_CALL(cudaMemset(um_tmp_dot_delta0, 0, sizeof(real)));
-    CUDA_RT_CALL(cudaMemset(um_tmp_dot_gamma0, 0, sizeof(real)));
 
     // temp memory for ConjugateGradient
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_z, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_w, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_q, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_ax0, num_rows * sizeof(real)));
-
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_alpha, sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_negative_alpha, sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_beta, sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_r, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_p, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_s, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_z, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_w, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_q, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_ax0, num_rows * sizeof(real)));
 
     int sMemSize = 2 * (sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1));
 
@@ -542,27 +534,21 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     double start = omp_get_wtime();
 
-    SingleGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(um_r, um_x,
+    SingleGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(device_r, device_x,
                                                                                 num_rows);
-
-    CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
 
     // ax0 = Ax0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
-        um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_x, um_ax0);
-
-    CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
+        um_I, um_J, um_val, nnz, num_rows, real_positive_one, device_x, device_ax0);
 
     // r0 = b0 - s0
     // NOTE: b is a unit vector.
     SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
-        um_ax0, um_r, real_negative_one, num_rows);
-
-    CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
+        device_ax0, device_r, real_negative_one, num_rows);
 
     // w0 = Ar0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
-        um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_r, um_w);
+        um_I, um_J, um_val, nnz, num_rows, real_positive_one, device_r, device_w);
 
     CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
 
@@ -572,73 +558,60 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
         // Two dot products => <r, r> and <r, w>
         resetLocalDotProducts<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
-
         gpuDotProductsMerged<<<numBlocks, THREADS_PER_BLOCK, sMemSize, streamDot>>>(
-            um_r, um_r, um_r, um_w, num_rows, sMemSize);
+            device_r, device_r, device_r, device_w, num_rows, sMemSize);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
-
+        // This is where overlap should happen
         addLocalDotContributions<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
 
         // SpMV
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamSpMV>>>(
-            um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_w, um_q);
+            um_I, um_J, um_val, nnz, num_rows, real_positive_one, device_w, device_q);
 
         CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
-        CUDA_RT_CALL(cudaStreamSynchronize(streamSpMV));
+
+        real real_tmp_dot_delta1 = (real)*um_tmp_dot_delta1;
+        real real_tmp_dot_gamma1 = (real)*um_tmp_dot_gamma1;
 
         if (k > 1) {
-            SingleGPU::update_b_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
-                                                               *um_tmp_dot_delta0, um_beta);
-            SingleGPU::update_a_k<<<1, 1, 0, streamOtherOps>>>(
-                (real)*um_tmp_dot_delta1, (real)*um_tmp_dot_gamma1, *um_beta, um_alpha);
+            beta = real_tmp_dot_delta1 / tmp_dot_delta0;
+            alpha =
+                real_tmp_dot_delta1 / (real_tmp_dot_gamma1 - (beta / alpha) * real_tmp_dot_delta1);
         } else {
-            SingleGPU::init_b_k<<<1, 1, 0, streamOtherOps>>>(um_beta);
-            SingleGPU::init_a_k<<<1, 1, 0, streamOtherOps>>>((real)*um_tmp_dot_delta1,
-                                                             (real)*um_tmp_dot_gamma1, um_alpha);
+            beta = 0.0;
+            alpha = real_tmp_dot_delta1 / real_tmp_dot_gamma1;
         }
 
-        CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
-
-        // We don't need to sync streamSpMV until this point.
+        CUDA_RT_CALL(cudaStreamSynchronize(streamSpMV));
 
         // z_k = q_k + beta_k * z_(k-1)
         SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
-            um_q, um_z, real_positive_one, *um_beta, num_rows);
+            device_q, device_z, real_positive_one, beta, num_rows);
 
         // s_k = w_k + beta_k * s_(k-1)
         SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
-            um_w, um_s, real_positive_one, *um_beta, num_rows);
+            device_w, device_s, real_positive_one, beta, num_rows);
 
         // p_k = r_k = beta_k * p_(k-1)
         SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
-            um_r, um_p, real_positive_one, *um_beta, num_rows);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
+            device_r, device_p, real_positive_one, beta, num_rows);
 
         // x_(i+1) = x_i + alpha_i * p_i
-        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(um_p, um_x, *um_alpha,
-                                                                              num_rows);
+        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(device_p, device_x,
+                                                                              alpha, num_rows);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
-
-        SingleGPU::a_minus<<<1, 1, 0, streamSaxpy>>>(*um_alpha, um_negative_alpha);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
+        negative_alpha = -alpha;
 
         // r_(i+1) = r_i - alpha_i * s_i
         SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
-            um_s, um_r, *um_negative_alpha, num_rows);
+            device_s, device_r, negative_alpha, num_rows);
 
         // w_(i+1) = w_i - alpha_i * z_i
         SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
-            um_z, um_w, *um_negative_alpha, num_rows);
+            device_z, device_w, negative_alpha, num_rows);
 
-        *um_tmp_dot_delta0 = *um_tmp_dot_delta1;
-        *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;
+        tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
+        tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
         CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
 
@@ -647,26 +620,19 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     double stop = omp_get_wtime();
 
-    for (int i = 0; i < num_rows; i++) {
-        x_ref[i] = um_x[i];
-    }
+    CUDA_RT_CALL(cudaMemcpy(x_ref, device_x, num_rows * sizeof(real), cudaMemcpyDeviceToHost));
 
-    CUDA_RT_CALL(cudaFree(um_x));
-    CUDA_RT_CALL(cudaFree(um_r));
-    CUDA_RT_CALL(cudaFree(um_p));
-    CUDA_RT_CALL(cudaFree(um_s));
-    CUDA_RT_CALL(cudaFree(um_z));
-    CUDA_RT_CALL(cudaFree(um_w));
-    CUDA_RT_CALL(cudaFree(um_q));
-    CUDA_RT_CALL(cudaFree(um_ax0));
+    CUDA_RT_CALL(cudaFree(device_x));
+    CUDA_RT_CALL(cudaFree(device_r));
+    CUDA_RT_CALL(cudaFree(device_p));
+    CUDA_RT_CALL(cudaFree(device_s));
+    CUDA_RT_CALL(cudaFree(device_z));
+    CUDA_RT_CALL(cudaFree(device_w));
+    CUDA_RT_CALL(cudaFree(device_q));
+    CUDA_RT_CALL(cudaFree(device_ax0));
 
     CUDA_RT_CALL(cudaFree(um_tmp_dot_delta1));
     CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma1));
-    CUDA_RT_CALL(cudaFree(um_tmp_dot_delta0));
-    CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma0));
-    CUDA_RT_CALL(cudaFree(um_alpha));
-    CUDA_RT_CALL(cudaFree(um_negative_alpha));
-    CUDA_RT_CALL(cudaFree(um_beta));
 
     return (stop - start);
 }
@@ -730,174 +696,130 @@ __global__ void resetLocalDotProduct(double *dot_result) {
 
 double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *x_ref,
                       int num_rows, int nnz) {
-    real *um_x;
-    real *um_r;
-    real *um_p;
-    real *um_s;
-    real *um_ax0;
+    real *device_x;
+    real *device_r;
+    real *device_p;
+    real *device_s;
+    real *device_ax0;
 
     double *um_tmp_dot_delta1;
     double *um_tmp_dot_gamma1;
-    real *um_tmp_dot_delta0;
-    real *um_tmp_dot_gamma0;
 
-    real *um_alpha;
-    real *um_negative_alpha;
-    real *um_beta;
+    real tmp_dot_delta0;
+    real tmp_dot_gamma0;
+
+    real alpha;
+    real negative_alpha;
+    real beta;
 
     real real_positive_one = 1.0;
     real real_negative_one = -1.0;
 
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(real) * num_rows));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_x, sizeof(real) * num_rows));
 
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_delta1, sizeof(double)));
     CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_gamma1, sizeof(double)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_delta0, sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_gamma0, sizeof(real)));
 
     CUDA_RT_CALL(cudaMemset(um_tmp_dot_delta1, 0, sizeof(double)));
     CUDA_RT_CALL(cudaMemset(um_tmp_dot_gamma1, 0, sizeof(double)));
-    CUDA_RT_CALL(cudaMemset(um_tmp_dot_delta0, 0, sizeof(real)));
-    CUDA_RT_CALL(cudaMemset(um_tmp_dot_gamma0, 0, sizeof(real)));
 
     // temp memory for ConjugateGradient
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_ax0, num_rows * sizeof(real)));
-
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_alpha, sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_negative_alpha, sizeof(real)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_beta, sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_r, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_p, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_s, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_ax0, num_rows * sizeof(real)));
 
     int sMemSize = (sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1));
 
     int numBlocks = (num_rows + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
-
     double start = omp_get_wtime();
 
-    SingleGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_r, um_x, num_rows);
-
-    CUDA_RT_CALL(cudaStreamSynchronize(0));
+    SingleGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(device_r, device_x, num_rows);
 
     // ax0 = Ax0
-    SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_I, um_J, um_val, nnz, num_rows,
-                                                               real_positive_one, um_x, um_ax0);
-
-    CUDA_RT_CALL(cudaStreamSynchronize(0));
+    SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
+        um_I, um_J, um_val, nnz, num_rows, real_positive_one, device_x, device_ax0);
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
-    SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_ax0, um_r, real_negative_one,
-                                                                num_rows);
-
-    CUDA_RT_CALL(cudaStreamSynchronize(0));
+    SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(device_ax0, device_r,
+                                                                real_negative_one, num_rows);
 
     // p0 = r0
-    SingleGPU::gpuCopyVector<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_r, um_p, num_rows);
+    SingleGPU::gpuCopyVector<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(device_r, device_p, num_rows);
 
     resetLocalDotProduct<<<1, 1, 0, 0>>>(um_tmp_dot_gamma1);
 
-    CUDA_RT_CALL(cudaStreamSynchronize(0));
-
-    gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(um_r, um_r, num_rows);
-
-    CUDA_RT_CALL(cudaStreamSynchronize(0));
+    gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(device_r, device_r, num_rows);
 
     addLocalDotContribution<<<1, 1, 0, 0>>>(um_tmp_dot_gamma1);
 
-    CUDA_RT_CALL(cudaStreamSynchronize(0));
+    CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;
-
-    CUDA_RT_CALL(cudaStreamSynchronize(0));
+    tmp_dot_gamma0 = *um_tmp_dot_gamma1;
 
     int k = 1;
 
     while (k <= iter_max) {
         // SpMV
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
-            um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_p, um_s);
+            um_I, um_J, um_val, nnz, num_rows, real_positive_one, device_p, device_s);
 
         resetLocalDotProduct<<<1, 1, 0, 0>>>(um_tmp_dot_delta1);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
-
-        gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(um_p, um_s, num_rows);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
+        gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(device_p, device_s, num_rows);
 
         addLocalDotContribution<<<1, 1, 0, 0>>>(um_tmp_dot_delta1);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
+        CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        SingleGPU::r1_div_x<<<1, 1, 0, 0>>>(*um_tmp_dot_gamma0, (real)*um_tmp_dot_delta1, um_alpha);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
+        alpha = tmp_dot_gamma0 / (real)*um_tmp_dot_delta1;
 
         // x_(k+1) = x_k + alpha_k * p_k
-        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_p, um_x, *um_alpha,
+        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(device_p, device_x, alpha,
                                                                     num_rows);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
-
-        SingleGPU::a_minus<<<1, 1, 0, 0>>>(*um_alpha, um_negative_alpha);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
+        negative_alpha = -alpha;
 
         // r_(k+1) = r_k - alpha_k * s
-        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(um_s, um_r, *um_negative_alpha,
-                                                                    num_rows);
+        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(device_s, device_r,
+                                                                    negative_alpha, num_rows);
 
         resetLocalDotProduct<<<1, 1, 0, 0>>>(um_tmp_dot_gamma1);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
-
-        gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(um_r, um_r, num_rows);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
+        gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(device_r, device_r, num_rows);
 
         addLocalDotContribution<<<1, 1, 0, 0>>>(um_tmp_dot_gamma1);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
+        CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        SingleGPU::r1_div_x<<<1, 1, 0, 0>>>((real)*um_tmp_dot_gamma1, *um_tmp_dot_gamma0, um_beta);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
+        beta = (real)*um_tmp_dot_gamma1 / tmp_dot_gamma0;
 
         // p_(k+1) = r_(k+1) = beta_k * p_(k)
         SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
-            um_r, um_p, real_positive_one, *um_beta, num_rows);
+            device_r, device_p, real_positive_one, beta, num_rows);
 
-        *um_tmp_dot_delta0 = *um_tmp_dot_delta1;
-        *um_tmp_dot_gamma0 = *um_tmp_dot_gamma1;
+        tmp_dot_delta0 = *um_tmp_dot_delta1;
+        tmp_dot_gamma0 = *um_tmp_dot_gamma1;
 
-        CUDA_RT_CALL(cudaStreamSynchronize(0));
+        CUDA_RT_CALL(cudaDeviceSynchronize());
 
         k++;
     }
 
     double stop = omp_get_wtime();
 
-    for (int i = 0; i < num_rows; i++) {
-        x_ref[i] = um_x[i];
-    }
+    CUDA_RT_CALL(cudaMemcpy(x_ref, device_x, num_rows * sizeof(real), cudaMemcpyDeviceToHost));
 
-    CUDA_RT_CALL(cudaFree(um_x));
-    CUDA_RT_CALL(cudaFree(um_r));
-    CUDA_RT_CALL(cudaFree(um_p));
-    CUDA_RT_CALL(cudaFree(um_s));
-    CUDA_RT_CALL(cudaFree(um_ax0));
+    CUDA_RT_CALL(cudaFree(device_x));
+    CUDA_RT_CALL(cudaFree(device_r));
+    CUDA_RT_CALL(cudaFree(device_p));
+    CUDA_RT_CALL(cudaFree(device_s));
+    CUDA_RT_CALL(cudaFree(device_ax0));
 
     CUDA_RT_CALL(cudaFree(um_tmp_dot_delta1));
     CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma1));
-    CUDA_RT_CALL(cudaFree(um_tmp_dot_delta0));
-    CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma0));
-    CUDA_RT_CALL(cudaFree(um_alpha));
-    CUDA_RT_CALL(cudaFree(um_negative_alpha));
-    CUDA_RT_CALL(cudaFree(um_beta));
 
     return (stop - start);
 }
