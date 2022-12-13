@@ -170,12 +170,6 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
     double *um_tmp_dot_delta1;
     double *um_tmp_dot_gamma1;
-    real *um_tmp_dot_delta0;
-    real *um_tmp_dot_gamma0;
-
-    real *um_alpha;
-    real *um_negative_alpha;
-    real *um_beta;
 
     real real_positive_one = 1.0;
     real real_negative_one = -1.0;
@@ -185,6 +179,12 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
         int gpu_idx = omp_get_thread_num();
 
         cudaStream_t mainStream;
+
+        real alpha;
+        real negative_alpha;
+        real beta;
+        real tmp_dot_delta0;
+        real tmp_dot_gamma0;
 
         CUDA_RT_CALL(cudaSetDevice(gpu_idx));
 
@@ -275,28 +275,19 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_delta1, sizeof(double)));
             CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_gamma1, sizeof(double)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_delta0, sizeof(real)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_gamma0, sizeof(real)));
 
             CUDA_RT_CALL(cudaMemset(um_tmp_dot_delta1, 0, sizeof(double)));
             CUDA_RT_CALL(cudaMemset(um_tmp_dot_gamma1, 0, sizeof(double)));
-            CUDA_RT_CALL(cudaMemset(um_tmp_dot_delta0, 0, sizeof(real)));
-            CUDA_RT_CALL(cudaMemset(um_tmp_dot_gamma0, 0, sizeof(real)));
 
             // temp memory for ConjugateGradient
             CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(real)));
             CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(real)));
             CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(real)));
             CUDA_RT_CALL(cudaMallocManaged((void **)&um_ax0, num_rows * sizeof(real)));
-
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_alpha, sizeof(real)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_negative_alpha, sizeof(real)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_beta, sizeof(real)));
-            // ASSUMPTION: All GPUs are the same and P2P callable
         }
 
         int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
-        int numBlocks = (num_rows / THREADS_PER_BLOCK) + 1;
+        int numBlocks = (num_rows + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
 #pragma omp barrier
 
@@ -309,32 +300,22 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
         MultiGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_r, um_x, num_rows, gpu_idx, num_devices);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
         // ax0 = Ax0
         MultiGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_I, um_J, um_val, nnz, num_rows, real_positive_one, um_x, um_ax0, gpu_idx,
             num_devices);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         // r0 = b0 - ax0
         // NOTE: b is a unit vector.
         MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_ax0, um_r, real_negative_one, num_rows, gpu_idx, num_devices);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
         // p0 = r0
         MultiGPU::gpuCopyVector<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             um_r, um_p, num_rows, gpu_idx, num_devices);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
         gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(um_r, um_r, num_rows,
                                                                               gpu_idx, num_devices);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1);
 
@@ -342,7 +323,7 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
         CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
-        *um_tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
+        tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
         int k = 1;
 
@@ -362,16 +343,7 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
-            PUSH_RANGE("Peer sync 1 (Before Dot 1)", 1)
-
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            POP_RANGE
-
-            PUSH_RANGE("Dot 1", 2)
+            PUSH_RANGE("Dot 1", 1)
 
             gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
                 um_p, um_s, num_rows, gpu_idx, num_devices);
@@ -380,7 +352,7 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("atomicAdd 1", 3)
+            PUSH_RANGE("Atomic Add 1", 2)
 
             addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1);
 
@@ -388,7 +360,7 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("Peer sync 2 (After atomicAdd 1)", 4)
+            PUSH_RANGE("Peer Sync 1 (After Atomic Add 1)", 3)
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
@@ -397,48 +369,25 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            MultiGPU::r1_div_x<<<1, 1, 0, mainStream>>>(
-                *um_tmp_dot_gamma0, (real)*um_tmp_dot_delta1, um_alpha, gpu_idx);
+            alpha = tmp_dot_gamma0 / ((real)*um_tmp_dot_delta1);
 
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            PUSH_RANGE("Peer sync 3 (Before Saxpy 1)", 5)
-
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            POP_RANGE
-
-            PUSH_RANGE("Saxpy 1", 6)
+            PUSH_RANGE("Saxpy 1", 4)
 
             // x_(k+1) = x_k + alpha_k * p_k
             MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
-                um_p, um_x, *um_alpha, num_rows, gpu_idx, num_devices);
+                um_p, um_x, alpha, num_rows, gpu_idx, num_devices);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             POP_RANGE
 
-            MultiGPU::a_minus<<<1, 1, 0, mainStream>>>(*um_alpha, um_negative_alpha, gpu_idx);
+            negative_alpha = -alpha;
 
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            PUSH_RANGE("Peer sync 4 (After Saxpy 1)", 7)
-
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            POP_RANGE
-
-            PUSH_RANGE("Saxpy 2", 8)
+            PUSH_RANGE("Saxpy 2", 5)
 
             // r_(k+1) = r_k - alpha_k * s
             MultiGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
-                um_s, um_r, *um_negative_alpha, num_rows, gpu_idx, num_devices);
+                um_s, um_r, negative_alpha, num_rows, gpu_idx, num_devices);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
@@ -446,18 +395,7 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             resetLocalDotProduct<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1, gpu_idx);
 
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            PUSH_RANGE("Peer sync 5 (After Saxpy 2, Before Dot 2)", 9)
-
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            POP_RANGE
-
-            PUSH_RANGE("Dot 2", 10)
+            PUSH_RANGE("Dot 2", 6)
 
             gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
                 um_r, um_r, num_rows, gpu_idx, num_devices);
@@ -466,7 +404,7 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("atomicAdd 2 (After Dot 2)", 11)
+            PUSH_RANGE("atomicAdd 2", 7)
 
             addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1);
 
@@ -474,7 +412,7 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            PUSH_RANGE("Peer sync 6 (After atomicAdd 2)", 12)
+            PUSH_RANGE("Peer Sync 2 (After Atomic Add 2)", 8)
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
@@ -483,36 +421,22 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            MultiGPU::r1_div_x<<<1, 1, 0, mainStream>>>((real)*um_tmp_dot_gamma1,
-                                                        *um_tmp_dot_gamma0, um_beta, gpu_idx);
+            beta = ((real)*um_tmp_dot_gamma1) / tmp_dot_gamma0;
 
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+            PUSH_RANGE("Saxpy 3", 9)
 
-            PUSH_RANGE("Peer sync 7 (Before Saxpy 3)", 13)
-
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            POP_RANGE
-
-            PUSH_RANGE("Saxpy 3", 14)
-
-            // p_(k+1) = r_(k+1) + beta_k * p_(k)
+            // p_(k+1) = r_(k+1) = beta_k * p_(k)
             MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
-                um_r, um_p, real_positive_one, *um_beta, num_rows, gpu_idx, num_devices);
+                um_r, um_p, real_positive_one, beta, num_rows, gpu_idx, num_devices);
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
             POP_RANGE
 
-            *um_tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
-            *um_tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
+            tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
+            tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-            PUSH_RANGE("Peer sync 8 (End of iteration)", 15)
+            PUSH_RANGE("Peer Sync 3 (End of iteration)", 10)
 
             MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
                                                          hostMemoryArrivedList);
@@ -554,9 +478,7 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaFree(um_p));
             CUDA_RT_CALL(cudaFree(um_ax0));
 
-            CUDA_RT_CALL(cudaFree(um_tmp_dot_delta0));
             CUDA_RT_CALL(cudaFree(um_tmp_dot_delta1));
-            CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma0));
             CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma1));
 
             free(host_val);
