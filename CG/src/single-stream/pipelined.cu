@@ -546,6 +546,8 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 
             CUDA_RT_CALL(cudaFreeHost(x_ref_single_gpu));
         }
+
+        CUDA_RT_CALL(cudaStreamDestroy(mainStream));
     }
 
     return 0;

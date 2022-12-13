@@ -634,6 +634,11 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     CUDA_RT_CALL(cudaFree(um_tmp_dot_delta1));
     CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma1));
 
+    CUDA_RT_CALL(cudaStreamDestroy(streamOtherOps));
+    CUDA_RT_CALL(cudaStreamDestroy(streamDot));
+    CUDA_RT_CALL(cudaStreamDestroy(streamSaxpy));
+    CUDA_RT_CALL(cudaStreamDestroy(streamSpMV));
+
     return (stop - start);
 }
 }  // namespace SingleGPUPipelinedDiscrete

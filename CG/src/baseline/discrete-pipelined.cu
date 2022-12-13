@@ -270,11 +270,11 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
             if (compare_to_single_gpu) {
                 CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
 
-                single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
-                    iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
+                // single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
+                //     iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
 
-                // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
-                //     iter_max, um_I, um_J, um_val, x_ref_host, num_rows, nnz);
+                single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
+                    iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
             }
 
             if (compare_to_cpu) {
@@ -373,7 +373,6 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
 
             addLocalDotContributions<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
 
-            // streamSpMV is implicit synchronized using default stream (stream 0) semantics
             MultiGPU::syncPeers<<<1, 1, 0, streamDot>>>(gpu_idx, num_devices,
                                                         hostMemoryArrivedList);
 
@@ -391,10 +390,6 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
                 alpha = real_tmp_dot_delta1 / real_tmp_dot_gamma1;
             }
 
-            MultiGPU::syncPeers<<<1, 1, 0, streamOtherOps>>>(gpu_idx, num_devices,
-                                                             hostMemoryArrivedList);
-
-            CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
             CUDA_RT_CALL(cudaStreamSynchronize(streamSpMV));
 
             // z_k = q_k + beta_k * z_(k-1)
@@ -462,6 +457,11 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma1));
             free(host_val);
         }
+
+        CUDA_RT_CALL(cudaStreamDestroy(streamOtherOps));
+        CUDA_RT_CALL(cudaStreamDestroy(streamSaxpy));
+        CUDA_RT_CALL(cudaStreamDestroy(streamDot));
+        CUDA_RT_CALL(cudaStreamDestroy(streamSpMV));
     }
 
     return 0;
