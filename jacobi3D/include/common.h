@@ -1,6 +1,10 @@
 #ifndef INC_2D_STENCIL_COMMON_H
 #define INC_2D_STENCIL_COMMON_H
 
+#include <cmath>
+#include <cstdio>
+#include <iostream>
+
 #include <omp.h>
 #include <mpi.h>
 
