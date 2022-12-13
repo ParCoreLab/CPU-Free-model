@@ -289,7 +289,6 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    bool result_correct = true;
     if (compare_to_single_gpu)
     {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
@@ -458,14 +457,16 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     nvshmem_barrier_all();
     double stop = MPI_Wtime();
     nvshmem_barrier_all();
+   bool result_correct = true;
     if (compare_to_single_gpu)
     {
+
         CUDA_RT_CALL(cudaMemcpy(
             a_h + iz_start_global * ny * nx, a + ny * nx,
-            std::min((nz - iz_start_global) * ny * nx, chunk_size * nx * ny) * sizeof(real),
+            std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
 
-        for (int iz = 1; result_correct && (iz < (nz - 1)); ++iz)
+        for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz)
         {
             for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy)
             {
@@ -480,38 +481,38 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
                                 "(reference)\n",
                                 rank, iz, ny * nx, iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix],
                                 a_ref_h[iz * ny * nx + iy * nx + ix]);
-                        // result_correct = false;
+                        result_correct = 0;
                     }
                 }
             }
         }
-        if (result_correct)
-        {
-            // printf("Num GPUs: %d.\n", npes);
-            printf("Execution time: %8.4f s\n", (stop - start));
-
-            if (compare_to_single_gpu)
-            {
-                printf(
-                    "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: "
-                    "%8.4f "
-                    "s, speedup: "
-                    "%8.2f, "
-                    "efficiency: %8.2f \n",
-                    nz, ny, nx, runtime_serial_non_persistent, npes, (stop - start),
-                    runtime_serial_non_persistent / (stop - start),
-                    runtime_serial_non_persistent / (npes * (stop - start)) * 100);
-            }
-        }
     }
-
     int global_result_correct = 1;
     MPI_CALL(MPI_Allreduce(&result_correct, &global_result_correct, 1, MPI_INT, MPI_MIN,
                            MPI_COMM_WORLD));
-    result_correct = global_result_correct;
+
+    if (!mype && global_result_correct)
+    {
+        // printf("Num GPUs: %d.\n", npes);
+        printf("Execution time: %8.4f s\n", (stop - start));
+
+        if (compare_to_single_gpu)
+        {
+            printf(
+                "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: "
+                "%8.4f "
+                "s, speedup: "
+                "%8.2f, "
+                "efficiency: %8.2f \n",
+                nx, ny, nz, runtime_serial_non_persistent, npes, (stop - start),
+                runtime_serial_non_persistent / (stop - start),
+                runtime_serial_non_persistent / (npes * (stop - start)) * 100);
+        }
+    }
 
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));
+    CUDA_RT_CALL(cudaFree(iteration_done_flags));
     nvshmem_free((void *)halo_buffer_top);
     nvshmem_free((void *)halo_buffer_bottom);
     nvshmem_free(is_done_computing_flags);
