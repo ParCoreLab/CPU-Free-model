@@ -19,7 +19,7 @@ namespace SSMultiThreadedOneBlockCommLayerPutNvshmem
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
                       const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max,
                       const int comp_size_iz, const int comp_size_iy, const int comp_size_ix,
-                      const int comm_size_iy, const int comm_size_ix, const int comm_start_iz, 
+                      const int comm_size_iy, const int comm_size_ix, const int comm_start_iz,
                       const int end_iz, const int end_iy, const int end_ix,
                       real *halo_buffer_top, real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
@@ -328,8 +328,8 @@ int SSMultiThreadedOneBlockCommLayerPutNvshmem::init(int argc, char *argv[])
     const int comp_size_iz = ((grid_dim_x * grid_dim_y * grid_dim_z) / (grid_dim_y * grid_dim_x)) * dim_block_z * ny * nx;
     const int comp_size_iy = grid_dim_y * dim_block_y * nx;
     const int comp_size_ix = grid_dim_x * dim_block_x;
-    const int comm_size_iy = blockDim.y * blockDim.z * nx;
-    const int comm_size_ix = blockDim.x;
+    const int comm_size_iy = dim_block_y * dim_block_z * nx;
+    const int comm_size_ix = dim_block_x;
     const int comm_start_iz = iz_start * ny * nx;
     const int end_iz = (iz_end - 1) * ny * nx;
     const int end_iy = (ny - 1) * nx;
