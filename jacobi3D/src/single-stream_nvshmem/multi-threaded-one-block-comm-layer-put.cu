@@ -299,8 +299,8 @@ int SSMultiThreadedOneBlockCommLayerPutNvshmem::init(int argc, char *argv[])
     // int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
     // int num_tiles_z = (nz / npes) / dim_block_z + ((nz / npes) % dim_block_z != 0);
 
-    constexpr int grid_dim_x = 1;
-    constexpr int grid_dim_y = 8;
+    constexpr int grid_dim_x = 2;
+    constexpr int grid_dim_y = 4;
     const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
 
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
