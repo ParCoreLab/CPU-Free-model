@@ -474,8 +474,10 @@ int SSMultiThreadedOneBlockCommLayerPutNvshmem::init(int argc, char *argv[])
         }
     }
 
-    CUDA_RT_CALL(cudaFree(a_new));
-    CUDA_RT_CALL(cudaFree(a));
+    //CUDA_RT_CALL(cudaFree(a_new));
+    //CUDA_RT_CALL(cudaFree(a));
+    nvshmem_free((void *)a_new);
+    nvshmem_free((void *)a);
     //nvshmem_free((void *)halo_buffer_top);
     //nvshmem_free((void *)halo_buffer_bottom);
     nvshmem_free(is_done_computing_flags);
