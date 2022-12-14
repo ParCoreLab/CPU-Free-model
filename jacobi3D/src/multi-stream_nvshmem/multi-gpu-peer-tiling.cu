@@ -91,10 +91,10 @@ namespace MultiGPUPeerTilingNvshmem
         const int end_iy = (ny - 1) * nx;
         const int end_ix = (nx - 1);
 
-        const int comm_size_iy = blockDim.y * blockDim.z * nx;
+        const int comm_size_iy = blockDim.y * nx;
         const int comm_size_ix = blockDim.x;
 
-        const int comm_start_iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx;
+        const int comm_start_iy = (threadIdx.y + 1) * nx;
         const int comm_start_ix = threadIdx.x + 1;
         const int comm_start_iz = iz_start * ny * nx;
 
@@ -310,17 +310,19 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     else
         chunk_size = chunk_size_high;
 
+    int comp_blocks_per_sm = 1;
     cudaDeviceProp deviceProp{};
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&comp_blocks_per_sm, (void *)MultiGPUPeerTilingNvshmem::jacobi_kernel, 512, 0));
     int numSms = deviceProp.multiProcessorCount;
 
     constexpr int dim_block_x = 32;
-    constexpr int dim_block_y = 8;
+    constexpr int dim_block_y = 4;
     constexpr int dim_block_z = 4;
 
     constexpr int grid_dim_x = 2;
-    constexpr int grid_dim_y = 4;
-    const int grid_dim_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
+    constexpr int grid_dim_y = 8;
+    const int grid_dim_z = ((numSms - 2) * comp_blocks_per_sm) / (grid_dim_x * grid_dim_y);
 
     int total_num_flags = 4;
 
@@ -396,8 +398,11 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(grid_dim_x, grid_dim_y, grid_dim_z);
-    dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
+    dim3 comp_dim_grid(grid_dim_x, grid_dim_y, grid_dim_z);
+    dim3 comp_dim_block(dim_block_x, dim_block_y, dim_block_z);
+
+    dim3 comm_dim_grid(2);
+    dim3 comm_dim_block(dim_block_x, dim_block_y*dim_block_z);
 
     void *kernelArgsInner[] = {(void *)&a_new,
                                (void *)&a,
@@ -434,11 +439,11 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     // THE KERNELS ARE SERIALIZED!
     // perhaps only on V100
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmem::jacobi_kernel,
-                                             dim_grid, dim_block, kernelArgsInner, 0,
+                                             comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
                                              inner_domain_stream));
 
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmem::boundary_sync_kernel,
-                                             2, dim_block, kernelArgsBoundary, 0,
+                                             comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
                                              boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
