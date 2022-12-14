@@ -17,11 +17,8 @@ namespace SSMultiThreadedOneBlockCommLayerPutNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max,
-                      const int comp_size_iz, const int comp_size_iy, const int comp_size_ix,
-                      const int comm_size_iy, const int comm_size_ix, const int comm_start_iz,
-                      const int end_iz, const int end_iy, const int end_ix,
-                      real *halo_buffer_top, real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
+                      const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max, real *halo_buffer_top,
+                      real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -31,12 +28,24 @@ namespace SSMultiThreadedOneBlockCommLayerPutNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
+        const int comp_size_iz = ((gridDim.x - 1) / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
+        const int comp_size_iy = grid_dim_y * blockDim.y * nx;
+        const int comp_size_ix = grid_dim_x * blockDim.x;
+
         const int comp_start_iz = ((blockIdx.x / (grid_dim_y * grid_dim_x)) * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
         const int comp_start_iy = ((blockIdx.x / grid_dim_x % grid_dim_y) * blockDim.y + threadIdx.y + 1) * nx;
         const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
 
+        const int end_iz = (iz_end - 1) * ny * nx;
+        const int end_iy = (ny - 1) * nx;
+        const int end_ix = (nx - 1);
+
+        const int comm_size_iy = blockDim.y * blockDim.z * nx;
+        const int comm_size_ix = blockDim.x;
+
         const int comm_start_iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx;
         const int comm_start_ix = threadIdx.x + 1;
+        const int comm_start_iz = iz_start * ny * nx;
 
         while (iter < iter_max)
         {
@@ -325,16 +334,6 @@ int SSMultiThreadedOneBlockCommLayerPutNvshmem::init(int argc, char *argv[])
     int iz_start = 1;
     int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
 
-    const int comp_size_iz = ((grid_dim_x * grid_dim_y * grid_dim_z) / (grid_dim_y * grid_dim_x)) * dim_block_z * ny * nx;
-    const int comp_size_iy = grid_dim_y * dim_block_y * nx;
-    const int comp_size_ix = grid_dim_x * dim_block_x;
-    const int comm_size_iy = dim_block_y * dim_block_z * nx;
-    const int comm_size_ix = dim_block_x;
-    const int comm_start_iz = iz_start * ny * nx;
-    const int end_iz = (iz_end - 1) * ny * nx;
-    const int end_iy = (ny - 1) * nx;
-    const int end_ix = (nx - 1);
-
     initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(
         a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
@@ -351,15 +350,6 @@ int SSMultiThreadedOneBlockCommLayerPutNvshmem::init(int argc, char *argv[])
                           (void *)&nx,
                           (void *)&grid_dim_y,
                           (void *)&grid_dim_x,
-                          (void *)&comp_size_iz,
-                          (void *)&comp_size_iy,
-                          (void *)&comp_size_ix,
-                          (void *)&comm_size_iy,
-                          (void *)&comm_size_ix,
-                          (void *)&comm_start_iz,
-                          (void *)&end_iz,
-                          (void *)&end_iy,
-                          (void *)&end_ix,
                           (void *)&iter_max,
                           (void *)&halo_buffer_top,
                           (void *)&halo_buffer_bottom,
