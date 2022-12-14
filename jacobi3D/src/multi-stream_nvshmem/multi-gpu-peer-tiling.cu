@@ -175,8 +175,6 @@ namespace MultiGPUPeerTilingNvshmem
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
 
-            cg::sync(grid);
-
             if (grid.thread_rank() == 0)
             {
                 iteration_done[0] = iter;

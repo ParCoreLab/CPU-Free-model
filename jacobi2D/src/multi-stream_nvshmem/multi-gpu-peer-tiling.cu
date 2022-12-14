@@ -136,7 +136,7 @@ namespace MultiGPUPeerTilingNvshmem
                                                                      a[end_iy + ix - 1] +
                                                                      halo_buffer_bottom[cur_iter_mod * nx + ix] +
                                                                      a[end_iy - nx + ix]);
-                    a_new[(iy_end - 1) * nx + ix] = last_row_val;
+                    a_new[end_iy + ix] = last_row_val;
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
@@ -148,23 +148,22 @@ namespace MultiGPUPeerTilingNvshmem
                 {
                     nvshmem_quiet();
                 }
-
-                real *temp_pointer_first = a_new;
-                a_new = a;
-                a = temp_pointer_first;
-
-                iter++;
-
-                cur_iter_mod = next_iter_mod;
-                next_iter_mod = 1 - cur_iter_mod;
-
-                if (grid.thread_rank() == 0)
-                {
-                    iteration_done[0] = iter;
-                }
-
-                cg::sync(grid);
             }
+            real *temp_pointer_first = a_new;
+            a_new = a;
+            a = temp_pointer_first;
+
+            iter++;
+
+            cur_iter_mod = next_iter_mod;
+            next_iter_mod = 1 - cur_iter_mod;
+
+            if (grid.thread_rank() == 0)
+            {
+                iteration_done[0] = iter;
+            }
+
+            cg::sync(grid);
         }
     } // namespace MultiGPUPeerTilingNvshmem
 }
