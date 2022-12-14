@@ -292,8 +292,6 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
         matrix_name = "random tridiagonal";
     }
 
-    // std::cout << "Running on matrix: " << matrix_name << "\n" << std::endl;
-
     int num_devices = 0;
     double single_gpu_runtime;
 
@@ -321,8 +319,6 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     int *um_J = NULL;
     real *um_val = NULL;
 
-    real r1;
-
     real *um_x;
     real *um_r;
     real *um_p;
@@ -335,14 +331,103 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
     double *dot_result_delta;
     double *dot_result_gamma;
 
-#pragma omp parallel num_threads(num_devices)
+    real real_positive_one = 1.0;
+    real real_negative_one = -1.0;
+
+    if (generate_random_tridiag_matrix) {
+        num_rows = 10485760 * 2;
+        num_cols = num_rows;
+
+        nnz = (num_rows - 2) * 3 + 4;
+
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_I, sizeof(int) * (num_rows + 1)));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_J, sizeof(int) * nnz));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(real) * nnz));
+
+        /* Generate a random tridiagonal symmetric matrix in CSR format */
+        genTridiag(um_I, um_J, um_val, num_rows, nnz);
+
+    } else {
+        if (loadMMSparseMatrix<real>(matrix_path_char, 'd', true, &num_rows, &num_cols, &nnz,
+                                     &host_val, &host_I, &host_J, true)) {
+            exit(EXIT_FAILURE);
+        }
+
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_I, sizeof(int) * (num_rows + 1)));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_J, sizeof(int) * nnz));
+        CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(real) * nnz));
+
+        memcpy(um_I, host_I, sizeof(int) * (num_rows + 1));
+        memcpy(um_J, host_J, sizeof(int) * nnz);
+        memcpy(um_val, host_val, sizeof(real) * nnz);
+    }
+
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(real) * num_rows));
+
+    CUDA_RT_CALL(cudaMallocManaged((void **)&dot_result_delta, sizeof(double)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&dot_result_gamma, sizeof(double)));
+
+    // temp memory for ConjugateGradient
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_z, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_w, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_q, num_rows * sizeof(real)));
+    CUDA_RT_CALL(cudaMallocManaged((void **)&um_ax0, num_rows * sizeof(real)));
+
+    CUDA_RT_CALL(cudaHostAlloc(&multi_device_data.hostMemoryArrivedList,
+                               (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList),
+                               cudaHostAllocPortable));
+    memset(multi_device_data.hostMemoryArrivedList, 0,
+           (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList));
+    multi_device_data.numDevices = num_devices;
+    multi_device_data.deviceRank = 0;
+
+    CUDA_RT_CALL(cudaMemset(dot_result_delta, 0, sizeof(double)));
+    CUDA_RT_CALL(cudaMemset(dot_result_gamma, 0, sizeof(double)));
+
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+
+    if (compare_to_single_gpu) {
+        CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
+
+        single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
+            iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
+
+        // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
+        //     iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
+    }
+
+    if (compare_to_cpu) {
+        s_cpu = (real *)malloc(sizeof(real) * num_rows);
+        r_cpu = (real *)malloc(sizeof(real) * num_rows);
+        p_cpu = (real *)malloc(sizeof(real) * num_rows);
+
+        CUDA_RT_CALL(cudaMallocHost(&x_ref_cpu, num_rows * sizeof(real)));
+
+        for (int i = 0; i < num_rows; i++) {
+            r_cpu[i] = 1.0;
+            s_cpu[i] = 0.0;
+            x_ref_cpu[i] = 0.0;
+        }
+
+        CPU::cpuConjugateGrad(iter_max, um_I, um_J, um_val, x_ref_cpu, s_cpu, p_cpu, r_cpu, nnz,
+                              num_rows, tol);
+    }
+
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+
+#pragma omp parallel num_threads(num_devices)                                                    \
+    firstprivate(um_I, um_J, um_val, um_x, um_r, um_p, um_s, um_z, um_w, um_q, dot_result_delta, \
+                 dot_result_gamma)
     {
         int gpu_idx = omp_get_thread_num();
 
         CUDA_RT_CALL(cudaSetDevice(gpu_idx));
+        CUDA_RT_CALL(cudaFree(0));
 
         cudaStream_t mainStream;
-        CUDA_RT_CALL(cudaStreamCreate(&mainStream));
 
 #pragma omp barrier
 
@@ -354,100 +439,13 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 
 #pragma omp barrier
 
-#pragma omp master
-        {
-            if (generate_random_tridiag_matrix) {
-                num_rows = 10485760 * 2;
-                num_cols = num_rows;
-
-                nnz = (num_rows - 2) * 3 + 4;
-
-                CUDA_RT_CALL(cudaMallocManaged((void **)&um_I, sizeof(int) * (num_rows + 1)));
-                CUDA_RT_CALL(cudaMallocManaged((void **)&um_J, sizeof(int) * nnz));
-                CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(real) * nnz));
-
-                host_val = (real *)malloc(sizeof(real) * nnz);
-
-                /* Generate a random tridiagonal symmetric matrix in CSR format */
-                genTridiag(um_I, um_J, host_val, num_rows, nnz);
-
-                memcpy(um_val, host_val, sizeof(real) * nnz);
-
-            } else {
-                if (loadMMSparseMatrix<real>(matrix_path_char, 'd', true, &num_rows, &num_cols,
-                                             &nnz, &host_val, &host_I, &host_J, true)) {
-                    exit(EXIT_FAILURE);
-                }
-
-                CUDA_RT_CALL(cudaMallocManaged((void **)&um_I, sizeof(int) * (num_rows + 1)));
-                CUDA_RT_CALL(cudaMallocManaged((void **)&um_J, sizeof(int) * nnz));
-                CUDA_RT_CALL(cudaMallocManaged((void **)&um_val, sizeof(real) * nnz));
-
-                memcpy(um_I, host_I, sizeof(int) * (num_rows + 1));
-                memcpy(um_J, host_J, sizeof(int) * nnz);
-                memcpy(um_val, host_val, sizeof(real) * nnz);
-            }
-        }
-
-#pragma omp barrier
-
-#pragma omp master
-        {
-            if (compare_to_single_gpu) {
-                CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
-
-                // single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
-                //     iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
-
-                single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
-                    iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
-            }
-
-            if (compare_to_cpu) {
-                s_cpu = (real *)malloc(sizeof(real) * num_rows);
-                r_cpu = (real *)malloc(sizeof(real) * num_rows);
-                p_cpu = (real *)malloc(sizeof(real) * num_rows);
-
-                CUDA_RT_CALL(cudaMallocHost(&x_ref_cpu, num_rows * sizeof(real)));
-
-                for (int i = 0; i < num_rows; i++) {
-                    r_cpu[i] = 1.0;
-                    s_cpu[i] = 0.0;
-                    x_ref_cpu[i] = 0.0;
-                }
-
-                CPU::cpuConjugateGrad(iter_max, um_I, um_J, um_val, x_ref_cpu, s_cpu, p_cpu, r_cpu,
-                                      nnz, num_rows, tol);
-            }
-
-            CUDA_RT_CALL(cudaDeviceSynchronize());
-        }
-
-#pragma omp barrier
-
-#pragma omp master
-        {
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(real) * num_rows));
-
-            CUDA_RT_CALL(cudaMallocManaged((void **)&dot_result_delta, sizeof(double)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&dot_result_gamma, sizeof(double)));
-
-            CUDA_RT_CALL(cudaMemset(dot_result_delta, 0, sizeof(double)));
-            CUDA_RT_CALL(cudaMemset(dot_result_gamma, 0, sizeof(double)));
-
-            // temp memory for ConjugateGradient
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_r, num_rows * sizeof(real)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_p, num_rows * sizeof(real)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_s, num_rows * sizeof(real)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_z, num_rows * sizeof(real)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_w, num_rows * sizeof(real)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_q, num_rows * sizeof(real)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_ax0, num_rows * sizeof(real)));
-        }
-
         int sMemSize = 2 * (sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1));
         int numBlocksPerSm = INT_MAX;
         int numThreads = THREADS_PER_BLOCK;
+
+#pragma omp barrier
+
+        CUDA_RT_CALL(cudaStreamCreate(&mainStream));
 
 #pragma omp barrier
 
@@ -468,18 +466,6 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 #pragma omp barrier
 
         dim3 dimGrid(numSms * numBlocksPerSm, 1, 1), dimBlock(numThreads, 1, 1);
-
-#pragma omp master
-        {
-            CUDA_RT_CALL(
-                cudaHostAlloc(&multi_device_data.hostMemoryArrivedList,
-                              (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList),
-                              cudaHostAllocPortable));
-            memset(multi_device_data.hostMemoryArrivedList, 0,
-                   (num_devices - 1) * sizeof(*multi_device_data.hostMemoryArrivedList));
-            multi_device_data.numDevices = num_devices;
-            multi_device_data.deviceRank = 0;
-        }
 
         void *kernelArgs[] = {
             (void *)&um_I,
@@ -530,25 +516,22 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 
 #pragma omp barrier
 
-#pragma omp master
-        {
-            CUDA_RT_CALL(cudaFreeHost(multi_device_data.hostMemoryArrivedList));
-            CUDA_RT_CALL(cudaFree(um_I));
-            CUDA_RT_CALL(cudaFree(um_J));
-            CUDA_RT_CALL(cudaFree(um_val));
-            CUDA_RT_CALL(cudaFree(um_x));
-            CUDA_RT_CALL(cudaFree(um_r));
-            CUDA_RT_CALL(cudaFree(um_p));
-            CUDA_RT_CALL(cudaFree(um_s));
-            CUDA_RT_CALL(cudaFree(dot_result_delta));
-            CUDA_RT_CALL(cudaFree(dot_result_gamma));
-            free(host_val);
-
-            CUDA_RT_CALL(cudaFreeHost(x_ref_single_gpu));
-        }
-
         CUDA_RT_CALL(cudaStreamDestroy(mainStream));
     }
+
+    CUDA_RT_CALL(cudaFreeHost(multi_device_data.hostMemoryArrivedList));
+    CUDA_RT_CALL(cudaFree(um_I));
+    CUDA_RT_CALL(cudaFree(um_J));
+    CUDA_RT_CALL(cudaFree(um_val));
+    CUDA_RT_CALL(cudaFree(um_x));
+    CUDA_RT_CALL(cudaFree(um_r));
+    CUDA_RT_CALL(cudaFree(um_p));
+    CUDA_RT_CALL(cudaFree(um_s));
+    CUDA_RT_CALL(cudaFree(dot_result_delta));
+    CUDA_RT_CALL(cudaFree(dot_result_gamma));
+    free(host_val);
+
+    CUDA_RT_CALL(cudaFreeHost(x_ref_single_gpu));
 
     return 0;
 }
