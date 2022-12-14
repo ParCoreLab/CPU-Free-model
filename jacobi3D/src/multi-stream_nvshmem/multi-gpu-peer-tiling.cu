@@ -16,8 +16,9 @@ namespace cg = cooperative_groups;
 namespace MultiGPUPeerTilingNvshmem
 {
     __global__ void __launch_bounds__(1024, 1)
-        jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max,
+        jacobi_kernel(real *a_new, real *a,
+                      const int iz_start, const int iz_end,
+                      const int ny, const int nx, const int iter_max,
                       volatile int *iteration_done)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -25,13 +26,13 @@ namespace MultiGPUPeerTilingNvshmem
 
         int iter = 0;
 
-        const int comp_size_iz = (gridDim.x / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
-        const int comp_size_iy = grid_dim_y * blockDim.y * nx;
-        const int comp_size_ix = grid_dim_x * blockDim.x;
+        const int comp_size_iz = gridDim.z * blockDim.z * ny * nx;
+        const int comp_size_iy = gridDim.y * blockDim.y * nx;
+        const int comp_size_ix = gridDim.x * blockDim.x;
 
-        const int comp_start_iz = ((blockIdx.x / (grid_dim_y * grid_dim_x)) * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-        const int comp_start_iy = ((blockIdx.x / grid_dim_x % grid_dim_y) * blockDim.y + threadIdx.y + 1) * nx;
-        const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
+        const int comp_start_iz = (blockIdx.z * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+        const int comp_start_iy = (blockIdx.y * blockDim.y + threadIdx.y + 1) * nx;
+        const int comp_start_ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
         const int end_iz = (iz_end - 1) * ny * nx;
         const int end_iy = (ny - 1) * nx;
@@ -75,7 +76,7 @@ namespace MultiGPUPeerTilingNvshmem
 
     __global__ void __launch_bounds__(1024, 1)
         boundary_sync_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                             const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max, real *halo_buffer_top,
+                             const int nx, const int iter_max, real *halo_buffer_top,
                              real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                              const int bottom, volatile int *iteration_done)
     {
@@ -395,7 +396,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z);
+    dim3 dim_grid(grid_dim_x, grid_dim_y, grid_dim_z);
     dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
     void *kernelArgsInner[] = {(void *)&a_new,
@@ -404,8 +405,6 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
                                (void *)&iz_end,
                                (void *)&ny,
                                (void *)&nx,
-                               (void *)&grid_dim_y,
-                               (void *)&grid_dim_x,
                                (void *)&iter_max,
                                (void *)&iteration_done_flags};
 
@@ -415,8 +414,6 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
                                   (void *)&iz_end,
                                   (void *)&ny,
                                   (void *)&nx,
-                                  (void *)&grid_dim_y,
-                                  (void *)&grid_dim_x,
                                   (void *)&iter_max,
                                   (void *)&halo_buffer_top,
                                   (void *)&halo_buffer_bottom,
