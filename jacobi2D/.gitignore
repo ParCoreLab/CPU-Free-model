@@ -1,0 +1,4 @@
+obj/*
+.vscode/*
+.clang*
+results/*
