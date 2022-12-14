@@ -267,14 +267,15 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaDeviceSynchronize());
         }
 
-#pragma omp barrier
+    cudaEvent_t atomic_add_done[num_devices];
+    cudaEvent_t iteration_done[num_devices];
 
 #pragma master
         {
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_x, sizeof(real) * num_rows));
+        CUDA_RT_CALL(cudaEventCreateWithFlags(atomic_add_done + gpu_idx, cudaEventDisableTiming));
+        CUDA_RT_CALL(cudaEventCreateWithFlags(iteration_done + gpu_idx, cudaEventDisableTiming));
 
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_delta1, sizeof(double)));
-            CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_gamma1, sizeof(double)));
+        CUDA_RT_CALL(cudaDeviceSynchronize());
 
             CUDA_RT_CALL(cudaMemset(um_tmp_dot_delta1, 0, sizeof(double)));
             CUDA_RT_CALL(cudaMemset(um_tmp_dot_gamma1, 0, sizeof(double)));
@@ -319,9 +320,11 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
         addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1);
 
-        MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices, hostMemoryArrivedList);
+        CUDA_RT_CALL(cudaEventRecord(atomic_add_done[gpu_idx], mainStream));
 
-        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+        for (int neighbor_gpu_idx = 0; neighbor_gpu_idx < num_devices; neighbor_gpu_idx++) {
+            CUDA_RT_CALL(cudaEventSynchronize(atomic_add_done[neighbor_gpu_idx]))
+        }
 
         tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
@@ -340,10 +343,11 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1);
 
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
+            CUDA_RT_CALL(cudaEventRecord(atomic_add_done[gpu_idx], mainStream));
 
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+            for (int neighbor_gpu_idx = 0; neighbor_gpu_idx < num_devices; neighbor_gpu_idx++) {
+                CUDA_RT_CALL(cudaEventSynchronize(atomic_add_done[neighbor_gpu_idx]))
+            }
 
             alpha = tmp_dot_gamma0 / ((real)*um_tmp_dot_delta1);
 
@@ -364,10 +368,11 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             addLocalDotContribution<<<1, 1, 0, mainStream>>>(um_tmp_dot_gamma1);
 
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
+            CUDA_RT_CALL(cudaEventRecord(atomic_add_done[gpu_idx], mainStream));
 
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+            for (int neighbor_gpu_idx = 0; neighbor_gpu_idx < num_devices; neighbor_gpu_idx++) {
+                CUDA_RT_CALL(cudaEventSynchronize(atomic_add_done[neighbor_gpu_idx]))
+            }
 
             beta = ((real)*um_tmp_dot_gamma1) / tmp_dot_gamma0;
 
@@ -378,10 +383,11 @@ int BaselineDiscreteNonPipelined::init(int argc, char *argv[]) {
             tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
             tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
-            MultiGPU::syncPeers<<<1, 1, 0, mainStream>>>(gpu_idx, num_devices,
-                                                         hostMemoryArrivedList);
+            CUDA_RT_CALL(cudaEventRecord(iteration_done[gpu_idx], mainStream));
 
-            CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+            for (int neighbor_gpu_idx = 0; neighbor_gpu_idx < num_devices; neighbor_gpu_idx++) {
+                CUDA_RT_CALL(cudaEventSynchronize(iteration_done[neighbor_gpu_idx]))
+            }
 
 #pragma omp barrier
 
