@@ -46,7 +46,7 @@ ifdef USE_NVTX
     	NVCC_FLAGS += -DUSE_NVTX -lnvToolsExt
 endif
 
-MAKEFLAGS += -j$(shell grep -c 'processor' /proc/cpuinfo)
+MAKEFLAGS += -j
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 
