@@ -37,7 +37,7 @@ namespace MultiGPUPeerTilingNvshmem
         const int end_iz = (iz_end - 1) * ny * nx;
         const int end_iy = (ny - 1) * nx;
         const int end_ix = (nx - 1);
-        const int coeff = (real(1) / real(6));
+        const real coeff = (real(1) / real(6));
         while (iter < iter_max)
         {
             for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
