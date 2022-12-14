@@ -36,15 +36,15 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int comp_size_iz = ((gridDim.x - 1) / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
-        const int comp_size_iy = grid_dim_y * blockDim.y * nx;
-        const int comp_size_ix = grid_dim_x * blockDim.x;
+        //const int comp_size_iz = ((gridDim.x - 1) / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
+        //const int comp_size_iy = grid_dim_y * blockDim.y * nx;
+        //const int comp_size_ix = grid_dim_x * blockDim.x;
 
-        const int comp_start_iz = ((blockIdx.x / (grid_dim_y * grid_dim_x)) * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-        const int comp_start_iy = ((blockIdx.x / grid_dim_x % grid_dim_y) * blockDim.y + threadIdx.y + 1) * nx;
-        const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
+        //const int comp_start_iz = ((blockIdx.x / (grid_dim_y * grid_dim_x)) * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+        //const int comp_start_iy = ((blockIdx.x / grid_dim_x % grid_dim_y) * blockDim.y + threadIdx.y + 1) * nx;
+        //const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
 
-        const int end_iz = (iz_end - 1) * ny * nx;
+        //const int end_iz = (iz_end - 1) * ny * nx;
         const int end_iy = (ny - 1) * nx;
         const int end_ix = (nx - 1);
 
@@ -53,7 +53,7 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
 
         const int comm_start_iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx;
         const int comm_start_ix = threadIdx.x + 1;
-        const int comm_start_iz = iz_start * ny * nx;
+        //const int comm_start_iz = iz_start * ny * nx;
 
         while (iter < iter_max)
         {

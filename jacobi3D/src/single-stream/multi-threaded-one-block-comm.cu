@@ -63,7 +63,7 @@ namespace SSMultiThreadedOneBlockComm
                 for (int comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++, iy += comm_size_iy)
                 {
                     int ix = comm_start_ix;
-                    for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++, ix += comm_start_ix)
+                    for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++, ix += comm_size_ix)
                     {
                         if (cta.thread_rank() == 0)
                         {
@@ -216,7 +216,7 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
         int chunk_size_low = (nz - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
-        int nz_per_gpu = nz / num_devices;
+        //int nz_per_gpu = nz / num_devices;
 
         cudaDeviceProp deviceProp{};
         int maxActiveBlocksPerSM = 0;

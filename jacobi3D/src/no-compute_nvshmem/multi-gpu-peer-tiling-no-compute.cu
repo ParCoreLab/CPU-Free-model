@@ -18,8 +18,6 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
         cg::grid_group grid = cg::this_grid();
 
         int iter = 0;
-        int cur_iter_mod = 0;
-        int next_iter_mod = 1;
 
         const int comp_size_iz = ((gridDim.x - 1) / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
         const int comp_size_iy = grid_dim_y * blockDim.y * nx;
@@ -55,8 +53,6 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
 
             iter++;
 
-            next_iter_mod = cur_iter_mod;
-            cur_iter_mod = 1 - cur_iter_mod;
             cg::sync(grid);
 
             if (grid.thread_rank() == 0)
@@ -394,8 +390,11 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(numSms - 2, 1, 1);
-    dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
+    dim3 comp_dim_grid(grid_dim_x, grid_dim_y, grid_dim_z);
+    dim3 comp_dim_block(dim_block_x, dim_block_y, dim_block_z);
+
+    dim3 comm_dim_grid(2);
+    dim3 comm_dim_block(dim_block_x, dim_block_y * dim_block_z);
 
     void *kernelArgsInner[] = {(void *)&a_new,
                                (void *)&a,
@@ -403,8 +402,6 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
                                (void *)&iz_end,
                                (void *)&ny,
                                (void *)&nx,
-                               (void *)&grid_dim_y,
-                               (void *)&grid_dim_x,
                                (void *)&iter_max,
                                (void *)&iteration_done_flags};
 
@@ -414,8 +411,6 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
                                   (void *)&iz_end,
                                   (void *)&ny,
                                   (void *)&nx,
-                                  (void *)&grid_dim_y,
-                                  (void *)&grid_dim_x,
                                   (void *)&iter_max,
                                   (void *)&halo_buffer_top,
                                   (void *)&halo_buffer_bottom,
@@ -435,12 +430,12 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
 
     // THE KERNELS ARE SERIALIZED!
     // perhaps only on V100
-    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmemNoCompute::jacobi_kernel,
-                                             dim_grid, dim_block, kernelArgsInner, 0,
+     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmemNoCompute::jacobi_kernel,
+                                             comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
                                              inner_domain_stream));
 
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmemNoCompute::boundary_sync_kernel,
-                                             2, dim_block, kernelArgsBoundary, 0,
+                                             comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
                                              boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());

@@ -196,7 +196,7 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         int chunk_size_low = (nz - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
-        int nz_per_gpu = nz / num_devices;
+        //int nz_per_gpu = nz / num_devices;
 
         cudaDeviceProp deviceProp{};
         int maxActiveBlocksPerSM = 0;
