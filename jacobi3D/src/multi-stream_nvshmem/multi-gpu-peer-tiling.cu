@@ -310,19 +310,17 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     else
         chunk_size = chunk_size_high;
 
-    int comp_blocks_per_sm = 1;
     cudaDeviceProp deviceProp{};
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
-    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&comp_blocks_per_sm, (void *)MultiGPUPeerTilingNvshmem::jacobi_kernel, 512, 0));
     int numSms = deviceProp.multiProcessorCount;
 
     constexpr int dim_block_x = 32;
-    constexpr int dim_block_y = 4;
+    constexpr int dim_block_y = 8;
     constexpr int dim_block_z = 4;
 
     constexpr int grid_dim_x = 2;
-    constexpr int grid_dim_y = 8;
-    const int grid_dim_z = ((numSms - 2) * comp_blocks_per_sm) / (grid_dim_x * grid_dim_y);
+    constexpr int grid_dim_y = 4;
+    const int grid_dim_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
     int total_num_flags = 4;
 
@@ -402,7 +400,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     dim3 comp_dim_block(dim_block_x, dim_block_y, dim_block_z);
 
     dim3 comm_dim_grid(2);
-    dim3 comm_dim_block(dim_block_x, dim_block_y*dim_block_z);
+    dim3 comm_dim_block(dim_block_x, dim_block_y * dim_block_z);
 
     void *kernelArgsInner[] = {(void *)&a_new,
                                (void *)&a,
