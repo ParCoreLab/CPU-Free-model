@@ -430,7 +430,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     }
 
     nvshmem_barrier_all();
-    double stop = omp_get_wtime();
+    double stop = MPI_Wtime();
     nvshmem_barrier_all();
 
     bool result_correct = true;

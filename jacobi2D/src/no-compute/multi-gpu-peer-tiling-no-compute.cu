@@ -146,9 +146,6 @@ namespace MultiGPUPeerTilingNoCompute
         int next_iter_comm_tile_flag_idx;
 
         int comm_tile_idx;
-        int comp_tile_idx_x;
-        int comp_tile_idx_y;
-
         int comm_tile_start;
         int comm_tile_end;
 
