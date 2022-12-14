@@ -390,7 +390,6 @@ int SSMultiThreadedOneBlockCommLayerPutNvshmem::init(int argc, char *argv[])
                           (void *)&grid_dim_y,
                           (void *)&grid_dim_x,
                           (void *)&iter_max,
-                          (void *)&iter_max,
                           //(void *)&halo_buffer_top,
                           //(void *)&halo_buffer_bottom,
                           (void *)&is_done_computing_flags,
@@ -477,8 +476,8 @@ int SSMultiThreadedOneBlockCommLayerPutNvshmem::init(int argc, char *argv[])
 
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));
-    nvshmem_free((void *)halo_buffer_top);
-    nvshmem_free((void *)halo_buffer_bottom);
+    //nvshmem_free((void *)halo_buffer_top);
+    //nvshmem_free((void *)halo_buffer_bottom);
     nvshmem_free(is_done_computing_flags);
 
     if (compare_to_single_gpu)
