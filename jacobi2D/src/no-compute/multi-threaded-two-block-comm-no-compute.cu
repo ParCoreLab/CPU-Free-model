@@ -414,6 +414,10 @@ int SSMultiThreadedTwoBlockCommNoCompute::init(int argc, char *argv[])
 
         CUDA_RT_CALL(cudaFree(a_new[dev_id]));
         CUDA_RT_CALL(cudaFree(a[dev_id]));
+        CUDA_RT_CALL(cudaFree(halo_buffer_for_top_neighbor[dev_id]));
+        CUDA_RT_CALL(cudaFree(halo_buffer_for_bottom_neighbor[dev_id]));
+        CUDA_RT_CALL(cudaFree(is_top_done_computing_flags[dev_id]));
+        CUDA_RT_CALL(cudaFree(is_bottom_done_computing_flags[dev_id]));
 
         if (compare_to_single_gpu && 0 == dev_id)
         {

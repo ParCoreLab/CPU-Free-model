@@ -52,7 +52,7 @@ namespace SSMultiThreadedOneBlockCommLayer
 
         const int comm_start_iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx;
         const int comm_start_ix = threadIdx.x + 1;
-        const int comm_start_iz = iz_start * ny * nx ;
+        const int comm_start_iz = iz_start * ny * nx;
 
         while (iter < iter_max)
         {
@@ -196,7 +196,7 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         int chunk_size_low = (nz - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
-        //int nz_per_gpu = nz / num_devices;
+        // int nz_per_gpu = nz / num_devices;
 
         cudaDeviceProp deviceProp{};
         int maxActiveBlocksPerSM = 0;
@@ -220,7 +220,7 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         constexpr int grid_dim_x = 2;
         constexpr int grid_dim_y = 4;
         const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
-        
+
         // comp_tile_size_z = dim_block_z * grid_dim_z;
 
         // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
@@ -375,6 +375,10 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
 
         CUDA_RT_CALL(cudaFree(a_new[dev_id]));
         CUDA_RT_CALL(cudaFree(a[dev_id]));
+        CUDA_RT_CALL(cudaFree(halo_buffer_for_top_neighbor[dev_id]));
+        CUDA_RT_CALL(cudaFree(halo_buffer_for_bottom_neighbor[dev_id]));
+        CUDA_RT_CALL(cudaFree(is_top_done_computing_flags[dev_id]));
+        CUDA_RT_CALL(cudaFree(is_bottom_done_computing_flags[dev_id]));
 
         if (compare_to_single_gpu && 0 == dev_id)
         {

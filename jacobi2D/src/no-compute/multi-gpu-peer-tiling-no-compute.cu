@@ -300,6 +300,8 @@ int MultiGPUPeerTilingNoCompute::init(int argc, char *argv[])
     int *is_top_done_computing_flags[MAX_NUM_DEVICES];
     int *is_bottom_done_computing_flags[MAX_NUM_DEVICES];
 
+    int *iteration_done_flags[MAX_NUM_DEVICES];
+
     real *a_ref_h;
     real *a_h;
 
@@ -397,16 +399,8 @@ int MultiGPUPeerTilingNoCompute::init(int argc, char *argv[])
 
 #pragma omp barrier
 
-        int *iteration_done_flags[2];
-
-        CUDA_RT_CALL(cudaMalloc(iteration_done_flags, 2 * sizeof(int)));
-        CUDA_RT_CALL(cudaMalloc(iteration_done_flags, 2 * sizeof(int)));
-
-        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + 1, 2 * sizeof(int)));
-        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + 1, 2 * sizeof(int)));
-
-        CUDA_RT_CALL(cudaMemset(iteration_done_flags[0], 0, 2 * sizeof(int)));
-        CUDA_RT_CALL(cudaMemset(iteration_done_flags[1], 0, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + dev_id, 2 * sizeof(int)));
+        CUDA_RT_CALL(cudaMemset(iteration_done_flags[dev_id], 0, 2 * sizeof(int)));
 
         CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size + 2) * sizeof(real)));
         CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + 2) * sizeof(real)));
@@ -471,7 +465,7 @@ int MultiGPUPeerTilingNoCompute::init(int argc, char *argv[])
                                    (void *)&is_bottom_done_computing_flags[dev_id],
                                    (void *)&is_bottom_done_computing_flags[top],
                                    (void *)&is_top_done_computing_flags[bottom],
-                                   (void *)&iteration_done_flags[0]};
+                                   (void *)&iteration_done_flags[dev_id]};
 
         void *kernelArgsBoundary[] = {(void *)&a_new[dev_id],
                                       (void *)&a[dev_id],
@@ -489,7 +483,7 @@ int MultiGPUPeerTilingNoCompute::init(int argc, char *argv[])
                                       (void *)&is_bottom_done_computing_flags[dev_id],
                                       (void *)&is_bottom_done_computing_flags[top],
                                       (void *)&is_top_done_computing_flags[bottom],
-                                      (void *)&iteration_done_flags[0]};
+                                      (void *)&iteration_done_flags[dev_id]};
 
 #pragma omp barrier
         double start = omp_get_wtime();
@@ -541,6 +535,11 @@ int MultiGPUPeerTilingNoCompute::init(int argc, char *argv[])
 
         CUDA_RT_CALL(cudaFree(a_new[dev_id]));
         CUDA_RT_CALL(cudaFree(a[dev_id]));
+        CUDA_RT_CALL(cudaFree(halo_buffer_for_top_neighbor[dev_id]));
+        CUDA_RT_CALL(cudaFree(halo_buffer_for_bottom_neighbor[dev_id]));
+        CUDA_RT_CALL(cudaFree(is_top_done_computing_flags[dev_id]));
+        CUDA_RT_CALL(cudaFree(is_bottom_done_computing_flags[dev_id]));
+        CUDA_RT_CALL(cudaFree(iteration_done_flags[dev_id]));
 
         if (compare_to_single_gpu && 0 == dev_id)
         {
