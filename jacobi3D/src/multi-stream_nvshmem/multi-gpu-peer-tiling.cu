@@ -37,7 +37,7 @@ namespace MultiGPUPeerTilingNvshmem
         const int end_iz = (iz_end - 1) * ny * nx;
         const int end_iy = (ny - 1) * nx;
         const int end_ix = (nx - 1);
-
+        const int coeff = (real(1) / real(6));
         while (iter < iter_max)
         {
             for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
@@ -46,10 +46,9 @@ namespace MultiGPUPeerTilingNvshmem
                 {
                     for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                     {
-                        a_new[iz + iy + ix] = (real(1) / real(6)) *
-                                              (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
-                                               a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
-                                               a[iz - ny * nx + iy + ix]);
+                        a_new[iz + iy + ix] = coeff * a[iz + iy + ix + 1] + coeff * a[iz + iy + ix - 1] + coeff * a[iz + iy + nx + ix] +
+                                              coeff * a[iz + iy - nx + ix] + coeff * a[iz + ny * nx + iy + ix] +
+                                              coeff * a[iz - ny * nx + iy + ix];
                     }
                 }
             }
