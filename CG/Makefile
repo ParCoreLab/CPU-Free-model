@@ -37,7 +37,7 @@ $(OBJECTS): obj/%.o: %.cu
 	$(NVCC) -dc $(NVCC_FLAGS) -I./include -o $@ $<
 
 cg: $(OBJECTS) obj/mmio.c.o obj/mmio_wrapper.o
-	$(NVCC) $(NVCC_FLAGS) -I./include -o $@ $^ -lcurand -L$(MATH_LIBS_PATH)
+	$(NVCC) $(NVCC_FLAGS) -I./include -o $@ $^
 
 run: cg
 	./cg
