@@ -54,7 +54,7 @@ namespace MultiGPUPeerTilingNvshmem
             cur_iter_mod = next_iter_mod;
             next_iter_mod = 1 - cur_iter_mod;
 
-            if (threadIdx.x == 0 && threadIdx.y == 0)
+            if (grid.thread_rank() == 0)
             {
                 while (iteration_done[0] != iter)
                 {
@@ -158,7 +158,7 @@ namespace MultiGPUPeerTilingNvshmem
                 cur_iter_mod = next_iter_mod;
                 next_iter_mod = 1 - cur_iter_mod;
 
-                if (threadIdx.x == 0 && threadIdx.y == 0)
+                if (grid.thread_rank() == 0)
                 {
                     iteration_done[0] = iter;
                 }
