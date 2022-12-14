@@ -1,15 +1,9 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-#include <cmath>
-#include <cstdio>
-#include <iostream>
-
-#include <omp.h>
 
 #include <cooperative_groups.h>
 #include <nvshmem.h>
 #include <nvshmemx.h>
-#include "../../include/common.h"
 #include "../../include/multi-stream_nvshmem/multi-gpu-peer-tiling.cuh"
 
 namespace cg = cooperative_groups;
@@ -30,12 +24,20 @@ namespace MultiGPUPeerTilingNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
+        const int comp_size_iy = gridDim.y * blockDim.y * nx;
+        const int comp_size_ix = gridDim.x * blockDim.x;
+
+        const int comp_start_iy = (blockIdx.y * blockDim.y + threadIdx.y + iy_start + 1) * nx;
+        const int comp_start_ix = (blockIdx.x * blockDim.x + threadIdx.x + 1);
+
+        const int end_iy = (iy_end - 1) * nx;
+        const int end_ix = (nx - 1);
+
         while (iter < iter_max)
         {
-            for (int iy = (blockIdx.x * blockDim.y + threadIdx.y + 1) * nx;
-                 iy < (iy_end - 1) * nx; iy += gridDim.x * blockDim.y * nx)
+            for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
             {
-                for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
+                for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                 {
                     a_new[iy + ix] = (real(1) / real(4)) *
                                      (a[iy + ix + 1] + a[iy + ix - 1] +
@@ -81,6 +83,13 @@ namespace MultiGPUPeerTilingNvshmem
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
+        const int end_iy = (iy_end - 1) * nx;
+        const int end_ix = (nx - 1);
+
+        const int comm_size_ix = blockDim.y * blockDim.x;
+
+        const int comm_start_ix = threadIdx.y * blockDim.x + threadIdx.x + 1;
+        const int comm_start_iy = iy_start * nx;
 
         while (iter < iter_max)
         {
@@ -95,19 +104,23 @@ namespace MultiGPUPeerTilingNvshmem
                 }
                 cg::sync(cta);
 
-                for (int ix = (threadIdx.y * blockDim.x + threadIdx.x + 1); ix < (nx - 1); ix += blockDim.y * blockDim.x)
+                for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real first_row_val = (real(1) / real(4)) * (a[iy_start * nx + ix + 1] +
-                                                                      a[iy_start * nx + ix - 1] +
-                                                                      a[(iy_start + 1) * nx + ix] +
+                    const real first_row_val = (real(1) / real(4)) * (a[comm_start_iy + ix + 1] +
+                                                                      a[comm_start_iy + ix - 1] +
+                                                                      a[comm_start_iy + nx + ix] +
                                                                       halo_buffer_top[cur_iter_mod * nx + ix]);
-                    a_new[iy_start * nx + ix] = first_row_val;
+                    a_new[comm_start_iy + ix] = first_row_val;
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_bottom + next_iter_mod * nx, a_new + iy_start * nx, nx * sizeof(real),
+                    halo_buffer_bottom + next_iter_mod * nx, a_new + comm_start_iy, nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
+                if (cta.thread_rank() == 0)
+                {
+                    nvshmem_quiet();
+                }
             }
             else if (blockIdx.x == gridDim.x - 2)
             {
@@ -117,40 +130,44 @@ namespace MultiGPUPeerTilingNvshmem
                 }
                 cg::sync(cta);
 
-                for (int ix = (threadIdx.y * blockDim.x + threadIdx.x + 1); ix < (nx - 1); ix += blockDim.y * blockDim.x)
+                for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real last_row_val = (real(1) / real(6)) * (a[(iy_end - 1) * nx + ix + 1] +
-                                                                     a[(iy_end - 1) * nx + ix - 1] +
+                    const real last_row_val = (real(1) / real(4)) * (a[end_iy + ix + 1] +
+                                                                     a[end_iy + ix - 1] +
                                                                      halo_buffer_bottom[cur_iter_mod * nx + ix] +
-                                                                     a[(iy_end - 2) * nx + ix]);
+                                                                     a[end_iy - nx + ix]);
                     a_new[(iy_end - 1) * nx + ix] = last_row_val;
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_top + next_iter_mod * nx, a_new + (iy_end - 1) * nx, nx * sizeof(real),
+                    halo_buffer_top + next_iter_mod * nx, a_new + end_iy, nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
+
+                if (cta.thread_rank() == 0)
+                {
+                    nvshmem_quiet();
+                }
+
+                real *temp_pointer_first = a_new;
+                a_new = a;
+                a = temp_pointer_first;
+
+                iter++;
+
+                cur_iter_mod = next_iter_mod;
+                next_iter_mod = 1 - cur_iter_mod;
+
+                if (threadIdx.x == 0 && threadIdx.y == 0)
+                {
+                    iteration_done[0] = iter;
+                }
+
+                cg::sync(grid);
             }
-
-            real *temp_pointer_first = a_new;
-            a_new = a;
-            a = temp_pointer_first;
-
-            iter++;
-
-            cur_iter_mod = next_iter_mod;
-            next_iter_mod = 1 - cur_iter_mod;
-
-            if (threadIdx.x == 0 && threadIdx.y == 0)
-            {
-                iteration_done[0] = iter;
-            }
-
-            cg::sync(grid);
         }
-    }
-} // namespace MultiGPUPeerTiling
-
+    } // namespace MultiGPUPeerTilingNvshmem
+}
 int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
@@ -281,9 +298,8 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
     int numSms = deviceProp.multiProcessorCount;
 
-    // int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
-    // int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
-    // int num_comp_tiles_z = (nz / npes) / comp_tile_size_z + ((nz / npes) % comp_tile_size_z != 0);
+    constexpr int grid_dim_x = 8;
+    const int grid_dim_y = (numSms - 2) / grid_dim_x;
 
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
@@ -356,8 +372,11 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(numSms - 2, 1, 1);
-    dim3 dim_block(dim_block_x, dim_block_y);
+    dim3 comp_dim_grid(grid_dim_x, grid_dim_y);
+    dim3 comp_dim_block(dim_block_x, dim_block_y);
+
+    dim3 comm_dim_grid(2);
+    dim3 comm_dim_block(dim_block_x * dim_block_y);
 
     void *kernelArgsInner[] = {(void *)&a_new,
                                (void *)&a,
@@ -392,11 +411,11 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     // THE KERNELS ARE SERIALIZED!
     // perhaps only on V100
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmem::jacobi_kernel,
-                                             dim_grid, dim_block, kernelArgsInner, 0,
+                                             comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
                                              inner_domain_stream));
 
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmem::boundary_sync_kernel,
-                                             2, dim_block, kernelArgsBoundary, 0,
+                                             comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
                                              boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
