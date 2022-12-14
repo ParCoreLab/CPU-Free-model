@@ -46,9 +46,9 @@ namespace MultiGPUPeerTilingNvshmem
                 {
                     for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                     {
-                        a_new[iz + iy + ix] = coeff * a[iz + iy + ix + 1] + coeff * a[iz + iy + ix - 1] + coeff * a[iz + iy + nx + ix] +
-                                              coeff * a[iz + iy - nx + ix] + coeff * a[iz + ny * nx + iy + ix] +
-                                              coeff * a[iz - ny * nx + iy + ix];
+                        a_new[iz + iy + ix] = coeff * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
+                                                       a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
+                                                       a[iz - ny * nx + iy + ix]);
                     }
                 }
             }
@@ -480,7 +480,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
                                 "(reference)\n",
                                 rank, iz, ny * nx, iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix],
                                 a_ref_h[iz * ny * nx + iy * nx + ix]);
-                        //result_correct = 0;
+                        // result_correct = 0;
                     }
                 }
             }
