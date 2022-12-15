@@ -187,7 +187,7 @@ __global__ void init_b_k(real *b, const int gpu_idx);
 
 // Multi-GPU Sync Kernel
 
-namespace SingleGPUPipelinedDiscrete {
+namespace SingleGPUDiscretePipelined {
 __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *vecA_gamma,
                                      real *vecB_gamma, int num_rows, const int sMemSize);
 
@@ -197,9 +197,9 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
 
 double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *host_val,
                       int num_rows, int nnz);
-}  // namespace SingleGPUPipelinedDiscrete
+}  // namespace SingleGPUDiscretePipelined
 
-namespace SingleGPUStandardDiscrete {
+namespace SingleGPUDiscreteStandard {
 
 __global__ void gpuDotProduct(real *vecA, real *vecB, int num_rows);
 
@@ -209,7 +209,7 @@ __global__ void resetLocalDotProduct(double *dot_result);
 
 double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *host_val,
                       int num_rows, int nnz);
-}  // namespace SingleGPUStandardDiscrete
+}  // namespace SingleGPUDiscreteStandard
 
 namespace CPU {
 void cpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha, real *inputVecX,
