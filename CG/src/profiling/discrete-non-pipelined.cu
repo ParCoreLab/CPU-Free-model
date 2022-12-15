@@ -322,6 +322,8 @@ int ProfilingDiscreteNonPipelined::init(int argc, char *argv[]) {
 
             CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
+            POP_RANGE
+
             PUSH_RANGE("Dot 1 (+Reset)", 1)
 
             resetLocalDotProduct<<<1, 1, 0, mainStream>>>(um_tmp_dot_delta1, gpu_idx);
