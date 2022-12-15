@@ -3,8 +3,10 @@ source /home/iismayilov21/spack/share/spack/setup-env.sh
 spack load nvshmem@2.7.0-6
 
 export UCX_WARN_UNUSED_ENV_VARS=n
-export UCX_HOME=$SPACK_ROOT/opt/spack/linux-rhel8-zen/gcc-8.5.0/ucx-1.13.1-tc7ltbeqjfzr4sdwbv5jgppl4p62q5mu
-export NVSHMEM_HOME=$SPACK_ROOT/opt/spack/linux-rhel8-zen/gcc-8.5.0/nvshmem-2.7.0-6-pdl77w7adu5dm334pezvemvt5tjxsowg
-export MPI_HOME=$SPACK_ROOT/opt/spack/linux-rhel8-zen/gcc-8.5.0/openmpi-4.1.4-ycvxffyzzonogvqycd4gpp7aholtkss5
-export CUDA_HOME=$SPACK_ROOT/opt/spack/linux-rhel8-zen/gcc-8.5.0/cuda-11.8.0-37xn6z7age2zvgrmug5jad7l34sizzkp
+export UCX_HOME=$SPACK_ROOT/opt/spack/linux-ubuntu20.04-zen2/gcc-11.1.0/ucx-1.13.1-cv37hs5p3lpknxhmuhucbsjotdn653vn/
+export NVSHMEM_HOME=$SPACK_ROOT/opt/spack/linux-ubuntu20.04-zen2/gcc-11.1.0/nvshmem-2.7.0-6-svccom42hd6t6fmfru3txongtfpvuynm/
+export MPI_HOME=$SPACK_ROOT/opt/spack/linux-ubuntu20.04-zen2/gcc-11.1.0/openmpi-4.1.4-cgf2kyjuumewmbove7jagikdbpo42s6q/
+export CUDA_HOME=$SPACK_ROOT/opt/spack/linux-ubuntu20.04-zen2/gcc-11.1.0/cuda-11.8.0-vb4kpzvmja7a3pinvxpbschaqo4jkalp/
 export LD_LIBRARY_PATH=$NVSHMEM_HOME/lib:$UCX_HOME/lib:$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+
+export CXX=/usr/bin/g++-11
