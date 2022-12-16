@@ -226,10 +226,10 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
     if (compare_to_single_gpu) {
         CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
 
-        single_gpu_runtime = SingleGPUStandardDiscrete::run_single_gpu(
+        single_gpu_runtime = SingleGPUDiscreteStandard::run_single_gpu(
             iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
 
-        // single_gpu_runtime = SingleGPUPipelinedDiscrete::run_single_gpu(
+        // single_gpu_runtime = SingleGPUDiscretePipelined::run_single_gpu(
         //     iter_max, um_I, um_J, um_val, x_ref_single_gpu, num_rows, nnz);
     }
 

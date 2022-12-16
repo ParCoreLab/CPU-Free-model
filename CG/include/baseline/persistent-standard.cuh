@@ -1,10 +1,10 @@
-#ifndef INC_CG_BASELINE_PERSISTENT_NON_PIPELINED_CUH
-#define INC_CG_BASELINE_PERSISTENT_NON_PIPELINED_CUH
+#ifndef INC_CG_BASELINE_PERSISTENT_STANDARD_CUH
+#define INC_CG_BASELINE_PERSISTENT_STANDARD_CUH
 
 #include "../common.h"
 
-namespace BaselinePersistentNonPipelined {
+namespace BaselinePersistentStandard {
 int init(int argc, char **argv);
 }
 
-#endif  // INC_CG_BASELINE_PERSISTENT_NON_PIPELINED_CUH
+#endif  // INC_CG_BASELINE_PERSISTENT_STANDARD_CUH

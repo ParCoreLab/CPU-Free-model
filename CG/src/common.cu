@@ -396,7 +396,7 @@ __global__ void init_b_k(real *b, const int gpu_idx) {
 
 // Single GPU Pipelined Implementation
 
-namespace SingleGPUPipelinedDiscrete {
+namespace SingleGPUDiscretePipelined {
 __device__ double grid_dot_result_delta = 0.0;
 __device__ double grid_dot_result_gamma = 0.0;
 
@@ -641,9 +641,9 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     return (stop - start);
 }
-}  // namespace SingleGPUPipelinedDiscrete
+}  // namespace SingleGPUDiscretePipelined
 
-namespace SingleGPUStandardDiscrete {
+namespace SingleGPUDiscreteStandard {
 __device__ double grid_dot_result = 0.0;
 
 __global__ void gpuDotProduct(real *vecA, real *vecB, int num_rows) {
@@ -828,7 +828,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     return (stop - start);
 }
-}  // namespace SingleGPUStandardDiscrete
+}  // namespace SingleGPUDiscreteStandard
 
 namespace CPU {
 void cpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha, real *inputVecX,
