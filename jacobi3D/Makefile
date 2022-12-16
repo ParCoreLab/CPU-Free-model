@@ -77,10 +77,15 @@ clean:
 $(DEPDIR): 
 	@mkdir -p $(DEPDIR)
 
+$(NV_DEPDIR): 
+	@mkdir -p $(NV_DEPDIR)
+
 $(DEPS):
 
-include $(wildcard $(DEPS))
+$(NV_DEPS):
 
+include $(wildcard $(DEPS))
+include $(wildcard $(NV_DEPS))
 
 
 

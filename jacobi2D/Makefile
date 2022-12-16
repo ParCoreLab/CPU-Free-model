@@ -78,9 +78,15 @@ clean:
 $(DEPDIR): 
 	@mkdir -p $(DEPDIR)
 
+$(NV_DEPDIR): 
+	@mkdir -p $(NV_DEPDIR)
+
 $(DEPS):
 
+$(NV_DEPS):
+
 include $(wildcard $(DEPS))
+include $(wildcard $(NV_DEPS))
 
 
 
