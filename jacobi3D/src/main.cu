@@ -40,6 +40,8 @@
 #include "../include/no-compute_nvshmem/multi-threaded-two-block-comm-no-compute.cuh"
 #include "../include/no-compute_nvshmem/multi-gpu-peer-tiling-no-compute.cuh"
 
+#include "../include/PERKS-nvshmem/multi-stream-perks-nvshmem.h"
+
 #include "../include/no-compute_nvshmem/multi-threaded-one-block-comm-thread-get-no-compute.cuh"
 #include "../include/no-compute_nvshmem/multi-threaded-one-block-comm-thread-put-no-compute.cuh"
 #include "../include/no-compute_nvshmem/multi-threaded-one-block-comm-tile-get-no-compute.cuh"
@@ -76,6 +78,7 @@ int main(int argc, char *argv[])
         make_pair("NVSHMEM Single stream multi threaded tile put (one thread block communicates)", SSMultiThreadedOneBlockCommTilePutNvshmem::init),
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate)", SSMultiThreadedTwoBlockCommNvshmem::init),
         make_pair("NVSHMEM Double stream multi threaded with Tiling", MultiGPUPeerTilingNvshmem::init),
+        make_pair("PERKS NVSHMEM", MultiStreamPERKSNvshmem::init),
         make_pair("NVSHMEM Baseline Multi Threaded (No Computation)", BaselineMultiThreadedNvshmemNoCompute::init),
         make_pair("NVSHMEM Baseline Multi Threaded Optimized (No Computation)", BaselineMultiThreadedNvshmemOptNoCompute::init),
         make_pair("NVSHMEM Single stream multi threaded Layer Put (one thread block communicates; no computation)", SSMultiThreadedOneBlockCommLayerPutNvshmemNoCompute::init),
@@ -87,7 +90,6 @@ int main(int argc, char *argv[])
         make_pair("NVSHMEM Single stream multi threaded tile put (one thread block communicates; no computation)", SSMultiThreadedOneBlockCommTilePutNvshmemNoCompute::init),
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate; no computation)", SSMultiThreadedTwoBlockCommNvshmem::init),
         make_pair("NVSHMEM Double stream multi threaded with Tiling (No Computation)", MultiGPUPeerTilingNvshmemNoCompute::init),
-
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
