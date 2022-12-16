@@ -33,7 +33,7 @@ NVCC_FLAGS = -dc -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(CXX) -
 NVCC_LDFLAGS = -ccbin=$(CXX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart
 
 NVCC_NV_FLAGS = -dc -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(MPICCX) -I$(NVSHMEM_HOME)/include -I$(MPI_HOME)/include -I./include
-NVCC_NV_LDFLAGS = -ccbin=$(MPICCX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart -L$(NVSHMEM_HOME)/lib -lnvshmem -L$(MPI_HOME)/lib -lmpi -L$(UCX_HOME)/lib -lucp -lucs -luct -lucm -lmlx5
+NVCC_NV_LDFLAGS = -ccbin=$(MPICCX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart -lnvidia-ml -L$(NVSHMEM_HOME)/lib -lnvshmem -L$(MPI_HOME)/lib -lmpi -L$(UCX_HOME)/lib -lucp -lucs -luct -lucm -lmlx5
 
 MAKEFLAGS += -j
 
@@ -68,6 +68,7 @@ run_nvshmem: jacobi_nvshmem
 
 run: jacobi
 	./jacobi
+
 clean:
 	$(RM) ./jacobi
 	$(RM) -rd ./obj
