@@ -22,10 +22,12 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__re
          iy += blockDim.x * gridDim.x)
     {
         const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
-        a[iy * nx + 0] = y0;
-        a[iy * nx + (nx - 1)] = y0;
-        a_new[iy * nx + 0] = y0;
-        a_new[iy * nx + (nx - 1)] = y0;
+
+        for (unsigned int ix = 0; ix < nx; ix++)
+        {
+            a[iy * nx + ix] = y0;
+            a[iy * nx + ix] = y0; 
+        }
     }
 }
 
