@@ -20,8 +20,8 @@
 #include "./common/jacobi_reference.hpp"
 #include "./common/types.hpp"
 
-#include "../../include/PERKS-nvshmem/multi-stream-perks-nvshmem.h"
-#include "../../include/common.h"
+#include "../../include_nvshmem/PERKS-nvshmem/multi-stream-perks-nvshmem.h"
+#include "../../include_nvshmem/common.h"
 
 namespace cg = cooperative_groups;
 

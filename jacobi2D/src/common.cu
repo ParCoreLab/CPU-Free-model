@@ -499,33 +499,3 @@ void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const 
         }
     }
 }
-
-// convert NVSHMEM_SYMMETRIC_SIZE string to long long unsigned int
-long long unsigned int parse_nvshmem_symmetric_size(char *value)
-{
-    long long unsigned int units, size;
-
-    assert(value != NULL);
-
-    if (strchr(value, 'G') != NULL)
-    {
-        units = 1e9;
-    }
-    else if (strchr(value, 'M') != NULL)
-    {
-        units = 1e6;
-    }
-    else if (strchr(value, 'K') != NULL)
-    {
-        units = 1e3;
-    }
-    else
-    {
-        units = 1;
-    }
-
-    assert(atof(value) >= 0);
-    size = (long long unsigned int)atof(value) * units;
-
-    return size;
-}

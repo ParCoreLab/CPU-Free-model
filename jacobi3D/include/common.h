@@ -6,13 +6,11 @@
 #include <iostream>
 
 #include <omp.h>
-#include <mpi.h>
 
 #include <algorithm>
 #include <sstream>
 #include <string>
 #include <array>
-#include <assert.h>
 
 typedef float real;
 
@@ -63,9 +61,6 @@ double single_gpu_persistent(const int nx, const int ny, const int iter_max, rea
 void report_results(const int nz, const int ny, const int nx, real *a_ref_h, real *a_h, const int num_devices,
                     const double runtime_serial_non_persistent, const double start,
                     const double stop, const bool compare_to_single_gpu);
-
-// convert NVSHMEM_SYMMETRIC_SIZE string to long long unsigned int
-long long unsigned int parse_nvshmem_symmetric_size(char *value);
 
 #define noop
 

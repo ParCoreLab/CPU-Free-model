@@ -14,7 +14,7 @@
 
 #include "../include_nvshmem/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 
-#include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
+#include "../include_nvshmem/PERKS-nvshmem/multi-stream-perks-nvshmem.h"
 
 using std::make_pair;
 

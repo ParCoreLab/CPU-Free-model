@@ -2,7 +2,7 @@ NP ?= 1
 NVCC ?= nvcc
 MPIRUN ?= mpirun
 MPICCX = mpic++
-CXX ?= g++ 
+CXX ?= g++
 
 ifndef NVSHMEM_HOME
 $(error NVSHMEM_HOME is not set)
@@ -14,11 +14,11 @@ ifndef UCX_HOME
 $(error UCX_HOME is not set)
 endif
 
-SRCDIR := src 
+SRCDIR := src
 OBJDIR := obj
 DEPDIR := $(OBJDIR)/.deps
 
-NV_SRCDIR := src_nvshmem 
+NV_SRCDIR := src_nvshmem
 NV_OBJDIR := obj_nvshmem
 NV_DEPDIR := $(NV_OBJDIR)/.deps
 
@@ -32,8 +32,8 @@ NV_DEPFLAGS = -MT $@ -MMD -MP -MF $(NV_DEPDIR)/$*.d
 NVCC_FLAGS = -dc -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(CXX) -I./include
 NVCC_LDFLAGS = -ccbin=$(CXX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart
 
-NVCC_NV_FLAGS = -dc -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(MPICCX) -I$(NVSHMEM_HOME)/include -I$(MPI_HOME)/include -I./include
-NVCC_NV_LDFLAGS = -ccbin=$(MPICCX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart -L$(NVSHMEM_HOME)/lib -lnvshmem -L$(MPI_HOME)/lib -lmpi -L$(UCX_HOME)/lib -lucp -lucs -luct -lucm -lmlx5
+NVCC_NV_FLAGS = -dc -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(MPICCX) -I$(NVSHMEM_HOME)/include -I$(MPI_HOME)/include -I./include_nvshmem
+NVCC_NV_LDFLAGS = -ccbin=$(MPICCX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart -lnvidia-ml -L$(NVSHMEM_HOME)/lib -lnvshmem -L$(MPI_HOME)/lib -lmpi -L$(UCX_HOME)/lib -lucp -lucs -luct -lucm -lmlx5
 
 MAKEFLAGS += -j
 
@@ -68,6 +68,7 @@ run_nvshmem: jacobi_nvshmem
 
 run: jacobi
 	./jacobi
+
 clean:
 	$(RM) ./jacobi
 	$(RM) -rd ./obj
@@ -77,10 +78,15 @@ clean:
 $(DEPDIR): 
 	@mkdir -p $(DEPDIR)
 
+$(NV_DEPDIR): 
+	@mkdir -p $(NV_DEPDIR)
+
 $(DEPS):
 
-include $(wildcard $(DEPS))
+$(NV_DEPS):
 
+include $(wildcard $(DEPS))
+include $(wildcard $(NV_DEPS))
 
 
 
