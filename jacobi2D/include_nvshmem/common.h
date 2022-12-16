@@ -2,7 +2,7 @@
 #define INC_2D_STENCIL_NVSHMEM_COMMON_H
 
 #include <mpi.h>
-
+#include <omp.h>
 #include <algorithm>
 #include <sstream>
 #include <string>
