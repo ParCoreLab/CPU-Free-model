@@ -39,7 +39,7 @@ namespace MultiGPUPeerTilingNvshmem
             {
                 for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                 {
-                    a_new[iy + ix] = (real(1) / real(4)) *
+                    a_new[iy + ix] = 0.25 *
                                      (a[iy + ix + 1] + a[iy + ix - 1] +
                                       a[iy + nx + ix] + a[iy - nx + ix]);
                 }
@@ -106,10 +106,10 @@ namespace MultiGPUPeerTilingNvshmem
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real first_row_val = (real(1) / real(4)) * (a[comm_start_iy + ix + 1] +
-                                                                      a[comm_start_iy + ix - 1] +
-                                                                      a[comm_start_iy + nx + ix] +
-                                                                      halo_buffer_top[cur_iter_mod * nx + ix]);
+                    const real first_row_val = 0.25 * (a[comm_start_iy + ix + 1] +
+                                                       a[comm_start_iy + ix - 1] +
+                                                       a[comm_start_iy + nx + ix] +
+                                                       halo_buffer_top[cur_iter_mod * nx + ix]);
                     a_new[comm_start_iy + ix] = first_row_val;
                 }
 
@@ -132,10 +132,10 @@ namespace MultiGPUPeerTilingNvshmem
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real last_row_val = (real(1) / real(4)) * (a[end_iy + ix + 1] +
-                                                                     a[end_iy + ix - 1] +
-                                                                     halo_buffer_bottom[cur_iter_mod * nx + ix] +
-                                                                     a[end_iy - nx + ix]);
+                    const real last_row_val = 0.25 * (a[end_iy + ix + 1] +
+                                                      a[end_iy + ix - 1] +
+                                                      halo_buffer_bottom[cur_iter_mod * nx + ix] +
+                                                      a[end_iy - nx + ix]);
                     a_new[end_iy + ix] = last_row_val;
                 }
 
@@ -165,8 +165,8 @@ namespace MultiGPUPeerTilingNvshmem
 
             cg::sync(grid);
         }
-    } 
-}// namespace MultiGPUPeerTilingNvshmem
+    }
+} // namespace MultiGPUPeerTilingNvshmem
 
 int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
 {

@@ -26,7 +26,7 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__re
         for (unsigned int ix = 0; ix < nx; ix++)
         {
             a[iy * nx + ix] = y0;
-            a_new[iy * nx + ix] = y0; 
+            a_new[iy * nx + ix] = y0;
         }
     }
 }
@@ -42,7 +42,7 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
 
     if (iy < iy_end && ix < (nx - 1))
     {
-        const real new_val = (real(1) / real(4)) * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+        const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                      a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
 
         a_new[iy * nx + ix] = new_val;
@@ -100,7 +100,7 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
     {
         if (iy < iy_end && ix < (nx - 1))
         {
-            const real new_val = (real(1) / real(4))* (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+            const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                          a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
             a_new[iy * nx + ix] = new_val;
 

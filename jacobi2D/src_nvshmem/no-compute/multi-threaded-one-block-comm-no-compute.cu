@@ -28,18 +28,18 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        //const int comp_size_iy = ((gridDim.x - 1) / grid_dim_x) * blockDim.y * nx;
-        //const int comp_size_ix = grid_dim_x * blockDim.x;
+        // const int comp_size_iy = ((gridDim.x - 1) / grid_dim_x) * blockDim.y * nx;
+        // const int comp_size_ix = grid_dim_x * blockDim.x;
 
-        //const int comp_start_iy = ((blockIdx.x / grid_dim_x) * blockDim.y + threadIdx.y + iy_start + 1) * nx;
-        //const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
+        // const int comp_start_iy = ((blockIdx.x / grid_dim_x) * blockDim.y + threadIdx.y + iy_start + 1) * nx;
+        // const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
 
         const int end_iy = (iy_end - 1) * nx;
-        //const int end_ix = (nx - 1);
+        // const int end_ix = (nx - 1);
 
-        //const int comm_size_ix = blockDim.y * blockDim.x;
+        // const int comm_size_ix = blockDim.y * blockDim.x;
 
-        //const int comm_start_ix = threadIdx.y * blockDim.x + threadIdx.x + 1;
+        // const int comm_start_ix = threadIdx.y * blockDim.x + threadIdx.x + 1;
         const int comm_start_iy = iy_start * nx;
 
         while (iter < iter_max)
@@ -55,7 +55,7 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real first_row_val = (real(1) / real(4)) * (a[comm_start_iy + ix + 1] +
+                    const real first_row_val = 0.25 * (a[comm_start_iy + ix + 1] +
                                                                       a[comm_start_iy + ix - 1] +
                                                                       a[comm_start_iy + nx + ix] +
                                                                       halo_buffer_top[cur_iter_mod * nx + ix]);
@@ -77,7 +77,7 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real last_row_val = (real(1) / real(4)) * (a[end_iy + ix + 1] +
+                    const real last_row_val = 0.25 * (a[end_iy + ix + 1] +
                                                                      a[end_iy + ix - 1] +
                                                                      halo_buffer_bottom[cur_iter_mod * nx + ix] +
                                                                      a[end_iy - nx + ix]);
@@ -102,7 +102,7 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
                 {
                     for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                     {
-                        a_new[iy + ix] = (real(1) / real(4)) *
+                        a_new[iy + ix] = 0.25 *
                                          (a[iy + ix + 1] + a[iy + ix - 1] +
                                           a[iy + nx + ix] + a[iy - nx + ix]);
                     }
@@ -253,7 +253,7 @@ int SSMultiThreadedOneBlockCommNvshmemNoCompute::init(int argc, char *argv[])
     int numSms = deviceProp.multiProcessorCount;
 
     constexpr int grid_dim_x = 8;
-    const int grid_dim_y = (numSms - 2) / grid_dim_x;
+    const int grid_dim_y = (numSms - 1) / grid_dim_x;
 
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;

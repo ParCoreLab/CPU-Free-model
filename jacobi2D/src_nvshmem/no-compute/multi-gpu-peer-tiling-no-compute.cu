@@ -40,7 +40,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
             {
                 for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                 {
-                    a_new[iy + ix] = (real(1) / real(4)) *
+                    a_new[iy + ix] = 0.25 *
                                      (a[iy + ix + 1] + a[iy + ix - 1] +
                                       a[iy + nx + ix] + a[iy - nx + ix]);
                 }
@@ -86,11 +86,11 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
         int next_iter_mod = 1;
 
         const int end_iy = (iy_end - 1) * nx;
-        //const int end_ix = (nx - 1);
+        // const int end_ix = (nx - 1);
 
-        //const int comm_size_ix = blockDim.x;
+        // const int comm_size_ix = blockDim.x;
 
-        //const int comm_start_ix = threadIdx.x + 1;
+        // const int comm_start_ix = threadIdx.x + 1;
         const int comm_start_iy = iy_start * nx;
 
         while (iter < iter_max)
@@ -109,7 +109,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real first_row_val = (real(1) / real(4)) * (a[comm_start_iy + ix + 1] +
+                    const real first_row_val = 0.25 * (a[comm_start_iy + ix + 1] +
                                                                       a[comm_start_iy + ix - 1] +
                                                                       a[comm_start_iy + nx + ix] +
                                                                       halo_buffer_top[cur_iter_mod * nx + ix]);
@@ -136,7 +136,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real last_row_val = (real(1) / real(4)) * (a[end_iy + ix + 1] +
+                    const real last_row_val = 0.25 * (a[end_iy + ix + 1] +
                                                                      a[end_iy + ix - 1] +
                                                                      halo_buffer_bottom[cur_iter_mod * nx + ix] +
                                                                      a[end_iy - nx + ix]);

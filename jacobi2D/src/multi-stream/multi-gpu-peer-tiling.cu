@@ -44,7 +44,7 @@ namespace MultiGPUPeerTiling
             {
                 for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                 {
-                    a_new[iy + ix] = (real(1) / real(4)) *
+                    a_new[iy + ix] = 0.25 *
                                      (a[iy + ix + 1] + a[iy + ix - 1] +
                                       a[iy + nx + ix] + a[iy - nx + ix]);
                 }
@@ -119,10 +119,10 @@ namespace MultiGPUPeerTiling
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real first_row_val = (real(1) / real(4)) * (a[comm_start_iy + ix + 1] +
-                                                                      a[comm_start_iy + ix - 1] +
-                                                                      a[comm_start_iy + nx + ix] +
-                                                                      remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * nx + ix]);
+                    const real first_row_val = 0.25 * (a[comm_start_iy + ix + 1] +
+                                                       a[comm_start_iy + ix - 1] +
+                                                       a[comm_start_iy + nx + ix] +
+                                                       remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * nx + ix]);
                     a_new[comm_start_iy + ix] = first_row_val;
                     local_halo_buffer_for_top_neighbor[nx * next_iter_mod + ix] = first_row_val;
                 }
@@ -148,10 +148,10 @@ namespace MultiGPUPeerTiling
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real last_row_val = (real(1) / real(4)) * (a[end_iy + ix + 1] +
-                                                                     a[end_iy + ix - 1] +
-                                                                     remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * nx + ix] +
-                                                                     a[end_iy - nx + ix]);
+                    const real last_row_val = 0.25 * (a[end_iy + ix + 1] +
+                                                      a[end_iy + ix - 1] +
+                                                      remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * nx + ix] +
+                                                      a[end_iy - nx + ix]);
                     a_new[end_iy + ix] = last_row_val;
                     local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + ix] = last_row_val;
                 }

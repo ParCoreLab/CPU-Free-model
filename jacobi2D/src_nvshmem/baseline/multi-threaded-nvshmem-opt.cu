@@ -63,7 +63,7 @@ namespace BaselineMultiThreadedNvshmemOpt
 
         if (iy < iy_end && ix < (nx - 1))
         {
-            const real new_val = (real(1) / real(4)) *
+            const real new_val = 0.25 *
                                  (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                   a[(iy + 1) * nx + ix] + a[+(iy - 1) * nx + ix]);
 
