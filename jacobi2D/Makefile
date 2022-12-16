@@ -39,35 +39,36 @@ MAKEFLAGS += -j
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 
-SRCS = $(call rwildcard,$(SRCDIR),*.cu)
-OBJS := $(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.o, $(SRCS))
-DEPS := $(patsubst $(SRCDIR)/%.cu, $(DEPDIR)/%.d, $(SRCS))
+SRCS =$(call rwildcard,$(SRCDIR),*.cu)
+OBJS :=$(patsubst $(SRCDIR)/%.cu, $(OBJDIR)/%.o, $(SRCS))
+DEPS :=$(patsubst $(SRCDIR)/%.cu, $(DEPDIR)/%.d, $(SRCS))
 
-NV_SRCS = $(call rwildcard,$(NV_SRCDIR),*.cu)
-NV_OBJS := $(patsubst $(NV_SRCDIR)/%.cu, $(NV_OBJDIR)/%.o, $(NV_SRCS))
-NV_DEPS := $(patsubst $(NV_SRCDIR)/%.cu, $(NV_DEPDIR)/%.d, $(NV_SRCS))
-
-jacobi: $(OBJS)
-	$(NVCC) $(GENCODE_FLAGS) -o $@ $^ $(NVCC_LDFLAGS)
+NV_SRCS =$(call rwildcard,$(NV_SRCDIR),*.cu)
+NV_OBJS :=$(patsubst $(NV_SRCDIR)/%.cu, $(NV_OBJDIR)/%.o, $(NV_SRCS))
+NV_DEPS :=$(patsubst $(NV_SRCDIR)/%.cu, $(NV_DEPDIR)/%.d, $(NV_SRCS))
 
 $(OBJS) : $(OBJDIR)/%.o : $(SRCDIR)/%.cu $(DEPDIR)/%.d | $(DEPDIR)
 	@mkdir -p "$(dir $(DEPDIR)/$*)"
 	@mkdir -p $(@D)
 	$(NVCC) $(NVCC_FLAGS) $(DEPFLAGS) -o $@ $<
 
-jacobi_nvshmem: $(NV_OBJS)
-	$(NVCC) $(GENCODE_FLAGS) -o $@ $^ $(NVCC_NV_LDFLAGS)
-
 $(NV_OBJS) : $(NV_OBJDIR)/%.o : $(NV_SRCDIR)/%.cu $(NV_DEPDIR)/%.d | $(NV_DEPDIR)
 	@mkdir -p "$(dir $(NV_DEPDIR)/$*)"
 	@mkdir -p $(@D)
 	$(NVCC) $(NVCC_NV_FLAGS) $(NV_DEPFLAGS) -o $@ $<
 
-run_nvshmem: jacobi_nvshmem
-	$(MPIRUN) -np $(NP) ./jacobi_nvshmem
+jacobi: $(OBJS)
+	$(NVCC) $(GENCODE_FLAGS) -o $@ $^ $(NVCC_LDFLAGS)
+
+jacobi_nvshmem: $(NV_OBJS)
+	$(NVCC) $(GENCODE_FLAGS) -o $@ $^ $(NVCC_NV_LDFLAGS)
 
 run: jacobi
 	./jacobi
+run_nvshmem: jacobi_nvshmem
+	$(MPIRUN) -np $(NP) ./jacobi_nvshmem
+
+
 clean:
 	$(RM) ./jacobi
 	$(RM) -rd ./obj
