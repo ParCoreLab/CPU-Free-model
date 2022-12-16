@@ -1,6 +1,6 @@
 #include <cooperative_groups.h>
 
-#include "../include/common.h"
+#include "../include_nvshmem/common.h"
 
 namespace cg = cooperative_groups;
 

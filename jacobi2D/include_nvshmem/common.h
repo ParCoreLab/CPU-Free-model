@@ -1,8 +1,8 @@
-#ifndef INC_2D_STENCIL_COMMON_H
-#define INC_2D_STENCIL_COMMON_H
+#ifndef INC_2D_STENCIL_NVSHMEM_COMMON_H
+#define INC_2D_STENCIL_NVSHMEM_COMMON_H
 
+#include <mpi.h>
 #include <omp.h>
-
 #include <algorithm>
 #include <sstream>
 #include <string>
@@ -134,4 +134,4 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
     }                                                                                       \
     noop
 
-#endif // INC_2D_STENCIL_COMMON_H
+#endif // INC_2D_STENCIL_NVSHMEM_COMMON_H
