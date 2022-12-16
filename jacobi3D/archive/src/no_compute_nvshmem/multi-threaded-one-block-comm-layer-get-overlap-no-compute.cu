@@ -32,7 +32,7 @@ namespace SSMultiThreadedOneBlockCommLayerGetOverlapNvshmemNoCompute
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                if (cta.thread_rank() == cta.num_threads() - 1)
+                if (!cta.thread_rank())
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
@@ -58,7 +58,7 @@ namespace SSMultiThreadedOneBlockCommLayerGetOverlapNvshmemNoCompute
                 }
                 cg::sync(cta);
                 */
-                if (cta.thread_rank() == cta.num_threads() - 1)
+                if (!cta.thread_rank())
                 {
                     nvshmemx_signal_op(
                         is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
@@ -85,7 +85,7 @@ namespace SSMultiThreadedOneBlockCommLayerGetOverlapNvshmemNoCompute
                 }
                 cg::sync(cta);
                 */
-                if (cta.thread_rank() == cta.num_threads() - 1)
+                if (!cta.thread_rank())
                 {
                     nvshmemx_signal_op(
                         is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,

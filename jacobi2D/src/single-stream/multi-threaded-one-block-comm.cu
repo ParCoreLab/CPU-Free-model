@@ -184,7 +184,7 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
         constexpr int dim_block_y = 32;
 
         constexpr int grid_dim_x = 8;
-        const int grid_dim_y = (numSms - 2) / grid_dim_x;
+        const int grid_dim_y = (numSms - 1) / grid_dim_x;
         constexpr int num_flags = 4;
 
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);

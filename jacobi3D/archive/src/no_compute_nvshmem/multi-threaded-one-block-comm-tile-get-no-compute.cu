@@ -43,7 +43,7 @@ namespace SSMultiThreadedOneBlockCommTileGetNvshmemNoCompute
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x;
                          comm_tile_idx_x++, ix += blockDim.x)
                     {
-                        if (cta.thread_rank() == cta.num_threads() - 1)
+                        if (!cta.thread_rank()
                         {
                             nvshmem_signal_wait_until(
                                 is_done_computing_flags + cur_iter_mod * num_flags +
@@ -72,7 +72,7 @@ namespace SSMultiThreadedOneBlockCommTileGetNvshmemNoCompute
                             halo_buffer_top[next_iter_mod * ny * nx + iy * nx + ix] = first_row_val;
                         }
                         cg::sync(cta);
-                        if (cta.thread_rank() == cta.num_threads() - 1)
+                        if (!cta.thread_rank()
                         {
                             nvshmemx_signal_op(
                                 is_done_computing_flags + next_iter_mod * num_flags + num_comm_tiles_x * num_comm_tiles_y +
@@ -106,7 +106,7 @@ namespace SSMultiThreadedOneBlockCommTileGetNvshmemNoCompute
                             halo_buffer_bottom[next_iter_mod * ny * nx + iy * nx + ix] = last_row_val;
                         }
                         cg::sync(cta);
-                        if (cta.thread_rank() == cta.num_threads() - 1)
+                        if (!cta.thread_rank()
                         {
                             nvshmemx_signal_op(
                                 is_done_computing_flags + next_iter_mod * num_flags +

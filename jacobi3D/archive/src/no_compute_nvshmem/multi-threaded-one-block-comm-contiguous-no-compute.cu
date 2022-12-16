@@ -43,7 +43,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmemNoCompute
 
                 for (int block_idx = 0; block_idx < max_block_count; block_idx++)
                 {
-                    if (cta.thread_rank() == cta.num_threads() - 1)
+                    if (!cta.thread_rank())
                     {   
                         nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
                     }
@@ -72,7 +72,7 @@ namespace SSMultiThreadedOneBlockCommContiguousNvshmemNoCompute
                         is_done_computing_flags + next_iter_mod * 2 * max_block_count + max_block_count + block_idx,
                         iter + 1, NVSHMEM_SIGNAL_SET, top);
 
-                    if (cta.thread_rank() == cta.num_threads() - 1)
+                    if (!cta.thread_rank())
                     {   
                         nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * max_block_count + max_block_count + block_idx, NVSHMEM_CMP_EQ, iter);
                     }

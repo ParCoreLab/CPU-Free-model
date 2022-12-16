@@ -51,7 +51,7 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                if (cta.thread_rank() == cta.num_threads() - 1)
+                if (!cta.thread_rank())
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
@@ -77,7 +77,7 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
                     is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
 
-                if (cta.thread_rank() == cta.num_threads() - 1)
+                if (!cta.thread_rank())
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
@@ -103,7 +103,7 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
-                if (cta.thread_rank() == cta.num_threads() - 1)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }

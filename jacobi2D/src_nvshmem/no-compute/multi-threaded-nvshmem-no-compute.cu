@@ -69,8 +69,8 @@ namespace BaselineMultiThreadedNvshmemNoCompute
 int BaselineMultiThreadedNvshmemNoCompute::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
-    const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
-    const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
+    const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
+    const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
     real *a;
