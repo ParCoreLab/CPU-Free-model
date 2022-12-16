@@ -2,7 +2,7 @@ NP ?= 1
 NVCC ?= nvcc
 MPIRUN ?= mpirun
 MPICCX = mpic++
-CXX ?= g++ 
+CXX ?= g++
 
 ifndef NVSHMEM_HOME
 $(error NVSHMEM_HOME is not set)
@@ -14,11 +14,11 @@ ifndef UCX_HOME
 $(error UCX_HOME is not set)
 endif
 
-SRCDIR := src 
+SRCDIR := src
 OBJDIR := obj
 DEPDIR := $(OBJDIR)/.deps
 
-NV_SRCDIR := src_nvshmem 
+NV_SRCDIR := src_nvshmem
 NV_OBJDIR := obj_nvshmem
 NV_DEPDIR := $(NV_OBJDIR)/.deps
 
