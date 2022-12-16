@@ -1,5 +1,5 @@
-#ifndef INC_2D_STENCIL_COMMON_H
-#define INC_2D_STENCIL_COMMON_H
+#ifndef INC_3D_STENCIL_COMMON_H
+#define INC_3D_STENCIL_COMMON_H
 
 #include <cmath>
 #include <cstdio>
@@ -132,4 +132,4 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
         }                                                                                   \
     }
 
-#endif // INC_2D_STENCIL_COMMON_H
+#endif // INC_3D_STENCIL_COMMON_H

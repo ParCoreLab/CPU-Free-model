@@ -1,22 +1,25 @@
-#ifndef INC_2D_STENCIL_COMMON_H
-#define INC_2D_STENCIL_COMMON_H
+#ifndef INC_3D_STENCIL_NVSHMEM_COMMON_H
+#define INC_3D_STENCIL_NVSHMEM_COMMON_H
 
-#include <omp.h>
+#include <cmath>
+#include <cstdio>
+#include <iostream>
+#include <cstdlib>
+
+#include <mpi.h>
 
 #include <algorithm>
 #include <sstream>
 #include <string>
 #include <array>
-
-#include <cmath>
-#include <cstdio>
-#include <iostream>
+#include <assert.h>
 
 typedef float real;
 
 typedef int (*initfunc_t)(int argc, char **argv);
 
 constexpr int MAX_NUM_DEVICES{32};
+constexpr real comp_coeff = real(1) / real(6);
 constexpr real tol = 1.0e-7;
 const real PI{static_cast<real>(2.0 * std::asin(1.0))};
 constexpr int MAX_NUM_ELEM_PER_GPU = 256 * 256;
@@ -38,33 +41,26 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
 bool get_arg(char **begin, char **end, const std::string &arg);
 
 __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
-                                      const real pi, const int offset, const int nx,
-                                      const int my_ny, const int ny);
+                                      const real pi, const int offset, const int nx, const int ny,
+                                      const int my_nz, const int nz);
 
 __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
                                          const real *__restrict__ const a,
-                                         real *__restrict__ const l2_norm, const int iy_start,
-                                         const int iy_end, const int nx, const bool calculate_norm);
+                                         real *__restrict__ const l2_norm, const int iz_start,
+                                         const int iz_end, const int ny, const int nx,
+                                         const bool calculate_norm);
 
-__global__ void jacobi_kernel_single_gpu_perks(real *__restrict__ const a_new,
-                                               const real *__restrict__ const a,
-                                               real *__restrict__ const l2_norm, const int iy_start,
-                                               const int iy_end, const int nx,
-                                               const bool calculate_norm);
+__global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const int iz_start,
+                                                    const int iz_end, const int ny, const int nx,
+                                                    const bool calculate_norm, const int iter_max);
 
-double single_cpu(real *a_h_input, const int nx, const int ny, const int iter_max, real *const a_ref_h,
-                  const int nccheck, const bool print);
-
-double single_gpu(const int nx, const int ny, const int iter_max, real *const a_ref_h,
-                  const int nccheck, const bool print);
-
-double single_gpu(real *input, const int nx, const int ny, const int iter_max, real *const a_ref_h,
-                  const int nccheck, const bool print);
+double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
+                  real *const a_ref_h, const int nccheck, const bool print);
 
 double single_gpu_persistent(const int nx, const int ny, const int iter_max, real *const a_ref_h,
                              const int nccheck, const bool print);
 
-void report_results(const int ny, const int nx, real *a_ref_h, real *a_h, const int num_devices,
+void report_results(const int nz, const int ny, const int nx, real *a_ref_h, real *a_h, const int num_devices,
                     const double runtime_serial_non_persistent, const double start,
                     const double stop, const bool compare_to_single_gpu);
 
@@ -126,12 +122,14 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
     {                                                                                       \
         cudaError_t cudaStatus = call;                                                      \
         if (cudaSuccess != cudaStatus)                                                      \
+        {                                                                                   \
             fprintf(stderr,                                                                 \
                     "ERROR: CUDA RT call \"%s\" in line %d of file %s failed "              \
                     "with "                                                                 \
                     "%s (%d).\n",                                                           \
                     #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus), cudaStatus); \
-    }                                                                                       \
-    noop
+            exit(-1);                                                                       \
+        }                                                                                   \
+    }
 
-#endif // INC_2D_STENCIL_COMMON_H
+#endif // INC_3D_STENCIL_NVSHMEM_COMMON_H
