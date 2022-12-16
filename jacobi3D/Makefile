@@ -63,6 +63,8 @@ $(NV_OBJS) : $(NV_OBJDIR)/%.o : $(NV_SRCDIR)/%.cu $(NV_DEPDIR)/%.d | $(NV_DEPDIR
 	@mkdir -p $(@D)
 	$(NVCC) $(NVCC_NV_FLAGS) $(NV_DEPFLAGS) -o $@ $<
 
+all: jacobi jacobi_nvshmem
+
 run_nvshmem: jacobi_nvshmem
 	$(MPIRUN) -np $(NP) ./jacobi_nvshmem
 
