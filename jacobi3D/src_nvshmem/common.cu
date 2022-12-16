@@ -24,9 +24,9 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new,
          iz += blockDim.x * gridDim.x)
     {
         const real y0 = sin(2.0 * pi * (offset + iz) / (nz - 1));
-        for (unsigned int iy = 0; iy < ny; iy += ny - 1)
+        for (unsigned int iy = 0; iy < ny; iy++)
         {
-            for (unsigned int ix = 0; ix < nx; ix += nx - 1)
+            for (unsigned int ix = 0; ix < nx; ix++)
             {
                 a[iz * ny * nx + iy * nx + ix] = y0;
                 a_new[iz * ny * nx + iy * nx + ix] = y0;
