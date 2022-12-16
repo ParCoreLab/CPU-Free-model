@@ -2,6 +2,7 @@ NP ?= 1
 NVCC ?= nvcc
 MPIRUN ?= mpirun
 MPICCX = mpic++
+CXX ?= g++ 
 
 ifndef NVSHMEM_HOME
 $(error NVSHMEM_HOME is not set)
