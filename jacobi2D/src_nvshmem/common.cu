@@ -26,7 +26,7 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__re
         for (unsigned int ix = 0; ix < nx; ix++)
         {
             a[iy * nx + ix] = y0;
-            a[iy * nx + ix] = y0; 
+            a_new[iy * nx + ix] = y0; 
         }
     }
 }
