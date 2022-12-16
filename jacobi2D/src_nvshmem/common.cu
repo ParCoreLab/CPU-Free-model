@@ -18,7 +18,7 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__re
                                       const real pi, const int offset, const int nx,
                                       const int my_ny, const int ny)
 {
-    for (unsigned int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny;
+    for (unsigned int iy = blockIdx.x * blockDim.x + threadIdx.x+1; iy < my_ny-1;
          iy += blockDim.x * gridDim.x)
     {
         const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
