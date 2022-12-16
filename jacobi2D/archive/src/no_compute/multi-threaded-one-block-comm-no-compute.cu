@@ -58,7 +58,7 @@ namespace SSMultiThreadedOneBlockCommNoCompute
 
                     int col = threadIdx.y * blockDim.x + threadIdx.x + comm_tile_start;
 
-                    if (cta.thread_rank() == 0)
+                    if (!cta.thread_rank())
                     {
                         int cur_iter_comm_tile_flag_idx = comm_tile_idx + cur_iter_mod * num_flags;
 
@@ -86,7 +86,7 @@ namespace SSMultiThreadedOneBlockCommNoCompute
 
                     cg::sync(cta);
 
-                    if (cta.thread_rank() == 0)
+                    if (!cta.thread_rank())
                     {
                         int next_iter_comm_tile_flag_idx =
                             (num_comm_tiles + comm_tile_idx) + next_iter_mod * num_flags;
@@ -96,7 +96,7 @@ namespace SSMultiThreadedOneBlockCommNoCompute
 
                     cg::sync(cta);
 
-                    if (cta.thread_rank() == 0)
+                    if (!cta.thread_rank())
                     {
                         int cur_iter_comm_tile_flag_idx =
                             (num_comm_tiles + comm_tile_idx) + cur_iter_mod * num_flags;
@@ -126,7 +126,7 @@ namespace SSMultiThreadedOneBlockCommNoCompute
 
                     cg::sync(cta);
 
-                    if (cta.thread_rank() == 0)
+                    if (!cta.thread_rank())
                     {
                         int next_iter_comm_tile_flag_idx = comm_tile_idx + next_iter_mod * num_flags;
 

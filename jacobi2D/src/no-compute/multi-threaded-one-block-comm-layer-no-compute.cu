@@ -9,17 +9,16 @@
 #include <cooperative_groups.h>
 
 #include "../../include/common.h"
-#include "../../include/no-compute/multi-threaded-one-block-comm-layer-no-compute.cuh"
+#include "../../include/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
 
 namespace cg = cooperative_groups;
 
-namespace SSMultiThreadedOneBlockCommLayerNoCompute
+namespace SSMultiThreadedOneBlockCommNoCompute
 {
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
-                      const int comp_tile_size_x, const int comp_tile_size_y, const int comm_tile_size,
-                      const int num_comp_tiles_x, const int num_comp_tiles_y, const int num_comm_tiles,
-                      const int iter_max, volatile real *local_halo_buffer_for_top_neighbor,
+                      const int grid_dim_x, const int iter_max,
+                      volatile real *local_halo_buffer_for_top_neighbor,
                       volatile real *local_halo_buffer_for_bottom_neighbor,
                       volatile real *remote_my_halo_buffer_on_top_neighbor,
                       volatile real *remote_my_halo_buffer_on_bottom_neighbor,
@@ -31,23 +30,29 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        //int grid_dim_x = (comp_tile_size_x + blockDim.x - 1) / blockDim.x;
-        //int block_idx_y = blockIdx.x / grid_dim_x;
-        //int block_idx_x = blockIdx.x % grid_dim_x;
-
-        //int base_iy = block_idx_y * blockDim.y + threadIdx.y;
-        //int base_ix = block_idx_x * blockDim.x + threadIdx.x;
-
         int iter = 0;
-
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
+
+        //const int comp_size_iy = ((gridDim.x - 1) / grid_dim_x) * blockDim.y * nx;
+        //const int comp_size_ix = grid_dim_x * blockDim.x;
+
+        //const int comp_start_iy = ((blockIdx.x / grid_dim_x) * blockDim.y + threadIdx.y + iy_start + 1) * nx;
+        //const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
+
+        //const int end_iy = (iy_end - 1) * nx;
+        const int end_ix = (nx - 1);
+
+        const int comm_size_ix = blockDim.y * blockDim.x;
+
+        const int comm_start_ix = threadIdx.y * blockDim.x + threadIdx.x + 1;
+        //const int comm_start_iy = iy_start * nx;
 
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     while (local_is_top_neighbor_done_writing_to_me[cur_iter_mod * 2] !=
                            iter)
@@ -55,26 +60,27 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
                     }
                 }
                 cg::sync(cta);
-
                 /*
-                for (int ix = (threadIdx.y * blockDim.x + threadIdx.x + 1); ix < (nx - 1); ix += blockDim.y * blockDim.x)
+                for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real first_row_val =
-                        0.25 * (a[iy_start * nx + ix + 1] + a[iy_start * nx + ix - 1] +
-                                a[(iy_start + 1) * nx + ix] +
-                                remote_my_halo_buffer_on_top_neighbor[nx * cur_iter_mod + ix]);
-
-                    a_new[iy_start * nx + ix] = first_row_val;
-                    local_halo_buffer_for_top_neighbor[nx * next_iter_mod + ix] = first_row_val;
-                }*/
-
-                for (int ix = (threadIdx.y * blockDim.x + threadIdx.x + 1); ix < (nx - 1); ix += blockDim.y * blockDim.x)
-                {
-                    const real first_row_val =remote_my_halo_buffer_on_top_neighbor[nx * cur_iter_mod + ix];
+                    const real first_row_val = (real(1) / real(4)) * (a[comm_start_iy + ix + 1] +
+                                                                      a[comm_start_iy + ix - 1] +
+                                                                      a[comm_start_iy + nx + ix] +
+                                                                      remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * nx + ix]);
+                    a_new[comm_start_iy + ix] = first_row_val;
                     local_halo_buffer_for_top_neighbor[nx * next_iter_mod + ix] = first_row_val;
                 }
+
                 cg::sync(cta);
-                if (cta.thread_rank() == 0)
+                */
+                for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
+                {
+                    const real first_row_val = remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * nx + ix];
+                    local_halo_buffer_for_top_neighbor[nx * next_iter_mod + ix] = first_row_val;
+                }
+
+                cg::sync(cta);
+                if (!cta.thread_rank())
                 {
                     remote_am_done_writing_to_top_neighbor[next_iter_mod * 2 + 1] = iter + 1;
 
@@ -85,25 +91,28 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
                     }
                 }
                 cg::sync(cta);
-
-                /*for (int ix = (threadIdx.y * blockDim.x + threadIdx.x + 1); ix < (nx - 1); ix += blockDim.y * blockDim.x)
+                /*
+                for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    const real last_row_val =
-                        0.25 * (a[(iy_end - 1) * nx + ix + 1] + a[(iy_end - 1) * nx + ix - 1] +
-                                remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + ix] +
-                                a[(iy_end - 2) * nx + ix]);
-
-                    a_new[(iy_end - 1) * nx + ix] = last_row_val;
-                    local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + ix] = last_row_val;
-                }*/
-                for (int ix = (threadIdx.y * blockDim.x + threadIdx.x + 1); ix < (nx - 1); ix += blockDim.y * blockDim.x)
-                {
-                    const real last_row_val =remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + ix];
+                    const real last_row_val = (real(1) / real(4)) * (a[end_iy + ix + 1] +
+                                                                     a[end_iy + ix - 1] +
+                                                                     remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * nx + ix] +
+                                                                     a[end_iy - nx + ix]);
+                    a_new[end_iy + ix] = last_row_val;
                     local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + ix] = last_row_val;
                 }
+
+                cg::sync(cta);
+                */
+               for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
+                {
+                    const real last_row_val = remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * nx + ix];
+                    local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + ix] = last_row_val;
+                }
+
                 cg::sync(cta);
 
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     remote_am_done_writing_to_bottom_neighbor[next_iter_mod * 2] =
                         iter + 1;
@@ -111,58 +120,17 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
             }
             else
             {
-                /*for (int comp_tile_idx_y = 0; comp_tile_idx_y < num_comp_tiles_y; comp_tile_idx_y++)
+                /*
+                for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
                 {
-                    int comp_tile_start_ny =
-                        (comp_tile_idx_y == 0) ? iy_start + 1 : comp_tile_idx_y * comp_tile_size_y;
-
-                    int iy = base_iy + comp_tile_start_ny;
-
-                    int comp_tile_end_ny = (comp_tile_idx_y == (num_comp_tiles_y - 1))
-                                               ? iy_end - 1
-                                               : (comp_tile_idx_y + 1) * comp_tile_size_y;
-
-                    for (int comp_tile_idx_x = 0; comp_tile_idx_x < num_comp_tiles_x;
-                         comp_tile_idx_x++)
+                    for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                     {
-                        int comp_tile_start_nx =
-                            (comp_tile_idx_x == 0) ? 1 : comp_tile_idx_x * comp_tile_size_x;
-
-                        int ix = base_ix + comp_tile_start_nx;
-
-                        int comp_tile_end_nx = (comp_tile_idx_x == (num_comp_tiles_x - 1))
-                                                   ? nx - 1
-                                                   : (comp_tile_idx_x + 1) * comp_tile_size_x;
-
-                        if (iy < comp_tile_end_ny && ix < comp_tile_end_nx)
-                        {
-                            const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                                         a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                            a_new[iy * nx + ix] = new_val;
-                        }
+                        a_new[iy + ix] = (real(1) / real(4)) *
+                                         (a[iy + ix + 1] + a[iy + ix - 1] +
+                                          a[iy + nx + ix] + a[iy - nx + ix]);
                     }
-                }*/
-                // const unsigned int num_comp_tiles_x = nx / blockDim.x + (nx % blockDim.x != 0);
-                // const unsigned int num_comp_tiles_y = (iy_end - iy_start - 2) / blockDim.y + ((iy_end - iy_start - 2) % blockDim.y != 0);
-
-                /*const unsigned int num_comp_tiles = num_comp_tiles_x * num_comp_tiles_y;
-                for (int block_idx = blockIdx.x; block_idx < num_comp_tiles; block_idx += (gridDim.x - 1))
-                {
-                    // Are these too expensive??
-                    const unsigned int block_idx_y = (block_idx / num_comp_tiles_x) % num_comp_tiles_y;
-                    const unsigned int block_idx_x = block_idx % num_comp_tiles_x;
-
-                    const unsigned int iy = (block_idx_y * blockDim.y + threadIdx.y + iy_start + 1);
-                    const unsigned int ix = (block_idx_x * blockDim.x + threadIdx.x + 1);
-
-                    if (ix % nx > 0 && ix % nx < (nx - 1) && iy < (iy_end - 1))
-                    {
-                        int idx = +iy * nx + ix;
-                        a_new[idx] = (real(1) / real(4)) *
-                                     (a[idx + 1] + a[idx - 1] +
-                                      a[idx + nx] + a[idx - nx]);
-                    }
-                }*/
+                }
+                */
             }
 
             real *temp_pointer = a_new;
@@ -177,9 +145,9 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedOneBlockCommLayerNoCompute
+} // namespace SSMultiThreadedOneBlockCommNoCompute
 
-int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
+int SSMultiThreadedOneBlockCommNoCompute::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
@@ -225,8 +193,6 @@ int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
         int chunk_size_low = (ny - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
-        int height_per_gpu = ny / num_devices;
-
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
         int numSms = deviceProp.multiProcessorCount;
@@ -234,25 +200,9 @@ int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
 
-        int comp_tile_size_x = dim_block_x;
-        int comp_tile_size_y;
-
-        int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
-        int max_thread_blocks_y = (numSms - 1) / grid_dim_x; // without the modulo for the remaining, doesnt this overcompute the remaining SM's???
-
-        comp_tile_size_y = dim_block_y * max_thread_blocks_y;
-
-        // printf("Computation tile dimensions: %dx%d\n", comp_tile_size_x, comp_tile_size_y);
-
-        int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
-        int num_comp_tiles_y =
-            height_per_gpu / comp_tile_size_y + (height_per_gpu % comp_tile_size_y != 0);
-
-        int comm_tile_size = dim_block_x * dim_block_y;
-        int num_comm_tiles = nx / comm_tile_size + (nx % comm_tile_size != 0);
-        int num_flags = 4;
-
-        // printf("Number of communication tiles: %d\n", num_comm_tiles);
+        constexpr int grid_dim_x = 8;
+        const int grid_dim_y = (numSms - 2) / grid_dim_x;
+        constexpr int num_flags = 4;
 
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
         if (dev_id < num_ranks_low)
@@ -330,12 +280,12 @@ int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
 
         // Set diriclet boundary conditions on left and right border
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, chunk_size + 2, ny);
+            a_new[dev_id], a[dev_id], PI, iy_start_global - 1, nx, chunk_size + 2, ny);
         CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        dim3 dim_grid(numSms, 1, 1);
+        dim3 dim_grid(grid_dim_x * grid_dim_y + 1);
         dim3 dim_block(dim_block_x, dim_block_y);
 
         void *kernelArgs[] = {(void *)&a_new[dev_id],
@@ -343,12 +293,7 @@ int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
                               (void *)&iy_start,
                               (void *)&iy_end[dev_id],
                               (void *)&nx,
-                              (void *)&comp_tile_size_x,
-                              (void *)&comp_tile_size_y,
-                              (void *)&comm_tile_size,
-                              (void *)&num_comp_tiles_x,
-                              (void *)&num_comp_tiles_y,
-                              (void *)&num_comm_tiles,
+                              (void *)&grid_dim_x,
                               (void *)&iter_max,
                               (void *)&halo_buffer_for_top_neighbor[dev_id],
                               (void *)&halo_buffer_for_bottom_neighbor[dev_id],
@@ -362,7 +307,7 @@ int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
 #pragma omp barrier
         double start = omp_get_wtime();
 
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)SSMultiThreadedOneBlockCommLayerNoCompute::jacobi_kernel,
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)SSMultiThreadedOneBlockCommNoCompute::jacobi_kernel,
                                                  dim_grid, dim_block, kernelArgs, 0, nullptr));
 
         CUDA_RT_CALL(cudaGetLastError());

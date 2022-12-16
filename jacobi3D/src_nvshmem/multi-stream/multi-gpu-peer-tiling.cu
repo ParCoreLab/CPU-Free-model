@@ -56,7 +56,7 @@ namespace MultiGPUPeerTilingNvshmem
 
             cg::sync(grid);
 
-            if (grid.thread_rank() == 0)
+            if (!grid.thread_rank())
             {
                 while (iteration_done[0] != iter)
                 {
@@ -99,7 +99,7 @@ namespace MultiGPUPeerTilingNvshmem
             }
             if (blockIdx.x == gridDim.x - 1)
             {
-                if (cta.thread_rank() == cta.num_threads() - 1)
+                if (!cta.thread_rank())
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
@@ -123,14 +123,14 @@ namespace MultiGPUPeerTilingNvshmem
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + comm_start_iz, ny * nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
-                if (cta.thread_rank() == cta.num_threads() - 1)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
             }
             else if (blockIdx.x == gridDim.x - 2)
             {
-                if (cta.thread_rank() == cta.num_threads() - 1)
+                if (!cta.thread_rank())
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
@@ -155,7 +155,7 @@ namespace MultiGPUPeerTilingNvshmem
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
-                if (cta.thread_rank() == cta.num_threads() - 1)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
@@ -170,7 +170,7 @@ namespace MultiGPUPeerTilingNvshmem
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
 
-            if (grid.thread_rank() == 0)
+            if (!grid.thread_rank())
             {
                 iteration_done[0] = iter;
             }

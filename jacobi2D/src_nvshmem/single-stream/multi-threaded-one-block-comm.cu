@@ -82,7 +82,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
 
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }

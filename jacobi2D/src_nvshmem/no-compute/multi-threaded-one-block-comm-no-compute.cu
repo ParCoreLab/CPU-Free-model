@@ -16,8 +16,8 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
 {
 
     __global__ void __launch_bounds__(1024, 1)
-        jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int iter_max, real *halo_buffer_top,
+        jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end,
+                      const int nx, const int iter_max, const int grid_dim_x, real *halo_buffer_top,
                       real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                       const int bottom)
     {
@@ -28,6 +28,20 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
+        //const int comp_size_iy = ((gridDim.x - 1) / grid_dim_x) * blockDim.y * nx;
+        //const int comp_size_ix = grid_dim_x * blockDim.x;
+
+        //const int comp_start_iy = ((blockIdx.x / grid_dim_x) * blockDim.y + threadIdx.y + iy_start + 1) * nx;
+        //const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
+
+        const int end_iy = (iy_end - 1) * nx;
+        //const int end_ix = (nx - 1);
+
+        //const int comm_size_ix = blockDim.y * blockDim.x;
+
+        //const int comm_start_ix = threadIdx.y * blockDim.x + threadIdx.x + 1;
+        const int comm_start_iy = iy_start * nx;
+
         while (iter < iter_max)
         {
             if (blockIdx.x == gridDim.x - 1)
@@ -36,24 +50,21 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
-                cg::sync(cta);
                 /*
-                for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
+                cg::sync(cta);
+
+                for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                 {
-                    for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
-                    {
-                        const real first_row_val = (real(1) / real(6)) * (a[iz_start * ny * nx + iy * nx + ix + 1] +
-                                                                          a[iz_start * ny * nx + iy * nx + ix - 1] +
-                                                                          a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                                                                          a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                                                                          a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
-                        a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
-                    }
+                    const real first_row_val = (real(1) / real(4)) * (a[comm_start_iy + ix + 1] +
+                                                                      a[comm_start_iy + ix - 1] +
+                                                                      a[comm_start_iy + nx + ix] +
+                                                                      halo_buffer_top[cur_iter_mod * nx + ix]);
+                    a_new[comm_start_iy + ix] = first_row_val;
                 }
                 */
+
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_bottom + next_iter_mod * ny * nx, a_new + iz_start * ny * nx, ny * nx * sizeof(real),
+                    halo_buffer_bottom + next_iter_mod * nx, a_new + comm_start_iy, nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
 
@@ -61,28 +72,25 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
-                cg::sync(cta);
                 /*
-                for (int iy = (threadIdx.z * blockDim.y + threadIdx.y + 1); iy < (ny - 1); iy += blockDim.y * blockDim.z)
-                {
-                    for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
-                    {
+                cg::sync(cta);
 
-                        const real last_row_val = (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                                                                         a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                                                                         a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                                                                         a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix] +
-                                                                         a[(iz_end - 2) * ny * nx + iy * nx + ix]);
-                        a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
-                    }
+                for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
+                {
+                    const real last_row_val = (real(1) / real(4)) * (a[end_iy + ix + 1] +
+                                                                     a[end_iy + ix - 1] +
+                                                                     halo_buffer_bottom[cur_iter_mod * nx + ix] +
+                                                                     a[end_iy - nx + ix]);
+                    a_new[(iy_end - 1) * nx + ix] = last_row_val;
                 }
                 */
+
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * ny * nx, ny * nx * sizeof(real),
+                    halo_buffer_top + next_iter_mod * nx, a_new + end_iy, nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
-                if (cta.thread_rank() == cta.num_threads() - 1)
+
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
@@ -90,21 +98,16 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
             else
             {
                 /*
-                for (int iz = (blockIdx.x * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-                      iz < (iz_end - 1) * ny * nx; iz += (gridDim.x - 1) * blockDim.z * ny * nx)
-                 {
-                     for (int iy = (threadIdx.y + 1) * nx; iy < (ny - 1) * nx; iy += blockDim.y * nx)
-                     {
-                         for (int ix = (threadIdx.x + 1); ix < (nx - 1); ix += blockDim.x)
-                         {
-                             a_new[iz + iy + ix] = (real(1) / real(6)) *
-                                                   (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
-                                                    a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
-                                                    a[iz - ny * nx + iy + ix]);
-                         }
-                     }
-                 }
-                 */
+                for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
+                {
+                    for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
+                    {
+                        a_new[iy + ix] = (real(1) / real(4)) *
+                                         (a[iy + ix + 1] + a[iy + ix - 1] +
+                                          a[iy + nx + ix] + a[iy - nx + ix]);
+                    }
+                }
+                */
             }
 
             real *temp_pointer = a_new;
@@ -187,21 +190,6 @@ int SSMultiThreadedOneBlockCommNvshmemNoCompute::init(int argc, char *argv[])
     constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 32;
 
-    // constexpr int comp_tile_size_x = dim_block_x;
-    // constexpr int comp_tile_size_y = dim_block_y;
-
-    // constexpr int comm_tile_size_x = dim_block_x;
-    // constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
-
-    // constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
-    // constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
-
-    // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
-    // int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
-
-    // int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
-    // int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
-
     int total_num_flags = 4;
 
     // Set symmetric heap size for nvshmem based on problem size
@@ -264,9 +252,8 @@ int SSMultiThreadedOneBlockCommNvshmemNoCompute::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
     int numSms = deviceProp.multiProcessorCount;
 
-    // int max_thread_blocks_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
-    // int comp_tile_size_z = dim_block_z * max_thread_blocks_z;
-    // int num_comp_tiles_z = (nz / npes) / comp_tile_size_z + ((nz / npes) % comp_tile_size_z != 0);
+    constexpr int grid_dim_x = 8;
+    const int grid_dim_y = (numSms - 2) / grid_dim_x;
 
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
@@ -336,16 +323,16 @@ int SSMultiThreadedOneBlockCommNvshmemNoCompute::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 dim_grid(numSms, 1, 1);
-    dim3 dim_block(dim_block_x, dim_block_y, 1);
+    dim3 dim_grid(grid_dim_x * grid_dim_y + 1);
+    dim3 dim_block(dim_block_x, dim_block_y);
 
     void *kernelArgs[] = {(void *)&a_new,
                           (void *)&a,
                           (void *)&iy_start,
                           (void *)&iy_end,
-                          (void *)&ny,
                           (void *)&nx,
                           (void *)&iter_max,
+                          (void *)&grid_dim_x,
                           (void *)&halo_buffer_top,
                           (void *)&halo_buffer_bottom,
                           (void *)&is_done_computing_flags,
@@ -384,7 +371,7 @@ int SSMultiThreadedOneBlockCommNvshmemNoCompute::init(int argc, char *argv[])
             std::min(ny - iy_start_global, chunk_size) * nx * sizeof(real),
             cudaMemcpyDeviceToHost));
 
-        for (int iy = iy_start_global; result_correct && (iy < iy_end_global); ++iy)
+        for (int iy = iy_start_global; result_correct && (iy <= iy_end_global); ++iy)
         {
             for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix)
             {
@@ -392,7 +379,7 @@ int SSMultiThreadedOneBlockCommNvshmemNoCompute::init(int argc, char *argv[])
                               a_ref_h[iy * nx + ix]) > tol)
                 {
                     fprintf(stderr,
-                            "ERROR on rank %d: a[%d * %d + %d] = %f does "
+                            "ERROR on rank %d: a[ %d * %d + %d] = %f does "
                             "not match %f "
                             "(reference)\n",
                             rank, iy, nx, ix, a_h[iy * nx + ix],

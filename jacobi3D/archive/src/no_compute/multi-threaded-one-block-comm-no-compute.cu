@@ -62,7 +62,7 @@ namespace SSMultiThreadedOneBlockCommNoCompute
                     int ix = comm_start_ix;
                     for (int comm_tile_idx_x = 0; comm_tile_idx_x < num_comm_tiles_x; comm_tile_idx_x++, ix += comm_size_ix)
                     {
-                        if (cta.thread_rank() == 0)
+                        if (!cta.thread_rank())
                         {
                             while (local_is_top_neighbor_done_writing_to_me
                                        [comm_tile_idx_y * num_comm_tiles_x +
@@ -102,7 +102,7 @@ namespace SSMultiThreadedOneBlockCommNoCompute
                         }
 
                         cg::sync(cta);
-                        if (cta.thread_rank() == 0)
+                        if (!cta.thread_rank())
                         {
                             remote_am_done_writing_to_top_neighbor
                                 [comm_tile_idx_y * num_comm_tiles_x +
@@ -149,7 +149,7 @@ namespace SSMultiThreadedOneBlockCommNoCompute
                         }
 
                         cg::sync(cta);
-                        if (cta.thread_rank() == 0)
+                        if (!cta.thread_rank())
                         {
                             remote_am_done_writing_to_bottom_neighbor
                                 [comm_tile_idx_y * num_comm_tiles_x +

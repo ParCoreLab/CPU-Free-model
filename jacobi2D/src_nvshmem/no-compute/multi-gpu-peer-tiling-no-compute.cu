@@ -24,17 +24,18 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int comp_size_iy = gridDim.y * blockDim.y * nx;
-        const int comp_size_ix = gridDim.x * blockDim.x;
+        // const int comp_size_iy = gridDim.y * blockDim.y * nx;
+        // const int comp_size_ix = gridDim.x * blockDim.x;
 
-        const int comp_start_iy = (blockIdx.y * blockDim.y + threadIdx.y + iy_start + 1) * nx;
-        const int comp_start_ix = (blockIdx.x * blockDim.x + threadIdx.x + 1);
+        // const int comp_start_iy = (blockIdx.y * blockDim.y + threadIdx.y + iy_start + 1) * nx;
+        // const int comp_start_ix = (blockIdx.x * blockDim.x + threadIdx.x + 1);
 
-        const int end_iy = (iy_end - 1) * nx;
-        const int end_ix = (nx - 1);
+        // const int end_iy = (iy_end - 1) * nx;
+        // const int end_ix = (nx - 1);
 
         while (iter < iter_max)
         {
+            /*
             for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
             {
                 for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
@@ -44,6 +45,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                                       a[iy + nx + ix] + a[iy - nx + ix]);
                 }
             }
+            */
 
             real *temp = a_new;
             a_new = a;
@@ -54,7 +56,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
             cur_iter_mod = next_iter_mod;
             next_iter_mod = 1 - cur_iter_mod;
 
-            if (grid.thread_rank() == 0)
+            if (!grid.thread_rank())
             {
                 while (iteration_done[0] != iter)
                 {
@@ -84,11 +86,11 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
         int next_iter_mod = 1;
 
         const int end_iy = (iy_end - 1) * nx;
-        const int end_ix = (nx - 1);
+        //const int end_ix = (nx - 1);
 
-        const int comm_size_ix = blockDim.x;
+        //const int comm_size_ix = blockDim.x;
 
-        const int comm_start_ix = threadIdx.x + 1;
+        //const int comm_start_ix = threadIdx.x + 1;
         const int comm_start_iy = iy_start * nx;
 
         while (iter < iter_max)
@@ -102,6 +104,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
+                /*
                 cg::sync(cta);
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
@@ -112,12 +115,12 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                                                                       halo_buffer_top[cur_iter_mod * nx + ix]);
                     a_new[comm_start_iy + ix] = first_row_val;
                 }
-
+                */
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * nx, a_new + comm_start_iy, nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
@@ -128,6 +131,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
+                /*
                 cg::sync(cta);
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
@@ -138,13 +142,14 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                                                                      a[end_iy - nx + ix]);
                     a_new[end_iy + ix] = last_row_val;
                 }
+                */
 
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * nx, a_new + end_iy, nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
 
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
@@ -158,7 +163,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
             cur_iter_mod = next_iter_mod;
             next_iter_mod = 1 - cur_iter_mod;
 
-            if (grid.thread_rank() == 0)
+            if (!grid.thread_rank())
             {
                 iteration_done[0] = iter;
             }

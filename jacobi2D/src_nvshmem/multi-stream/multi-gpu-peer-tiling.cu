@@ -54,7 +54,7 @@ namespace MultiGPUPeerTilingNvshmem
             cur_iter_mod = next_iter_mod;
             next_iter_mod = 1 - cur_iter_mod;
 
-            if (grid.thread_rank() == 0)
+            if (!grid.thread_rank())
             {
                 while (iteration_done[0] != iter)
                 {
@@ -117,7 +117,7 @@ namespace MultiGPUPeerTilingNvshmem
                     halo_buffer_bottom + next_iter_mod * nx, a_new + comm_start_iy, nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
@@ -144,7 +144,7 @@ namespace MultiGPUPeerTilingNvshmem
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
 
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
@@ -158,15 +158,16 @@ namespace MultiGPUPeerTilingNvshmem
             cur_iter_mod = next_iter_mod;
             next_iter_mod = 1 - cur_iter_mod;
 
-            if (grid.thread_rank() == 0)
+            if (!grid.thread_rank())
             {
                 iteration_done[0] = iter;
             }
 
             cg::sync(grid);
         }
-    } // namespace MultiGPUPeerTilingNvshmem
-}
+    } 
+}// namespace MultiGPUPeerTilingNvshmem
+
 int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);

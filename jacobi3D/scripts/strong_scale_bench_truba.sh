@@ -17,59 +17,38 @@ CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2
 
 declare -A version_name_to_idx_map
 
-#version_name_to_idx_map["Baseline Copy"]=0
+version_name_to_idx_map["Baseline Copy"]=0
 version_name_to_idx_map["Baseline Copy Overlap"]=1
 version_name_to_idx_map["Baseline P2P"]=2
 #version_name_to_idx_map["Baseline Single Copy"]=3
 
-version_name_to_idx_map["Single Stream 1TB Tile-by-Tile"]=4
-version_name_to_idx_map["Single Stream 1TB Plane-by-Plane"]=5
-#version_name_to_idx_map["Single Stream 2TB"]=6
-#version_name_to_idx_map["Double Stream"]=7
+version_name_to_idx_map["Single Stream 1TB"]=4
+version_name_to_idx_map["Single Stream 2TB"]=5
+version_name_to_idx_map["Double Stream"]=6
 
-#version_name_to_idx_map["Baseline Copy (No compute)"]=8
-version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=9
-version_name_to_idx_map["Baseline P2P (No Compute)"]=10
+version_name_to_idx_map["Baseline Copy (No compute)"]=7
+version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=8
+version_name_to_idx_map["Baseline P2P (No Compute)"]=9
 
-version_name_to_idx_map["Single Stream 1TB Tile-by-Tile (No Compute)"]=11
-version_name_to_idx_map["Single Stream 1TB Plane-by-Plane (No Compute)"]=12
-#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=13
-#version_name_to_idx_map["Double Stream (No Compute)"]=14
+version_name_to_idx_map["Single Stream 1TB (No Compute)"]=10
+version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
+version_name_to_idx_map["Double Stream (No Compute)"]=12
 
 declare -A version_name_to_idx_map_nvshmem
 
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline"]=0
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized"]=1
 
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM"]=15
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=16
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB"]=2
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB"]=3
+version_name_to_idx_map_nvshmem["NVSHMEM Double Stream"]=4
 
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Put"]=17
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get"]=18
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get Overlap"]=19
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Compute)"]=5
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=6
 
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Get"]=20
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Put"]=21
-
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Tile"]=22
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Tile Put"]=23
-
-version_name_to_idx_map["NVSHMEM Single Stream 2TB"]=24
-version_name_to_idx_map["NVSHMEM Double Stream"]=25
-
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM (No Compute)"]=26
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized (No Compute)"]=27
-
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Put (No Compute)"]=28
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get (No Compute)"]=29
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Layer Get Overlap (No Compute)"]=30
-
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Get (No Compute)"]=31
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Thread Put (No Compute)"]=32
-
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Tile (No Compute)"]=33
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Tile Put (No Compute)"]=34
-
-version_name_to_idx_map["NVSHMEM Single Stream 2TB (No Compute)"]=35
-version_name_to_idx_map["NVSHMEM Double Stream (No Compute)"]=36
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Plane-by-Plane (No Compute)"]=7
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=8
+version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 
 
 BIN="./jacobi -s 1"

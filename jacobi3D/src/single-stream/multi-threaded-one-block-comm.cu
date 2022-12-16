@@ -8,12 +8,12 @@
 
 #include <cooperative_groups.h>
 
-#include "../../include/single-stream/multi-threaded-one-block-comm-layer.cuh"
+#include "../../include/single-stream/multi-threaded-one-block-comm.cuh"
 
 namespace cg = cooperative_groups;
 // Plan 1 turn comm remote acesseses to local, after a iteration finishes, use every thread in grid
 // to copy halos to top and bottom sections.
-namespace SSMultiThreadedOneBlockCommLayer
+namespace SSMultiThreadedOneBlockComm
 {
 
     __global__ void __launch_bounds__(1024, 1)
@@ -58,7 +58,7 @@ namespace SSMultiThreadedOneBlockCommLayer
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     while (local_is_top_neighbor_done_writing_to_me[cur_iter_mod * 2] !=
                            iter)
@@ -83,7 +83,7 @@ namespace SSMultiThreadedOneBlockCommLayer
                     }
                 }
                 cg::sync(cta);
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     remote_am_done_writing_to_top_neighbor[next_iter_mod * 2 + 1] = iter + 1;
 
@@ -112,7 +112,7 @@ namespace SSMultiThreadedOneBlockCommLayer
                 }
                 cg::sync(cta);
 
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     remote_am_done_writing_to_bottom_neighbor[next_iter_mod * 2] =
                         iter + 1;
@@ -147,9 +147,9 @@ namespace SSMultiThreadedOneBlockCommLayer
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedOneBlockCommLayer
+} // namespace SSMultiThreadedOneBlockComm
 
-int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
+int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -199,36 +199,16 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
         // int nz_per_gpu = nz / num_devices;
 
         cudaDeviceProp deviceProp{};
-        int maxActiveBlocksPerSM = 0;
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
-        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocksPerSM, (void *)SSMultiThreadedOneBlockCommLayer::jacobi_kernel, 1024, 0));
-
-        int numSms = deviceProp.multiProcessorCount * maxActiveBlocksPerSM;
+        int numSms = deviceProp.multiProcessorCount;
 
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 8;
         constexpr int dim_block_z = 4;
 
-        // constexpr int comp_tile_size_x = dim_block_x;
-        // constexpr int comp_tile_size_y = 8 * dim_block_y;
-        // int comp_tile_size_z;
-
-        // constexpr int comm_tile_size_x = dim_block_x;
-        // constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
-
         constexpr int grid_dim_x = 2;
         constexpr int grid_dim_y = 4;
         const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
-
-        // comp_tile_size_z = dim_block_z * grid_dim_z;
-
-        // int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
-        // int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
-        // int num_comp_tiles_z = nz_per_gpu / comp_tile_size_z + (nz_per_gpu % comp_tile_size_z != 0);
-
-        // int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
-        // int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
 
         int total_num_flags = 4;
 
@@ -340,7 +320,7 @@ int SSMultiThreadedOneBlockCommLayer::init(int argc, char *argv[])
 #pragma omp barrier
         double start = omp_get_wtime();
 
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)SSMultiThreadedOneBlockCommLayer::jacobi_kernel,
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)SSMultiThreadedOneBlockComm::jacobi_kernel,
                                                  dim_grid, dim_block, kernelArgs, 0, nullptr));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());

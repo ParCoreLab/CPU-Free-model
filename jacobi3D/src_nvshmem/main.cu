@@ -1,19 +1,13 @@
 #include "../include_nvshmem/baseline/multi-threaded-nvshmem.cuh"
 #include "../include_nvshmem/baseline/multi-threaded-nvshmem-opt.cuh"
-
 #include "../include_nvshmem/single-stream/multi-threaded-one-block-comm.cuh"
 #include "../include_nvshmem/single-stream/multi-threaded-two-block-comm.cuh"
-
 #include "../include_nvshmem/multi-stream/multi-gpu-peer-tiling.cuh"
-
 #include "../include_nvshmem/no-compute/multi-threaded-nvshmem-no-compute.cuh"
 #include "../include_nvshmem/no-compute/multi-threaded-nvshmem-opt-no-compute.cuh"
-
 #include "../include_nvshmem/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
 #include "../include_nvshmem/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
-
 #include "../include_nvshmem/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
-
 #include "../include_nvshmem/PERKS-nvshmem/multi-stream-perks-nvshmem.h"
 
 using std::make_pair;

@@ -9,12 +9,11 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
 
-#include "../../include/no-compute/multi-threaded-one-block-comm-layer-no-compute.cuh"
+#include "../../include/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
 
 namespace cg = cooperative_groups;
-// Plan 1 turn comm remote acesseses to local, after a iteration finishes, use every thread in grid
-// to copy halos to top and bottom sections.
-namespace SSMultiThreadedOneBlockCommLayerNoCompute
+
+namespace SSMultiThreadedOneBlockCommNoCompute
 {
 
     __global__ void __launch_bounds__(1024, 1)
@@ -59,7 +58,7 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
         {
             if (blockIdx.x == gridDim.x - 1)
             {
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     while (local_is_top_neighbor_done_writing_to_me[cur_iter_mod * 2] !=
                            iter)
@@ -67,7 +66,8 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
                     }
                 }
                 cg::sync(cta);
-                /* for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
+                /* 
+                for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                     {
@@ -83,7 +83,8 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
                             first_row_val;
                     }
                 }
-                cg::sync(cta); */
+                cg::sync(cta); 
+                */
 
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
@@ -98,7 +99,7 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
                     }
                 }
                 cg::sync(cta);
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     remote_am_done_writing_to_top_neighbor[next_iter_mod * 2 + 1] = iter + 1;
 
@@ -109,7 +110,8 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
                     }
                 }
                 cg::sync(cta);
-                /* for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
+                /* 
+                for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
                     {
@@ -125,7 +127,8 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
                                                               ix] = last_row_val;
                     }
                 }
-                cg::sync(cta); */
+                cg::sync(cta); 
+                */
 
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
@@ -139,7 +142,7 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
                     }
                 }
                 cg::sync(cta);
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     remote_am_done_writing_to_bottom_neighbor[next_iter_mod * 2] =
                         iter + 1;
@@ -176,9 +179,9 @@ namespace SSMultiThreadedOneBlockCommLayerNoCompute
             cg::sync(grid);
         }
     }
-} // namespace SSMultiThreadedOneBlockCommLayerNoCompute
+} // namespace SSMultiThreadedOneBlockCommNoCompute
 
-int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
+int SSMultiThreadedOneBlockCommNoCompute::init(int argc, char *argv[])
 {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -365,7 +368,7 @@ int SSMultiThreadedOneBlockCommLayerNoCompute::init(int argc, char *argv[])
 #pragma omp barrier
         double start = omp_get_wtime();
 
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)SSMultiThreadedOneBlockCommLayerNoCompute::jacobi_kernel,
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)SSMultiThreadedOneBlockCommNoCompute::jacobi_kernel,
                                                  dim_grid, dim_block, kernelArgs, 0, nullptr));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());

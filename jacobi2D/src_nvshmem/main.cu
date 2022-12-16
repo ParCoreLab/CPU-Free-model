@@ -9,9 +9,11 @@
 
 #include "../include_nvshmem/no-compute/multi-threaded-nvshmem-no-compute.cuh"
 #include "../include_nvshmem/no-compute/multi-threaded-nvshmem-opt-no-compute.cuh"
-#include "../include_nvshmem/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
 
-//need add two more...
+#include "../include_nvshmem/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
+#include "../include_nvshmem/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
+
+#include "../include_nvshmem/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 
 using std::make_pair;
 
@@ -20,18 +22,18 @@ int main(int argc, char *argv[])
     const std::array versions{
         make_pair("NVSHMEM Baseline Multi Threaded", BaselineMultiThreadedNvshmem::init),
         make_pair("NVSHMEM Baseline Single Threaded Optimized", BaselineMultiThreadedNvshmemOpt::init),
-        make_pair("NVSHMEM Single stream multi threaded Plane-by-Plane (one thread block communicates)",
+        make_pair("NVSHMEM Single stream multi threaded (one thread block communicates)",
                   SSMultiThreadedOneBlockCommNvshmem::init),
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate)",
                   SSMultiThreadedTwoBlockCommNvshmem::init),
-        make_pair("NVSHMEM Double stream multi threaded with Tiling", MultiGPUPeerTilingNvshmem::init),
+        make_pair("NVSHMEM Double stream multi threaded", MultiGPUPeerTilingNvshmem::init),
         make_pair("NVSHMEM Baseline Multi Threaded (No Computation)", BaselineMultiThreadedNvshmemNoCompute::init),
         make_pair("NVSHMEM Baseline Multi Threaded Optimized (No Computation)", BaselineMultiThreadedNvshmemOptNoCompute::init),
-        make_pair("NVSHMEM Single stream multi threaded Plane-by-Plane (one thread block communicates; no computation)",
+        make_pair("NVSHMEM Single stream multi threaded (one thread block communicates; no computation)",
                   SSMultiThreadedOneBlockCommNvshmemNoCompute::init),
-        //make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate)",
-        //          SSMultiThreadedTwoBlockCommNvshmem::init),
-        //make_pair("NVSHMEM Double stream multi threaded with Tiling", MultiGPUPeerTilingNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate; no computation)",
+                  SSMultiThreadedTwoBlockCommNvshmemNoCompute::init),
+        make_pair("NVSHMEM Double stream multi threaded (no computation)", MultiGPUPeerTilingNvshmemNoCompute::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);

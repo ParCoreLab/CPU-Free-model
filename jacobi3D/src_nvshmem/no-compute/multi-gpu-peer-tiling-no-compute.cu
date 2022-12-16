@@ -33,6 +33,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
 
         while (iter < iter_max)
         {
+            /*
             for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
             {
                 for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
@@ -46,6 +47,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                     }
                 }
             }
+            */
 
             real *temp_pointer = a_new;
             a_new = a;
@@ -55,7 +57,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
 
             cg::sync(grid);
 
-            if (grid.thread_rank() == 0)
+            if (!grid.thread_rank())
             {
                 while (iteration_done[0] != iter)
                 {
@@ -102,6 +104,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
+                /*
                 cg::sync(cta);
 
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
@@ -117,6 +120,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                         a_new[comm_start_iz + iy + ix] = first_row_val;
                     }
                 }
+                */
 
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + comm_start_iz, ny * nx * sizeof(real),
@@ -133,6 +137,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
+                /*
                 cg::sync(cta);
 
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
@@ -149,6 +154,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                         a_new[end_iz + iy + ix] = last_row_val;
                     }
                 }
+                */
 
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
@@ -171,7 +177,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
 
             cg::sync(grid);
 
-            if (grid.thread_rank() == 0)
+            if (!grid.thread_rank())
             {
                 iteration_done[0] = iter;
             }
@@ -430,7 +436,7 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
 
     // THE KERNELS ARE SERIALIZED!
     // perhaps only on V100
-     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmemNoCompute::jacobi_kernel,
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmemNoCompute::jacobi_kernel,
                                              comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
                                              inner_domain_stream));
 

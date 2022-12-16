@@ -55,8 +55,9 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
-                cg::sync(cta);
                 /*
+                cg::sync(cta);
+                
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
@@ -80,8 +81,9 @@ namespace SSMultiThreadedOneBlockCommNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
-                cg::sync(cta);
                 /*
+                cg::sync(cta);
+                
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)

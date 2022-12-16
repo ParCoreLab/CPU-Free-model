@@ -82,7 +82,7 @@ __global__ void __launch_bounds__(1024, 1)
 
                     ix = threadIdx.x + comm_tile_start_x;
 
-                    if (cta.thread_rank() == 0) {
+                    if (!cta.thread_rank()) {
                         cur_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
                         cur_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
 
@@ -113,7 +113,7 @@ __global__ void __launch_bounds__(1024, 1)
 
                     cg::sync(cta);
 
-                    if (cta.thread_rank() == 0) {
+                    if (!cta.thread_rank()) {
                         next_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
                         next_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
 
@@ -135,7 +135,7 @@ __global__ void __launch_bounds__(1024, 1)
                         (comm_tile_idx_x == 0) ? 1 : comm_tile_idx_x * comm_tile_size_x;
                     ix = threadIdx.x + comm_tile_start_x;
 
-                    if (cta.thread_rank() == 0) {
+                    if (!cta.thread_rank()) {
                         cur_iter_comm_tile_flag_idx_x = (num_comm_tiles_x + comm_tile_idx_x);
                         cur_iter_comm_tile_flag_idx_y = (comm_tile_idx_y);
                         while (local_is_bottom_neighbor_done_writing_to_me
@@ -165,7 +165,7 @@ __global__ void __launch_bounds__(1024, 1)
 
                     cg::sync(cta);
 
-                    if (cta.thread_rank() == 0) {
+                    if (!cta.thread_rank()) {
                         next_iter_comm_tile_flag_idx_x = comm_tile_idx_x;
                         next_iter_comm_tile_flag_idx_y = comm_tile_idx_y;
 

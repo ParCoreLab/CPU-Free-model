@@ -44,7 +44,7 @@ namespace SSMultiThreadedOneBlockComm
                 int ix = threadIdx.y * blockDim.x + threadIdx.x + 1;
                 for (int comm_tile_idx = 0; comm_tile_idx < num_comm_tiles; comm_tile_idx++, ix += blockDim.x * blockDim.y)
                 {
-                    if (cta.thread_rank() == 0)
+                    if (!cta.thread_rank())
                     {
                         int cur_iter_comm_tile_flag_idx = comm_tile_idx + cur_iter_mod * num_flags;
 
@@ -69,7 +69,7 @@ namespace SSMultiThreadedOneBlockComm
 
                     cg::sync(cta);
 
-                    if (cta.thread_rank() == 0)
+                    if (!cta.thread_rank())
                     {
                         int next_iter_comm_tile_flag_idx =
                             (num_comm_tiles + comm_tile_idx) + next_iter_mod * num_flags;
@@ -79,7 +79,7 @@ namespace SSMultiThreadedOneBlockComm
 
                     cg::sync(cta);
 
-                    if (cta.thread_rank() == 0)
+                    if (!cta.thread_rank())
                     {
                         int cur_iter_comm_tile_flag_idx =
                             (num_comm_tiles + comm_tile_idx) + cur_iter_mod * num_flags;
@@ -106,7 +106,7 @@ namespace SSMultiThreadedOneBlockComm
 
                     cg::sync(cta);
 
-                    if (cta.thread_rank() == 0)
+                    if (!cta.thread_rank())
                     {
                         int next_iter_comm_tile_flag_idx = comm_tile_idx + next_iter_mod * num_flags;
 

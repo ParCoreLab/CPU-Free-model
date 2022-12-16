@@ -25,18 +25,18 @@ namespace SSMultiThreadedTwoBlockCommNvshmemNoCompute
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int comp_size_iy = ((gridDim.x - 2) / grid_dim_x) * blockDim.y * nx;
-        const int comp_size_ix = grid_dim_x * blockDim.x;
+        //const int comp_size_iy = ((gridDim.x - 2) / grid_dim_x) * blockDim.y * nx;
+        //const int comp_size_ix = grid_dim_x * blockDim.x;
 
-        const int comp_start_iy = ((blockIdx.x / grid_dim_x) * blockDim.y + threadIdx.y + iy_start + 1) * nx;
-        const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
+        //const int comp_start_iy = ((blockIdx.x / grid_dim_x) * blockDim.y + threadIdx.y + iy_start + 1) * nx;
+        //const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
 
         const int end_iy = (iy_end - 1) * nx;
-        const int end_ix = (nx - 1);
+        //const int end_ix = (nx - 1);
 
-        const int comm_size_ix = blockDim.y * blockDim.x;
+        //const int comm_size_ix = blockDim.y * blockDim.x;
 
-        const int comm_start_ix = threadIdx.y * blockDim.x + threadIdx.x + 1;
+        //const int comm_start_ix = threadIdx.y * blockDim.x + threadIdx.x + 1;
         const int comm_start_iy = iy_start * nx;
 
         while (iter < iter_max)
@@ -47,6 +47,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
+                /*
                 cg::sync(cta);
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
@@ -57,12 +58,13 @@ namespace SSMultiThreadedTwoBlockCommNvshmemNoCompute
                                                                       halo_buffer_top[cur_iter_mod * nx + ix]);
                     a_new[comm_start_iy + ix] = first_row_val;
                 }
+                */
 
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * nx, a_new + comm_start_iy, nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
@@ -73,6 +75,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
+                /*
                 cg::sync(cta);
 
                 for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
@@ -83,19 +86,21 @@ namespace SSMultiThreadedTwoBlockCommNvshmemNoCompute
                                                                      a[end_iy - nx + ix]);
                     a_new[(iy_end - 1) * nx + ix] = last_row_val;
                 }
+                */
 
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * nx, a_new + end_iy, nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
 
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
             }
             else
             {
+                /*
                 for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
                 {
                     for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
@@ -105,6 +110,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmemNoCompute
                                           a[iy + nx + ix] + a[iy - nx + ix]);
                     }
                 }
+                */
             }
 
             real *temp_pointer = a_new;

@@ -5,7 +5,7 @@
 #include <nvshmem.h>
 #include <nvshmemx.h>
 
-#include "../../include/single-stream_nvshmem/multi-threaded-two-block-comm.cuh"
+#include "../../include_nvshmem/single-stream/multi-threaded-two-block-comm.cuh"
 
 namespace cg = cooperative_groups;
 
@@ -62,7 +62,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
                     halo_buffer_bottom + next_iter_mod * nx, a_new + comm_start_iy, nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
@@ -89,7 +89,7 @@ namespace SSMultiThreadedTwoBlockCommNvshmem
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
 
-                if (cta.thread_rank() == 0)
+                if (!cta.thread_rank())
                 {
                     nvshmem_quiet();
                 }
