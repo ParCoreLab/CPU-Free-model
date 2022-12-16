@@ -251,7 +251,7 @@ int ProfilingDiscreteStandard::init(int argc, char *argv[]) {
         real alpha;
         real negative_alpha;
         real beta;
-        real tmp_dot_delta0;
+
         real tmp_dot_gamma0;
 
         CUDA_RT_CALL(cudaEventCreateWithFlags(atomic_add_done + gpu_idx, cudaEventDisableTiming));
@@ -418,7 +418,6 @@ int ProfilingDiscreteStandard::init(int argc, char *argv[]) {
 
             POP_RANGE
 
-            tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
             tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
             PUSH_RANGE("Peer Sync 3", 10)

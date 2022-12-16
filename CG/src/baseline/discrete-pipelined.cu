@@ -288,7 +288,6 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
         cudaStream_t streamAtomicAdd;
 
         real tmp_dot_delta0;
-        real tmp_dot_gamma0;
 
         real alpha;
         real negative_alpha;
@@ -413,7 +412,6 @@ int BaselineDiscretePipelined::init(int argc, char *argv[]) {
                 um_z, um_w, negative_alpha, num_rows, gpu_idx, num_devices);
 
             tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
-            tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
             CUDA_RT_CALL(cudaEventRecord(iteration_done[gpu_idx], 0));
 

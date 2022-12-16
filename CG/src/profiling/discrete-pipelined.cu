@@ -284,7 +284,6 @@ int ProfilingDiscretePipelined::init(int argc, char *argv[]) {
         cudaStream_t mainStream;
 
         real tmp_dot_delta0;
-        real tmp_dot_gamma0;
 
         real alpha;
         real negative_alpha;
@@ -460,7 +459,6 @@ int ProfilingDiscretePipelined::init(int argc, char *argv[]) {
             POP_RANGE
 
             tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
-            tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
             PUSH_RANGE("Peer Sync 2", 10);
 

@@ -251,7 +251,7 @@ int BaselineDiscreteStandard::init(int argc, char *argv[]) {
         real alpha;
         real negative_alpha;
         real beta;
-        real tmp_dot_delta0;
+
         real tmp_dot_gamma0;
 
         CUDA_RT_CALL(cudaEventCreateWithFlags(atomic_add_done + gpu_idx, cudaEventDisableTiming));
@@ -362,7 +362,6 @@ int BaselineDiscreteStandard::init(int argc, char *argv[]) {
             MultiGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
                 um_r, um_p, real_positive_one, beta, num_rows, gpu_idx, num_devices);
 
-            tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
             tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
             CUDA_RT_CALL(cudaEventRecord(iteration_done[gpu_idx], mainStream));

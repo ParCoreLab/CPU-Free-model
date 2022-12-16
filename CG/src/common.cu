@@ -486,8 +486,8 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     double *um_tmp_dot_delta1;
     double *um_tmp_dot_gamma1;
+
     real tmp_dot_delta0;
-    real tmp_dot_gamma0;
 
     real alpha;
     real negative_alpha;
@@ -611,7 +611,6 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
             device_z, device_w, negative_alpha, num_rows);
 
         tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
-        tmp_dot_gamma0 = (real)*um_tmp_dot_gamma1;
 
         CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
 
@@ -710,7 +709,6 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     double *um_tmp_dot_delta1;
     double *um_tmp_dot_gamma1;
 
-    real tmp_dot_delta0;
     real tmp_dot_gamma0;
 
     real alpha;
@@ -805,7 +803,6 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
         SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
             device_r, device_p, real_positive_one, beta, num_rows);
 
-        tmp_dot_delta0 = *um_tmp_dot_delta1;
         tmp_dot_gamma0 = *um_tmp_dot_gamma1;
 
         CUDA_RT_CALL(cudaDeviceSynchronize());

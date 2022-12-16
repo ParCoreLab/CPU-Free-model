@@ -165,11 +165,10 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
     real real_positive_one = 1.0;
     real real_negative_one = -1.0;
 
-    real tmp_dot_delta_0 = 0.0;
-    real tmp_dot_gamma_0 = 0.0;
+    real tmp_dot_delta0 = 0.0;
 
-    real tmp_dot_delta_1;
-    real tmp_dot_gamma_1;
+    real tmp_dot_delta1;
+    real tmp_dot_gamma1;
 
     real beta;
     real alpha;
@@ -231,15 +230,15 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
 
         peer_group.sync();
 
-        tmp_dot_delta_1 = *dot_result_delta;
-        tmp_dot_gamma_1 = *dot_result_gamma;
+        tmp_dot_delta1 = *dot_result_delta;
+        tmp_dot_gamma1 = *dot_result_gamma;
 
         if (k > 1) {
-            beta = tmp_dot_delta_1 / tmp_dot_delta_0;
-            alpha = tmp_dot_delta_1 / (tmp_dot_gamma_1 - (beta / alpha) * tmp_dot_delta_1);
+            beta = tmp_dot_delta1 / tmp_dot_delta0;
+            alpha = tmp_dot_delta1 / (tmp_dot_gamma1 - (beta / alpha) * tmp_dot_delta1);
         } else {
             beta = 0.0;
-            alpha = tmp_dot_delta_1 / tmp_dot_gamma_1;
+            alpha = tmp_dot_delta1 / tmp_dot_gamma1;
         }
 
         // IMPORTANT: Is this peer sync necessary? Or would a grid sync suffice?
@@ -267,8 +266,7 @@ __global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, re
         // w_(k+1) = w_k - alpha_k * z_k
         gpuSaxpy(z, w, negative_alpha, num_rows, peer_group);
 
-        tmp_dot_delta_0 = (real)tmp_dot_delta_1;
-        tmp_dot_gamma_0 = (real)tmp_dot_gamma_1;
+        tmp_dot_delta0 = (real)tmp_dot_delta1;
 
         peer_group.sync();
 
@@ -330,9 +328,6 @@ int SingleStreamPipelined::init(int argc, char *argv[]) {
 
     double *dot_result_delta;
     double *dot_result_gamma;
-
-    real real_positive_one = 1.0;
-    real real_negative_one = -1.0;
 
     if (generate_random_tridiag_matrix) {
         num_rows = 10485760 * 2;

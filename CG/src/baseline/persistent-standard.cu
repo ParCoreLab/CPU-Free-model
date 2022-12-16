@@ -276,8 +276,6 @@ int BaselinePersistentStandard::init(int argc, char *argv[]) {
     int *um_J = NULL;
     real *um_val = NULL;
 
-    real r1;
-
     real *um_x;
     real *um_r;
     real *um_p;
@@ -445,11 +443,6 @@ int BaselinePersistentStandard::init(int argc, char *argv[]) {
         }
 
         CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
-
-        // #pragma omp barrier
-
-        // #pragma omp master
-        //         { r1 = (real)*dot_result; }
 
 #pragma omp barrier
 
