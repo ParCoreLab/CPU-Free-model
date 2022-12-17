@@ -20,13 +20,13 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new,
                                       const int ny, const int my_nz,
                                       const int nz)
 {
-    for (unsigned int iz = blockIdx.x * blockDim.x + threadIdx.x +1; iz < my_nz -1;
+    for (unsigned int iz = blockIdx.x * blockDim.x + threadIdx.x; iz < my_nz;
          iz += blockDim.x * gridDim.x)
     {
         const real y0 = sin(2.0 * pi * (offset + iz) / (nz - 1));
-        for (unsigned int iy = 0; iy < ny; iy++)
+        for (unsigned int iy = 0; iy < ny; iy+=ny-1)
         {
-            for (unsigned int ix = 0; ix < nx; ix++)
+            for (unsigned int ix = 0; ix < nx; ix+nx-1)
             {
                 a[iz * ny * nx + iy * nx + ix] = y0;
                 a_new[iz * ny * nx + iy * nx + ix] = y0;
