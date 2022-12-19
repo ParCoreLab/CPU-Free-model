@@ -10,4 +10,4 @@ export MPI_HOME=/truba/home/dsagbili/spack/opt/spack/linux-rhel8-zen/gcc-8.5.0/o
 export CUDA_HOME=/truba/home/dsagbili/spack/opt/spack/linux-rhel8-zen/gcc-8.5.0/cuda-11.8.0-37xn6z7age2zvgrmug5jad7l34sizzkp
 export LD_LIBRARY_PATH=$NVSHMEM_HOME/lib:$UCX_HOME/lib:$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 cd /truba/home/dsagbili/multi-perks/jacobi2D
-make -B
+make all -B
