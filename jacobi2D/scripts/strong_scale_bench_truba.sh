@@ -52,6 +52,7 @@ version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 
 
 BIN="./jacobi -s 1"
+NV_BIN="./jacobi_nvshmem -s 1"
 
 MAX_NX=${MAX_NX:-256}
 MAX_NY=${MAX_NY:-256}
@@ -78,7 +79,6 @@ done
 for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
 
     NY=${NX}
-    NZ=${NX}
 
     for version_name in "${!version_name_to_idx_map[@]}"; do
         echo "Running ${version_name}"; echo ""
@@ -92,7 +92,7 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
             echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
 
             for (( i=1; i <= ${NUM_RUNS}; i++ )); do
-                execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -nz  ${NZ} -niter ${NUM_ITER})
+                execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
                 echo "${execution_time} on run ${i}"
             done
 
@@ -104,7 +104,6 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
     done
 
     NY=${NX}
-    NZ=${NX}
 
     for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
         echo "Running ${version_name}"; echo ""
@@ -117,7 +116,7 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
             echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
 
             for (( i=1; i <= ${NUM_RUNS}; i++ )); do
-                execution_time=$(mpirun -np ${NP} ./jacobi -s 1 -v ${version_idx} -nx ${NX} -ny ${NY} -nz  ${NZ} -niter ${NUM_ITER})
+                execution_time=$(mpirun -np ${NP} ${NV_BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
                 echo "${execution_time} on run ${i}"
             done
 
@@ -128,6 +127,5 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
         echo "-------------------------------------"
     done
 
-    echo "-------------------------------------"
-    echo "-------------------------------------"
+    echo "#####################################" 
 done

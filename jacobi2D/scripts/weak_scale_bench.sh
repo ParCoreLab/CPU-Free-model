@@ -48,6 +48,7 @@ version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=8
 version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 
 BIN="./jacobi -s 1"
+NV_BIN="./jacobi_nvshmem -s 1"
 
 STARTING_NX=${STARTING_NX:-256}
 STARTING_NY=${STARTING_NY:-256}
@@ -64,33 +65,58 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-for version_name in "${!version_name_to_idx_map[@]}"; do
-    echo "Running ${version_name}"; echo ""
+for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
 
-    version_idx=${version_name_to_idx_map[$version_name]}
+    
+    for version_name in "${!version_name_to_idx_map[@]}"; do
+        echo "Running ${version_name}"; echo ""
+        NY=${NX}
 
-    NX=${STARTING_NX}
-    NY=${STARTING_NY}
+        version_idx=${version_name_to_idx_map[$version_name]}
 
-    for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS*=2 )); do
-        export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_SETTING[${NUM_GPUS}]}
+        for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS*=2 )); do
+            export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_SETTING[${NUM_GPUS}]}
 
-        echo "Num GPUS: ${NUM_GPUS}"
-        echo "${NUM_ITER} iterations on grid ${NY}x${NX}"
+            echo "Num GPUS: ${NUM_GPUS}"
+            echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
 
-        for (( i=1; i <= ${NUM_RUNS}; i++ )); do
-            execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
-            echo "${execution_time} on run ${i}"
+            for (( i=1; i <= ${NUM_RUNS}; i++ )); do
+                execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
+                echo "${execution_time} on run ${i}"
+            done
+
+            printf "\n"
+
+            NY=$((2*NY))
+        
         done
 
-        printf "\n"
-
-        if [[ $NX -le $NY ]]; then
-            NX=$((2*NX))
-        else
-            NY=$((2*NY))
-        fi
+        echo "-------------------------------------"
     done
 
-    echo "-------------------------------------"
+    for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
+        echo "Running ${version_name}"; echo ""
+        NY=${NX}
+
+        version_idx=${version_name_to_idx_map_nvshmem[$version_name]}
+
+        for (( NP=1; NP <= ${MAX_NUM_GPUS}; NP*=2 )); do
+
+            echo "Num GPUS: ${NP}"
+            echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
+
+            for (( i=1; i <= ${NUM_RUNS}; i++ )); do
+                execution_time=$(mpirun -np ${NP} ${NV_BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
+                echo "${execution_time} on run ${i}"
+            done
+
+            printf "\n"
+
+            NY=$((2*NY))
+        done
+
+        echo "-------------------------------------"
+    done
+    
+    echo "#####################################" 
 done

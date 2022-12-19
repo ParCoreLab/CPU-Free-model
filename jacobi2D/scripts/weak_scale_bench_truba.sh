@@ -53,6 +53,7 @@ version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=8
 version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 
 BIN="./jacobi -s 1"
+NV_BIN="./jacobi_nvshmem -s 1"
 
 MAX_NX=${MAX_NX:-256}
 MAX_NY=${MAX_NY:-256}
@@ -82,7 +83,7 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
     for version_name in "${!version_name_to_idx_map[@]}"; do
         echo "Running ${version_name}"; echo ""
         NY=${NX}
-        NZ=${NX}
+
         version_idx=${version_name_to_idx_map[$version_name]}
 
         for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS*=2 )); do
@@ -92,13 +93,13 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
             echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
 
             for (( i=1; i <= ${NUM_RUNS}; i++ )); do
-                execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -nz  ${NZ} -niter ${NUM_ITER})
+                execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
                 echo "${execution_time} on run ${i}"
             done
 
             printf "\n"
 
-            NZ=$((2*NZ))
+            NY=$((2*NY))
         
         done
 
@@ -108,7 +109,7 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
     for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
         echo "Running ${version_name}"; echo ""
         NY=${NX}
-        NZ=${NX}
+
         version_idx=${version_name_to_idx_map_nvshmem[$version_name]}
 
         for (( NP=1; NP <= ${MAX_NUM_GPUS}; NP*=2 )); do
@@ -117,18 +118,17 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
             echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
 
             for (( i=1; i <= ${NUM_RUNS}; i++ )); do
-                execution_time=$(mpirun -np ${NP} ./jacobi -s 1 -v ${version_idx} -nx ${NX} -ny ${NY} -nz  ${NZ} -niter ${NUM_ITER})
+                execution_time=$(mpirun -np ${NP} ${NV_BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
                 echo "${execution_time} on run ${i}"
             done
 
             printf "\n"
 
-            NZ=$((2*NZ))
+            NY=$((2*NY))
         done
 
         echo "-------------------------------------"
     done
     
-    echo "-------------------------------------"
-    echo "-------------------------------------"
+    echo "#####################################" 
 done
