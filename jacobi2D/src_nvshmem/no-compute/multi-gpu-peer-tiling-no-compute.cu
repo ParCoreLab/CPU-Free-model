@@ -55,7 +55,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
 
             cur_iter_mod = next_iter_mod;
             next_iter_mod = 1 - cur_iter_mod;
-
+            cg::sync(grid);
             if (!grid.thread_rank())
             {
                 while (iteration_done[0] != iter)
@@ -162,7 +162,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
 
             cur_iter_mod = next_iter_mod;
             next_iter_mod = 1 - cur_iter_mod;
-
+            cg::sync(grid);
             if (!grid.thread_rank())
             {
                 iteration_done[0] = iter;
