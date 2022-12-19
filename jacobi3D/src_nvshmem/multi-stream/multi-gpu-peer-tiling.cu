@@ -430,7 +430,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
 
     // THE KERNELS ARE SERIALIZED!
     // perhaps only on V100
-    CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch((void *)MultiGPUPeerTilingNvshmem::jacobi_kernel,
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmem::jacobi_kernel,
                                              comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
                                              inner_domain_stream));
 
