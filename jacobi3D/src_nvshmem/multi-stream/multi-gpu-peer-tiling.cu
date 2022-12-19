@@ -169,6 +169,7 @@ namespace MultiGPUPeerTilingNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
+            cg::sync(grid);
 
             if (!grid.thread_rank())
             {
