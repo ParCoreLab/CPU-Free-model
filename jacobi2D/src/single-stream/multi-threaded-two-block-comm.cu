@@ -181,7 +181,7 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[])
         int chunk_size_low = (ny - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
-        int height_per_gpu = ny / num_devices;
+        //int height_per_gpu = ny / num_devices;
 
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
