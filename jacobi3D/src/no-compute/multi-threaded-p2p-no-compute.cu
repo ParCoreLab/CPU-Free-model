@@ -45,12 +45,12 @@ namespace BaselineMultiThreadedP2PNoCompute
                                   real *__restrict__ const a_new_top, const int top_iz,
                                   real *__restrict__ const a_new_bottom, const int bottom_iz)
     {
-        
+
         int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
         int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
         int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
         // real local_l2_norm = 0.0;
-        
+
         if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
         {
             /*
@@ -73,13 +73,13 @@ namespace BaselineMultiThreadedP2PNoCompute
             {
                 a_new_bottom[bottom_iz * ny * nx + iy * nx + ix] = 0;
             }
-            
+
             // if (calculate_norm) {
             //     real residue = new_val - a[iy * nx + ix];
             //     local_l2_norm += residue * residue;
             // }
         }
-        
+
         // if (calculate_norm) {
         //     atomicAdd(l2_norm, local_l2_norm);
         // }
@@ -233,8 +233,8 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char *argv[])
             CUDA_RT_CALL(cudaDeviceSynchronize());
 
             constexpr int dim_block_x = 32;
-            constexpr int dim_block_y = 32;
-            constexpr int dim_block_z = 1;
+            constexpr int dim_block_y = 8;
+            constexpr int dim_block_z = 4;
 
             dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y,
                           (nz + (num_devices * dim_block_z) - 1) / (num_devices * dim_block_z));
@@ -281,7 +281,7 @@ int BaselineMultiThreadedP2PNoCompute::init(int argc, char *argv[])
 
 #pragma omp master
             {
-                report_results(nz,ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
+                report_results(nz, ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
                                start, stop, compare_to_single_gpu);
             }
 

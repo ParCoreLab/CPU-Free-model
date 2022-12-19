@@ -34,35 +34,39 @@
 #include "../../include/baseline/multi-threaded-copy.cuh"
 #include "../../include/common.h"
 
-namespace BaselineMultiThreadedCopy {
-__global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
-                              const int iz_start, const int iz_end, const int ny, const int nx) {
-    int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
-    int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
-    int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    // real local_l2_norm = 0.0;
+namespace BaselineMultiThreadedCopy
+{
+    __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
+                                  const int iz_start, const int iz_end, const int ny, const int nx)
+    {
+        int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
+        int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
+        int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+        // real local_l2_norm = 0.0;
 
-    if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
-        const real new_val =(real(1) / real(6)) *
-            (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
-             a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
-             a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
+        if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
+        {
+            const real new_val = (real(1) / real(6)) *
+                                 (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
+                                  a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
+                                  a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
 
-        a_new[iz * ny * nx + iy * nx + ix] = new_val;
+            a_new[iz * ny * nx + iy * nx + ix] = new_val;
+
+            // if (calculate_norm) {
+            //     real residue = new_val - a[iy * nx + ix];
+            //     local_l2_norm += residue * residue;
+            // }
+        }
 
         // if (calculate_norm) {
-        //     real residue = new_val - a[iy * nx + ix];
-        //     local_l2_norm += residue * residue;
+        //     atomicAdd(l2_norm, local_l2_norm);
         // }
     }
+} // namespace BaselineMultiThreadedCopy
 
-    // if (calculate_norm) {
-    //     atomicAdd(l2_norm, local_l2_norm);
-    // }
-}
-}  // namespace BaselineMultiThreadedCopy
-
-int BaselineMultiThreadedCopy::init(int argc, char *argv[]) {
+int BaselineMultiThreadedCopy::init(int argc, char *argv[])
+{
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
@@ -97,7 +101,8 @@ int BaselineMultiThreadedCopy::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(0));
 
-        if (compare_to_single_gpu && 0 == dev_id) {
+        if (compare_to_single_gpu && 0 == dev_id)
+        {
             CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));
 
@@ -114,7 +119,7 @@ int BaselineMultiThreadedCopy::init(int argc, char *argv[]) {
         // the following formula is derived from this equation:
         // num_ranks_low * chunk_size_low + (size - num_ranks_low) * (chunk_size_low + 1) = nz - 2
         int num_ranks_low = num_devices * chunk_size_low + num_devices -
-                            (nz - 2);  // Number of ranks with chunk_size = chunk_size_low
+                            (nz - 2); // Number of ranks with chunk_size = chunk_size_low
 
         if (dev_id < num_ranks_low)
             chunk_size = chunk_size_low;
@@ -128,10 +133,13 @@ int BaselineMultiThreadedCopy::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
 
         // Calculate local domain boundaries
-        int iz_start_global;  // My start index in the global array
-        if (dev_id < num_ranks_low) {
+        int iz_start_global; // My start index in the global array
+        if (dev_id < num_ranks_low)
+        {
             iz_start_global = dev_id * chunk_size_low + 1;
-        } else {
+        }
+        else
+        {
             iz_start_global =
                 num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
         }
@@ -159,22 +167,25 @@ int BaselineMultiThreadedCopy::init(int argc, char *argv[]) {
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         int canAccessPeer = 0;
         CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
-        if (canAccessPeer) {
+        if (canAccessPeer)
+        {
             CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
         }
         const int bottom = (dev_id + 1) % num_devices;
-        if (top != bottom) {
+        if (top != bottom)
+        {
             canAccessPeer = 0;
             CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, bottom));
-            if (canAccessPeer) {
+            if (canAccessPeer)
+            {
                 CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom, 0));
             }
         }
 
         constexpr int dim_block_x = 32;
-        constexpr int dim_block_y = 32;
-        constexpr int dim_block_z = 1;
-
+        constexpr int dim_block_y = 8;
+        constexpr int dim_block_z = 4;
+        
         dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y,
                       (nz + (num_devices * dim_block_z) - 1) / (num_devices * dim_block_z));
 
@@ -185,7 +196,8 @@ int BaselineMultiThreadedCopy::init(int argc, char *argv[]) {
 #pragma omp barrier
         double start = omp_get_wtime();
 
-        while (iter < iter_max) {
+        while (iter < iter_max)
+        {
             int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
             int bottom = (dev_id + 1) % num_devices;
 
@@ -230,7 +242,8 @@ int BaselineMultiThreadedCopy::init(int argc, char *argv[]) {
 #pragma omp barrier
         double stop = omp_get_wtime();
 
-        if (compare_to_single_gpu) {
+        if (compare_to_single_gpu)
+        {
             CUDA_RT_CALL(
                 cudaMemcpy(a_h + iz_start_global * ny * nx, a + ny * nx,
                            std::min((nz - iz_start_global), chunk_size) * ny * nx * sizeof(real),
@@ -256,7 +269,8 @@ int BaselineMultiThreadedCopy::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaFree(a_new[dev_id]));
         CUDA_RT_CALL(cudaFree(a));
 
-        if (compare_to_single_gpu && 0 == dev_id) {
+        if (compare_to_single_gpu && 0 == dev_id)
+        {
             CUDA_RT_CALL(cudaFreeHost(a_h));
             CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }
