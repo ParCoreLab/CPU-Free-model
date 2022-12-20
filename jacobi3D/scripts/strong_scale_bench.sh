@@ -43,7 +43,7 @@ version_name_to_idx_map_nvshmem["NVSHMEM Double Stream"]=4
 version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Compute)"]=5
 version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=6
 
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Plane-by-Plane (No Compute)"]=7
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB (No Compute)"]=7
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=8
 version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 
@@ -72,13 +72,14 @@ while [ $# -gt 0 ]; do
 done
 
 
-for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
+for (( STARTING_NX=512; STARTING_NX<=512; STARTING_NX*=2 )); do
 
-
+    NX=${STARTING_NX}
+    NY=${NX}
+    NZ=${NX}
+    
     for version_name in "${!version_name_to_idx_map[@]}"; do
         echo "Running ${version_name}"; echo ""
-        NY=${NX}
-        NZ=${NX}
         version_idx=${version_name_to_idx_map[$version_name]}
 
         for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS+=1 )); do
@@ -102,8 +103,6 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
     
     for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
         echo "Running ${version_name}"; echo ""
-        NY=${NX}
-        NZ=${NX}
         version_idx=${version_name_to_idx_map_nvshmem[$version_name]}
 
         for (( NP=1; NP <= ${MAX_NUM_GPUS}; NP+=1 )); do

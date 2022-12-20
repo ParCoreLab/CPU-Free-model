@@ -74,7 +74,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                                                       a[end_iy + ix - 1] +
                                                       halo_buffer_bottom[cur_iter_mod * nx + ix] +
                                                       a[end_iy - nx + ix]);
-                    a_new[(iy_end - 1) * nx + ix] = last_row_val;
+                    a_new[end_iy + ix] = last_row_val;
                 }
 
                 nvshmemx_putmem_signal_nbi_block(

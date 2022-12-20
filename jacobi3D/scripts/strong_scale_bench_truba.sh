@@ -46,7 +46,7 @@ version_name_to_idx_map_nvshmem["NVSHMEM Double Stream"]=4
 version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Compute)"]=5
 version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=6
 
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Plane-by-Plane (No Compute)"]=7
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB (No Compute)"]=7
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=8
 version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 
@@ -54,13 +54,6 @@ version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 BIN="./jacobi -s 1"
 NV_BIN="./jacobi_nvshmem -s 1"
 
-MAX_NX=${MAX_NX:-1024}
-MAX_NY=${MAX_NY:-1024}
-MAX_NZ=${MAX_NZ:-1024}
-
-STARTING_NX=${STARTING_NX:-256}
-STARTING_NY=${STARTING_NY:-256}
-STARTING_NZ=${STARTING_NZ:-256}
 
 NUM_ITER=${NUM_ITER:-100000}
 NUM_RUNS=${NUM_RUNS:-5}
@@ -76,8 +69,9 @@ while [ $# -gt 0 ]; do
 done
 
 
-for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
-
+for (( STARTING_NX=512; STARTING_NX<=512; STARTING_NX*=2 )); do
+    
+    NX=${STARTING_NX}
     NY=${NX}
     NZ=${NX}
 
@@ -104,8 +98,6 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
         echo "-------------------------------------"
     done
 
-    NY=${NX}
-    NZ=${NX}
 
     for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
         echo "Running ${version_name}"; echo ""
