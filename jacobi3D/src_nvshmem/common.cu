@@ -1,4 +1,3 @@
-#include <cooperative_groups.h>
 
 #include "../include_nvshmem/common.h"
 

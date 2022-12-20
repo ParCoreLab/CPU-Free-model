@@ -29,8 +29,7 @@
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/nvshmem_opt/jacobi.cu
 
 #include "../../include_nvshmem/no-compute/multi-threaded-nvshmem-opt-no-compute.cuh"
-#include <nvshmem.h>
-#include <nvshmemx.h>
+
 namespace BaselineMultiThreadedNvshmemOptNoCompute
 {
 

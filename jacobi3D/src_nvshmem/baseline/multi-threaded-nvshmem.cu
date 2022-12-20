@@ -28,8 +28,7 @@
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/nvshmem/jacobi.cu
 
 #include "../../include_nvshmem/baseline/multi-threaded-nvshmem.cuh"
-#include <nvshmem.h>
-#include <nvshmemx.h>
+
 namespace BaselineMultiThreadedNvshmem
 {
     template <int BLOCK_DIM_X, int BLOCK_DIM_Y, int BLOCK_DIM_Z>

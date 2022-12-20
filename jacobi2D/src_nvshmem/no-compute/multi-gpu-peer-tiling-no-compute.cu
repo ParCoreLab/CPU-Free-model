@@ -1,9 +1,5 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-
-#include <cooperative_groups.h>
-#include <nvshmem.h>
-#include <nvshmemx.h>
 #include "../../include_nvshmem/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 
 namespace cg = cooperative_groups;

@@ -1,6 +1,10 @@
 #ifndef INC_2D_STENCIL_NVSHMEM_COMMON_H
 #define INC_2D_STENCIL_NVSHMEM_COMMON_H
 
+#include <nvshmem.h>
+#include <nvshmemx.h>
+#include <cooperative_groups.h>
+
 #include <mpi.h>
 #include <omp.h>
 

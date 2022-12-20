@@ -27,13 +27,9 @@
 
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/nvshmem_opt/jacobi.cu
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
 
 #include "../../include_nvshmem/baseline/multi-threaded-nvshmem-opt.cuh"
-#include <nvshmem.h>
-#include <nvshmemx.h>
+
 namespace BaselineMultiThreadedNvshmemOpt
 {
 

@@ -1,10 +1,6 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
 #include "../../include_nvshmem/single-stream/multi-threaded-one-block-comm.cuh"
-#include <cooperative_groups.h>
-
-#include <nvshmem.h>
-#include <nvshmemx.h>
 
 namespace cg = cooperative_groups;
 
