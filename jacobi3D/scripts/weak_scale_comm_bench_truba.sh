@@ -17,8 +17,6 @@ CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2
 
 declare -A version_name_to_idx_map
 
-declare -A version_name_to_idx_map
-
 version_name_to_idx_map["Baseline Copy"]=0
 version_name_to_idx_map["Baseline Copy Overlap"]=1
 version_name_to_idx_map["Baseline P2P"]=2
@@ -52,14 +50,9 @@ version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Plane-by-Plane (No Co
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=8
 version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 
+
 BIN="./jacobi -s 1"
 NV_BIN="./jacobi_nvshmem -s 1"
-
-MAX_NX=${MAX_NX:-16384}
-MAX_NY=${MAX_NY:-16384}
-
-STARTING_NX=${STARTING_NX:-4096}
-STARTING_NY=${STARTING_NY:-4096}
 
 NUM_ITER=${NUM_ITER:-100000}
 NUM_RUNS=${NUM_RUNS:-5}
@@ -75,29 +68,34 @@ while [ $# -gt 0 ]; do
 done
 
 
-for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
+for (( STARTING_NX = 256; STARTING_NX <= 1024; STARTING_NX*=2 )); do
 
     
     for version_name in "${!version_name_to_idx_map[@]}"; do
         echo "Running ${version_name}"; echo ""
+        NX = ${STARTING_NX}
         NY=${NX}
-
+        NZ=${NX}
         version_idx=${version_name_to_idx_map[$version_name]}
 
         for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS*=2 )); do
             export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_SETTING[${NUM_GPUS}]}
 
             echo "Num GPUS: ${NUM_GPUS}"
-            echo "${NUM_ITER} iterations on grid ${NX}x${NY}"
+            echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
 
             for (( i=1; i <= ${NUM_RUNS}; i++ )); do
-                execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
+                execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -nz  ${NZ} -niter ${NUM_ITER})
                 echo "${execution_time} on run ${i}"
             done
 
             printf "\n"
 
-            NY=$((2*NY))
+            if [[ $NX -le $NY ]]; then
+                NX=$((2*NX))
+            else
+                NY=$((2*NY))
+            fi
         
         done
 
@@ -106,23 +104,28 @@ for (( NX = ${STARTING_NX}; NX <= ${MAX_NX}; NX*=2 )); do
 
     for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
         echo "Running ${version_name}"; echo ""
+        NX = ${STARTING_NX}
         NY=${NX}
-
+        NZ=${NX}
         version_idx=${version_name_to_idx_map_nvshmem[$version_name]}
 
         for (( NP=1; NP <= ${MAX_NUM_GPUS}; NP*=2 )); do
 
             echo "Num GPUS: ${NP}"
-            echo "${NUM_ITER} iterations on grid ${NX}x${NY}"
+            echo "${NUM_ITER} iterations on grid ${NX}x${NY}x${NZ}"
 
             for (( i=1; i <= ${NUM_RUNS}; i++ )); do
-                execution_time=$(mpirun -np ${NP} ${NV_BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
+                execution_time=$(mpirun -np ${NP} ${NV_BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -nz  ${NZ} -niter ${NUM_ITER})
                 echo "${execution_time} on run ${i}"
             done
 
             printf "\n"
 
-            NY=$((2*NY))
+            if [[ $NX -le $NY ]]; then
+                NX=$((2*NX))
+            else
+                NY=$((2*NY))
+            fi
         done
 
         echo "-------------------------------------"
