@@ -395,8 +395,6 @@ long long unsigned int parse_nvshmem_symmetric_size(char *value)
 {
     long long unsigned int units, size;
 
-    assert(value != NULL);
-
     if (strchr(value, 'G') != NULL)
     {
         units = 1e9;

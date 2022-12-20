@@ -1,11 +1,6 @@
 #ifndef INC_3D_STENCIL_NVSHMEM_COMMON_H
 #define INC_3D_STENCIL_NVSHMEM_COMMON_H
 
-#include <cmath>
-#include <cstdio>
-#include <iostream>
-#include <cstdlib>
-
 #include <mpi.h>
 #include <omp.h>
 
@@ -13,7 +8,10 @@
 #include <sstream>
 #include <string>
 #include <array>
-#include <assert.h>
+
+#include <cmath>
+#include <cstdio>
+#include <iostream>
 
 typedef float real;
 
