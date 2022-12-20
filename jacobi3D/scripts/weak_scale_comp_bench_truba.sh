@@ -68,11 +68,11 @@ while [ $# -gt 0 ]; do
 done
 
 
-for (( STARTING_NX = 256; STARTING_NX <= 256; STARTING_NX*=2 )); do
+for (( STARTING_NX=256; STARTING_NX<=256; STARTING_NX*=2 )); do
 
     for version_name in "${!version_name_to_idx_map[@]}"; do
         echo "Running ${version_name}"; echo ""
-        NX = ${STARTING_NX}
+        NX=${STARTING_NX}
         NY=${NX}
         NZ=${NX}
         version_idx=${version_name_to_idx_map[$version_name]}
@@ -99,7 +99,7 @@ for (( STARTING_NX = 256; STARTING_NX <= 256; STARTING_NX*=2 )); do
 
     for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
         echo "Running ${version_name}"; echo ""
-        NX = ${STARTING_NX}
+        NX=${STARTING_NX}
         NY=${NX}
         NZ=${NX}
         version_idx=${version_name_to_idx_map_nvshmem[$version_name]}
