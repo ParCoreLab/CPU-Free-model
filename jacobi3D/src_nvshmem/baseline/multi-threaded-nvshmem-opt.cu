@@ -280,7 +280,7 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
         // int prev = iter % 2;
         // int curr = (iter + 1) % 2;
 
-        jacobi_kernel<dim_block_x, dim_block_y, dim_block_z>
+        BaselineMultiThreadedNvshmemOpt::jacobi_kernel<dim_block_x, dim_block_y, dim_block_z>
             <<<dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0, compute_stream>>>(
                 a_new, a, iz_start, iz_end, ny, nx, top_pe, iz_end_top, bottom_pe,
                 iz_start_bottom);
