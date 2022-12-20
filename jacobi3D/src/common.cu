@@ -180,8 +180,8 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
                iter_max, nx, ny, nz, nccheck);
     fflush(stdout);
     constexpr int dim_block_x = 32;
-    constexpr int dim_block_y = 32;
-    constexpr int dim_block_z = 1;
+    constexpr int dim_block_y = 8;
+    constexpr int dim_block_z = 4;
 
     dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
                   (ny + dim_block_y - 1) / dim_block_y,
