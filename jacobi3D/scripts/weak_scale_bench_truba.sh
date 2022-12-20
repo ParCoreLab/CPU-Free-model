@@ -54,9 +54,9 @@ version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 BIN="./jacobi -s 1"
 NV_BIN="./jacobi_nvshmem -s 1"
 
-MAX_NX=${MAX_NX:-512}
-MAX_NY=${MAX_NY:-512}
-MAX_NZ=${MAX_NZ:-512}
+MAX_NX=${MAX_NX:-1024}
+MAX_NY=${MAX_NY:-1024}
+MAX_NZ=${MAX_NZ:-1024}
 
 STARTING_NX=${STARTING_NX:-256}
 STARTING_NY=${STARTING_NY:-256}
