@@ -69,7 +69,7 @@ while [ $# -gt 0 ]; do
 done
 
 
-for (( STARTING_NX = 4096; STARTING_NX <= 16384; STARTING_NX*=2 )); do
+for (( STARTING_NX = 4096; STARTING_NX <= 4096; STARTING_NX*=2 )); do
 
     for version_name in "${!version_name_to_idx_map[@]}"; do
         echo "Running ${version_name}"; echo ""

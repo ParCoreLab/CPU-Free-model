@@ -68,7 +68,7 @@ while [ $# -gt 0 ]; do
 done
 
 
-for (( STARTING_NX = 256; STARTING_NX <= 1024; STARTING_NX*=2 )); do
+for (( STARTING_NX = 256; STARTING_NX <= 256; STARTING_NX*=2 )); do
 
     
     for version_name in "${!version_name_to_idx_map[@]}"; do
