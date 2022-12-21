@@ -272,7 +272,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     const int top = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom = (mype + 1) % npes;
 
-    if (top != mype)
+    /* if (top != mype)
     {
         int canAccessPeer = 0;
         CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, top));
@@ -297,7 +297,7 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
                 std::cerr << "P2P access required from " << mype << " to " << bottom << std::endl;
             }
         }
-    }
+    } */
 
     nvshmem_barrier_all();
 

@@ -325,32 +325,32 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
     const int top = mype > 0 ? mype - 1 : (num_devices - 1);
     const int bottom = (mype + 1) % num_devices;
 
-    if (top != mype)
+    /*if (top_pe != mype)
     {
         int canAccessPeer = 0;
-        CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, top));
+        CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, top_pe));
         if (canAccessPeer)
         {
-            CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
+            CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top_pe, 0));
         }
         else
         {
-            std::cerr << "P2P access required from " << mype << " to " << top << std::endl;
+            std::cerr << "P2P access required from " << mype << " to " << top_pe << std::endl;
         }
-        if (top != bottom)
+        if (top_pe != bottom_pe)
         {
             canAccessPeer = 0;
-            CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, bottom));
+            CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, bottom_pe));
             if (canAccessPeer)
             {
-                CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom, 0));
+                CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom_pe, 0));
             }
             else
             {
-                std::cerr << "P2P access required from " << mype << " to " << bottom << std::endl;
+                std::cerr << "P2P access required from " << mype << " to " << bottom_pe << std::endl;
             }
         }
-    }
+    }*/
 
     nvshmem_barrier_all();
 
