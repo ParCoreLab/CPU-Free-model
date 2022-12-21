@@ -142,6 +142,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     real *host_val = NULL;
 
     real *x_ref_single_gpu = NULL;
+    real *x_final_result = NULL;
 
     real *s_cpu = NULL;
     real *r_cpu = NULL;
@@ -449,7 +450,64 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
     double stop = MPI_Wtime();
 
-    nvshmem_barrier_all();
+    // if (compare_to_single_gpu) {
+    //     CUDA_RT_CALL(cudaMallocHost(&x_final_result, num_rows * sizeof(real)));
+
+    //     CUDA_RT_CALL(cudaMemcpy(x_final_result + row_start_global_idx, device_x,
+    //                             chunk_size * sizeof(real), cudaMemcpyDeviceToHost));
+    // }
+
+    // report_results(num_rows, x_ref_single_gpu, x_ref_cpu, x_final_result, num_devices,
+    //                single_gpu_runtime, start, stop, compare_to_single_gpu, compare_to_cpu);
+
+    // bool result_correct_single_gpu = true;
+
+    // if (compare_to_single_gpu) {
+    //     for (int i = row_start_global_idx; result_correct_single_gpu && (i < row_end_global_idx);
+    //          i++) {
+    //         if (std::fabs(x_ref_single_gpu[i] - x_final_result[i]) > tol ||
+    //             isnan(x_final_result[i]) || isnan(x_ref_single_gpu[i])) {
+    //             fprintf(stderr,
+    //                     "ERROR: x[%d] = %.8f does not match %.8f "
+    //                     "(reference)\n",
+    //                     i, x_final_result[i], x_ref_single_gpu[i]);
+
+    //             result_correct_single_gpu = false;
+    //         }
+    //     }
+    // }
+
+    // int global_result_correct = 1;
+
+    // MPI_CALL(MPI_Allreduce(&result_correct_single_gpu, &global_result_correct, 1, MPI_INT,
+    // MPI_MIN,
+    //                        MPI_COMM_WORLD));
+
+    // result_correct_single_gpu = global_result_correct;
+
+    // if (mype == 0 && result_correct_single_gpu) {
+    //     printf("Execution time: %8.4f s\n", (stop - start));
+
+    //     if (compare_to_single_gpu) {
+    //         printf(
+    //             "Non-persistent kernel - 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
+    //             "efficiency: %8.2f \n",
+    //             single_gpu_runtime, npes, (stop - start), single_gpu_runtime / (stop - start),
+    //             single_gpu_runtime / (npes * (stop - start)) * 100);
+    //     }
+    // }
+
+    if (mype == 0) {
+        printf("Execution time: %8.4f s\n", (stop - start));
+
+        if (compare_to_single_gpu) {
+            printf(
+                "Non-persistent kernel - 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
+                "efficiency: %8.2f \n",
+                single_gpu_runtime, npes, (stop - start), single_gpu_runtime / (stop - start),
+                single_gpu_runtime / (npes * (stop - start)) * 100);
+        }
+    }
 
     nvshmem_free(device_x);
     nvshmem_free(device_r);
