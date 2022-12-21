@@ -58,9 +58,7 @@ namespace MultiGPUPeerTiling
             a = temp_pointer;
 
             iter++;
-
             cg::sync(grid);
-
             if (!grid.thread_rank())
             {
                 while (iteration_done[0] != iter)
@@ -107,9 +105,13 @@ namespace MultiGPUPeerTiling
 
         while (iter < iter_max)
         {
-            while (iteration_done[1] != iter)
+            if (!grid.thread_rank())
             {
+                while (iteration_done[1] != iter)
+                {
+                }
             }
+            cg::sync(grid);
             if (blockIdx.x == gridDim.x - 1)
             {
                 if (!cta.thread_rank())
@@ -187,7 +189,6 @@ namespace MultiGPUPeerTiling
             {
                 iteration_done[0] = iter;
             }
-            cg::sync(grid);
         }
     }
 } // namespace MultiGPUPeerTiling
@@ -241,7 +242,7 @@ int MultiGPUPeerTiling::init(int argc, char *argv[])
         int chunk_size_low = (nz - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
-        //int nz_per_gpu = nz / num_devices;
+        // int nz_per_gpu = nz / num_devices;
 
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));

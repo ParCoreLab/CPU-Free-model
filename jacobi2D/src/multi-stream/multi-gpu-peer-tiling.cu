@@ -66,7 +66,6 @@ namespace MultiGPUPeerTiling
                 }
                 iteration_done[1] = iter;
             }
-
             cg::sync(grid);
         }
     }
@@ -103,9 +102,14 @@ namespace MultiGPUPeerTiling
 
         while (iter < iter_max)
         {
-            while (iteration_done[1] != iter)
+            
+            if (!grid.thread_rank())
             {
+                while (iteration_done[1] != iter)
+                {
+                }
             }
+            cg::sync(grid);
             if (blockIdx.x == gridDim.x - 1)
             {
                 if (!cta.thread_rank())
@@ -177,8 +181,6 @@ namespace MultiGPUPeerTiling
             {
                 iteration_done[0] = iter;
             }
-
-            cg::sync(grid);
         }
     }
 } // namespace MultiGPUPeerTiling

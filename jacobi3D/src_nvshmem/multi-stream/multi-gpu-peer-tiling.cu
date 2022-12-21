@@ -50,9 +50,7 @@ namespace MultiGPUPeerTilingNvshmem
             a = temp_pointer;
 
             iter++;
-
             cg::sync(grid);
-
             if (!grid.thread_rank())
             {
                 while (iteration_done[0] != iter)
@@ -60,7 +58,6 @@ namespace MultiGPUPeerTilingNvshmem
                 }
                 iteration_done[1] = iter;
             }
-
             cg::sync(grid);
         }
     }
@@ -91,9 +88,13 @@ namespace MultiGPUPeerTilingNvshmem
 
         while (iter < iter_max)
         {
-            while (iteration_done[1] != iter)
+            if (!grid.thread_rank())
             {
+                while (iteration_done[1] != iter)
+                {
+                }
             }
+            cg::sync(grid);
             if (blockIdx.x == gridDim.x - 1)
             {
                 if (!cta.thread_rank())
@@ -166,15 +167,13 @@ namespace MultiGPUPeerTilingNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            
+
             cg::sync(grid);
 
             if (!grid.thread_rank())
             {
                 iteration_done[0] = iter;
             }
-
-            cg::sync(grid);
         }
     }
 } // namespace MultiGPUPeerTiling
@@ -405,8 +404,8 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
                                              inner_domain_stream));
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch((void *)MultiGPUPeerTilingNvshmem::boundary_sync_kernel,
-                                             comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
-                                             boundary_sync_stream));
+                                                         comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
+                                                         boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaGetLastError());
