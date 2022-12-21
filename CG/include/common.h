@@ -30,6 +30,9 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
     return argval;
 }
 
+// convert NVSHMEM_SYMMETRIC_SIZE string to long long unsigned int
+long long unsigned int parse_nvshmem_symmetric_size(char *value);
+
 void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu, real *x,
                     const int num_devices, const double single_gpu_runtime, const double start,
                     const double stop, const bool compare_to_single_gpu, const bool compare_to_cpu);
@@ -185,6 +188,31 @@ __global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a, const int 
 __global__ void init_b_k(real *b, const int gpu_idx);
 }  // namespace MultiGPU
 
+namespace NVSHMEM {
+__global__ void initVectors(real *r, real *x, int chunk_size);
+
+__global__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, real *outputVecY,
+                        int row_start_idx, int chunk_size, int num_rows);
+
+__global__ void gpuSaxpy(real *x, real *y, real a, int chunk_size);
+
+__global__ void gpuCopyVector(real *srcA, real *destB, int chunk_size);
+
+__global__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int chunk_size);
+
+__global__ void r1_div_x(real r1, real r0, real *b, const int gpu_idx);
+
+__global__ void a_minus(real a, real *na, const int gpu_idx);
+
+__global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a, const int gpu_idx);
+
+__global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b, const int gpu_idx);
+
+__global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a, const int gpu_idx);
+
+__global__ void init_b_k(real *b, const int gpu_idx);
+}  // namespace NVSHMEM
+
 // Multi-GPU Sync Kernel
 
 namespace SingleGPUDiscretePipelined {
@@ -276,5 +304,27 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
             return EXIT_FAILURE;                            \
         }                                                   \
     } while (0)
+
+#define MPI_CALL(call)                                                                \
+    {                                                                                 \
+        int mpi_status = call;                                                        \
+        if (MPI_SUCCESS != mpi_status) {                                              \
+            char mpi_error_string[MPI_MAX_ERROR_STRING];                              \
+            int mpi_error_string_length = 0;                                          \
+            MPI_Error_string(mpi_status, mpi_error_string, &mpi_error_string_length); \
+            if (NULL != mpi_error_string)                                             \
+                fprintf(stderr,                                                       \
+                        "ERROR: MPI call \"%s\" in line %d of file %s failed "        \
+                        "with %s "                                                    \
+                        "(%d).\n",                                                    \
+                        #call, __LINE__, __FILE__, mpi_error_string, mpi_status);     \
+            else                                                                      \
+                fprintf(stderr,                                                       \
+                        "ERROR: MPI call \"%s\" in line %d of file %s failed "        \
+                        "with %d.\n",                                                 \
+                        #call, __LINE__, __FILE__, mpi_status);                       \
+            exit(mpi_status);                                                         \
+        }                                                                             \
+    }
 
 #endif  // INC_CG_COMMON_H

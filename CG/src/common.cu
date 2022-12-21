@@ -456,6 +456,7 @@ __global__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, 
             for (int j = 0; j < num_elems_this_row; j++) {
                 int input_vec_elem_idx = J[row_elem + j];
                 int remote_pe = input_vec_elem_idx / chunk_size;
+
                 int remote_pe_idx_offset = input_vec_elem_idx - remote_pe * chunk_size;
 
                 // NVSHMEM calls require explicitly specifying the type

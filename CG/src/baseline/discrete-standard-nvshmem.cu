@@ -62,11 +62,14 @@ __device__ double grid_dot_result = 0.0;
 __global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, int chunk_size) {
     cg::thread_block cta = cg::this_thread_block();
 
+    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t grid_size = gridDim.x * blockDim.x;
+
     extern __shared__ double tmp[];
 
     double temp_sum = 0.0;
 
-    for (size_t i = 0; i < chunk_size; i++) {
+    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
         temp_sum += (double)(vecA[i] * vecB[i]);
     }
 
@@ -169,34 +172,6 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     real real_positive_one = 1.0;
     real real_negative_one = -1.0;
 
-    if (generate_random_tridiag_matrix) {
-        num_rows = 10485760 * 2;
-        num_cols = num_rows;
-
-        nnz = (num_rows - 2) * 3 + 4;
-
-        host_I = (int *)malloc(sizeof(int) * (num_rows + 1));
-        host_J = (int *)malloc(sizeof(int) * nnz);
-        host_val = (real *)malloc(sizeof(real) * nnz);
-
-        /* Generate a random tridiagonal symmetric matrix in CSR format */
-        genTridiag(host_I, host_J, host_val, num_rows, nnz);
-    } else {
-        if (loadMMSparseMatrix<real>(matrix_path_char, 'd', true, &num_rows, &num_cols, &nnz,
-                                     &host_val, &host_I, &host_J, true)) {
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    CUDA_RT_CALL(cudaMalloc((void **)&device_I, sizeof(int) * (num_rows + 1)));
-    CUDA_RT_CALL(cudaMalloc((void **)&device_J, sizeof(int) * nnz));
-    CUDA_RT_CALL(cudaMalloc((void **)&device_val, sizeof(real) * nnz));
-
-    CUDA_RT_CALL(
-        cudaMemcpy(device_I, host_I, sizeof(int) * (num_rows + 1), cudaMemcpyHostToDevice));
-    CUDA_RT_CALL(cudaMemcpy(device_J, host_J, sizeof(int) * nnz, cudaMemcpyHostToDevice));
-    CUDA_RT_CALL(cudaMemcpy(device_val, host_val, sizeof(real) * nnz, cudaMemcpyHostToDevice));
-
     int rank = 0, size = 1;
     MPI_CALL(MPI_Init(&argc, &argv));
     MPI_CALL(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
@@ -237,6 +212,34 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
     mpi_comm = MPI_COMM_WORLD;
     attr.mpi_comm = &mpi_comm;
+
+    if (generate_random_tridiag_matrix) {
+        num_rows = 10485760 * 2;
+        num_cols = num_rows;
+
+        nnz = (num_rows - 2) * 3 + 4;
+
+        host_I = (int *)malloc(sizeof(int) * (num_rows + 1));
+        host_J = (int *)malloc(sizeof(int) * nnz);
+        host_val = (real *)malloc(sizeof(real) * nnz);
+
+        /* Generate a random tridiagonal symmetric matrix in CSR format */
+        genTridiag(host_I, host_J, host_val, num_rows, nnz);
+    } else {
+        if (loadMMSparseMatrix<real>(matrix_path_char, 'd', true, &num_rows, &num_cols, &nnz,
+                                     &host_val, &host_I, &host_J, true)) {
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    CUDA_RT_CALL(cudaMalloc((void **)&device_I, sizeof(int) * (num_rows + 1)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_J, sizeof(int) * nnz));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_val, sizeof(real) * nnz));
+
+    CUDA_RT_CALL(
+        cudaMemcpy(device_I, host_I, sizeof(int) * (num_rows + 1), cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMemcpy(device_J, host_J, sizeof(int) * nnz, cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMemcpy(device_val, host_val, sizeof(real) * nnz, cudaMemcpyHostToDevice));
 
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
@@ -346,118 +349,103 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     NVSHMEM::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_r, device_x,
                                                                           chunk_size);
 
-    // // ax0 = Ax0
+    // ax0 = Ax0
     NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
         device_I, device_J, device_val, real_positive_one, device_x, device_ax0,
         row_start_global_idx, chunk_size, num_rows);
 
-    // CUDA_RT_CALL(cudaGetLastError());
-
-    // // r0 = b0 - ax0
-    // // NOTE: b is a unit vector.
-    // NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
-    //     device_ax0, device_r, real_negative_one, chunk_size);
-
-    // CUDA_RT_CALL(cudaGetLastError());
+    // r0 = b0 - ax0
+    // NOTE: b is a unit vector.
+    NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        device_ax0, device_r, real_negative_one, chunk_size);
 
     // // p0 = r0
-    // NVSHMEM::gpuCopyVector<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_r, device_p,
-    //                                                                         chunk_size);
+    NVSHMEM::gpuCopyVector<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_r, device_p,
+                                                                            chunk_size);
 
-    // CUDA_RT_CALL(cudaGetLastError());
+    gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
+        device_r, device_r, device_dot_gamma1, chunk_size);
 
-    // gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
-    //     device_r, device_r, device_dot_gamma1, chunk_size);
+    // Do global reduction to add up local dot products
+    nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1, device_dot_gamma1,
+                                         sizeof(double), mainStream);
 
-    // CUDA_RT_CALL(cudaGetLastError());
+    nvshmem_barrier_all();
 
-    // // Do global reduction to add up local dot products
-    // nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1,
-    // device_dot_gamma1,
-    //                                      sizeof(double), mainStream);
+    CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
+                                 cudaMemcpyDeviceToHost, mainStream));
 
-    // CUDA_RT_CALL(cudaGetLastError());
+    cudaStreamSynchronize(mainStream);
 
-    // nvshmem_barrier_all();
+    tmp_dot_gamma0 = (real)host_dot_gamma1;
 
-    // CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
-    //                              cudaMemcpyDeviceToHost, mainStream));
+    int k = 1;
 
-    // cudaStreamSynchronize(mainStream);
+    while (k <= iter_max) {
+        // SpMV
+        NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+            device_I, device_J, device_val, real_positive_one, device_p, device_s,
+            row_start_global_idx, chunk_size, num_rows);
 
-    // CUDA_RT_CALL(cudaGetLastError());
+        resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_delta1);
 
-    // tmp_dot_gamma0 = (real)host_dot_gamma1;
+        gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
+            device_p, device_s, device_dot_delta1, chunk_size);
 
-    // int k = 1;
+        // Do global reduction to add up local dot products
+        nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_delta1,
+                                             device_dot_delta1, sizeof(double), mainStream);
 
-    // while (k <= iter_max) {
-    //     // SpMV
-    //     NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
-    //         device_I, device_J, device_val, real_positive_one, device_p, device_s, mype,
-    //         row_start_global_idx, num_devices);
+        nvshmem_barrier_all();
 
-    //     resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_delta1);
+        CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_delta1, device_dot_delta1, sizeof(double),
+                                     cudaMemcpyDeviceToHost, mainStream));
 
-    //     gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
-    //         device_p, device_s, device_dot_delta1, chunk_size);
+        cudaStreamSynchronize(mainStream);
 
-    //     // Do global reduction to add up local dot products
-    //     nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_delta1,
-    //                                          device_dot_delta1, sizeof(double), mainStream);
+        alpha = tmp_dot_gamma0 / ((real)host_dot_delta1);
 
-    //     nvshmem_barrier_all();
+        // x_(k+1) = x_k + alpha_k * p_k
+        NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_p, device_x,
+                                                                           alpha, chunk_size);
 
-    //     CUDA_RT_CALL(cudaMemcpy(&host_dot_delta1, device_dot_delta1, sizeof(double),
-    //                             cudaMemcpyDeviceToHost));
+        negative_alpha = -alpha;
 
-    //     alpha = tmp_dot_gamma0 / ((real)host_dot_delta1);
+        // r_(k+1) = r_k - alpha_k * s
+        NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+            device_s, device_r, negative_alpha, chunk_size);
 
-    //     // x_(k+1) = x_k + alpha_k * p_k
-    //     NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_p,
-    //     device_x,
-    //                                                                        alpha,
-    //                                                                        chunk_size);
+        resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_gamma1);
 
-    //     negative_alpha = -alpha;
+        gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
+            device_r, device_r, device_dot_gamma1, chunk_size);
 
-    //     // r_(k+1) = r_k - alpha_k * s
-    //     NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
-    //         device_s, device_r, negative_alpha, chunk_size);
+        // Do global reduction to add up local dot products
+        nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1,
+                                             device_dot_gamma1, sizeof(double), mainStream);
 
-    //     resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_gamma1);
+        nvshmem_barrier_all();
 
-    //     gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
-    //         device_r, device_r, device_dot_gamma1, chunk_size);
+        CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
+                                     cudaMemcpyDeviceToHost, mainStream));
 
-    //     // Do global reduction to add up local dot products
-    //     nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1,
-    //                                          device_dot_gamma1, sizeof(double), mainStream);
+        cudaStreamSynchronize(mainStream);
 
-    //     nvshmem_barrier_all();
+        beta = ((real)host_dot_gamma1) / tmp_dot_gamma0;
 
-    //     CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
-    //                             cudaMemcpyDeviceToHost, mainStream));
+        // p_(k+1) = r_(k+1) = beta_k * p_(k)
+        NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+            device_r, device_p, real_positive_one, beta, chunk_size);
 
-    // cudaStreamSynchronize(stream);
+        tmp_dot_gamma0 = (real)host_dot_gamma1;
 
-    //     beta = ((real)host_dot_gamma1) / tmp_dot_gamma0;
+        nvshmem_barrier_all();
 
-    //     // p_(k+1) = r_(k+1) = beta_k * p_(k)
-    //     NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
-    //         device_r, device_p, real_positive_one, beta, chunk_size);
-
-    //     tmp_dot_gamma0 = (real)host_dot_gamma1;
-
-    //     nvshmem_barrier_all();
-
-    //     k++;
-    // }
+        k++;
+    }
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
     nvshmem_barrier_all();
-
-    printf("Sup\n");
 
     double stop = MPI_Wtime();
 
