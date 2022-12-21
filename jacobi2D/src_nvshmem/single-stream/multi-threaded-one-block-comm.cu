@@ -244,33 +244,6 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
 
-    /* if (top_pe != mype)
-    {
-        int canAccessPeer = 0;
-        CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, top_pe));
-        if (canAccessPeer)
-        {
-            CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top_pe, 0));
-        }
-        else
-        {
-            std::cerr << "P2P access required from " << mype << " to " << top_pe << std::endl;
-        }
-        if (top_pe != bottom_pe)
-        {
-            canAccessPeer = 0;
-            CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, bottom_pe));
-            if (canAccessPeer)
-            {
-                CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom_pe, 0));
-            }
-            else
-            {
-                std::cerr << "P2P access required from " << mype << " to " << bottom_pe << std::endl;
-            }
-        }
-    } */
-
     nvshmem_barrier_all();
 
     CUDA_RT_CALL(cudaMalloc(&a, nx * (chunk_size + 2) * sizeof(real)));

@@ -55,7 +55,7 @@ version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 BIN="./jacobi -s 1"
 NV_BIN="./jacobi_nvshmem -s 1"
 
-NUM_ITER=${NUM_ITER:-100000}
+NUM_ITER=${NUM_ITER:-10000}
 NUM_RUNS=${NUM_RUNS:-5}
 
 while [ $# -gt 0 ]; do
