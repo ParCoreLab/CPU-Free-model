@@ -365,6 +365,9 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     NVSHMEM::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_r, device_x,
                                                                           chunk_size);
 
+    // NOTE: Need nvshmem_barrier here
+    // To make sure all GPUs finished initializing vectors
+
     // ax0 = Ax0
     NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
         device_I, device_J, device_val, real_positive_one, device_x, device_ax0,
@@ -374,6 +377,9 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     // NOTE: b is a unit vector.
     NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
         device_ax0, device_r, real_negative_one, chunk_size);
+
+    // NOTE: Need nvshmem_barrier here
+    // All GPUs need to finish Saxpy before it's used for SpMV
 
     // w0 = Ar0
     NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
