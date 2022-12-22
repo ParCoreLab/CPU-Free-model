@@ -7,6 +7,7 @@
 #include "../include/baseline/persistent-standard.cuh"
 #include "../include/profiling/discrete-pipelined.cuh"
 #include "../include/profiling/discrete-standard.cuh"
+#include "../include/single-stream/pipelined-nvshmem.cuh"
 #include "../include/single-stream/pipelined.cuh"
 
 #include "../include/common.h"
@@ -20,7 +21,8 @@ int main(int argc, char *argv[]) {
         make_pair("Baseline Persistent Standard", BaselinePersistentStandard::init),
         make_pair("Baseline Discrete Standard NVSHMEM", BaselineDiscreteStandardNVSHMEM::init),
         make_pair("Baseline Discrete Pipelined NVSHMEM", BaselineDiscretePipelinedNVSHMEM::init),
-        make_pair("Single Stream Pipelined ", SingleStreamPipelined::init),
+        make_pair("Single Stream Pipelined", SingleStreamPipelined::init),
+        make_pair("Single Stream Pipelined NVSHMEM", SingleStreamPipelinedNVSHMEM::init),
         make_pair("Profiling Discrete Standard", ProfilingDiscreteStandard::init),
         make_pair("Profiling Discrete Pipelined", ProfilingDiscretePipelined::init),
     };
