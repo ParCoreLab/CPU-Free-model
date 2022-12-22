@@ -402,10 +402,12 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
         // And the use the same NVSHMEM call to do both at the same time
 
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_delta1,
-                                             device_dot_delta1, sizeof(double), mainStream);
+                                             device_dot_delta1, 1, mainStream);
 
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1,
-                                             device_dot_gamma1, sizeof(double), mainStream);
+                                             device_dot_gamma1, 1, mainStream);
+
+        nvshmem_barrier_all();
 
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_delta1, device_dot_delta1, sizeof(double),
                                      cudaMemcpyDeviceToHost, mainStream));

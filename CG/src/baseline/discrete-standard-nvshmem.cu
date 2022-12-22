@@ -393,9 +393,13 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
             device_p, device_s, device_dot_delta1, chunk_size);
 
+        // Do we need a stream sync here?
+        // To make sure dot is done before reduction happens
+        // cudaStreamSynchronize(mainStream);
+
         // Do global reduction to add up local dot products
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_delta1,
-                                             device_dot_delta1, sizeof(double), mainStream);
+                                             device_dot_delta1, 1, mainStream);
 
         nvshmem_barrier_all();
 
@@ -423,7 +427,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
         // Do global reduction to add up local dot products
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1,
-                                             device_dot_gamma1, sizeof(double), mainStream);
+                                             device_dot_gamma1, 1, mainStream);
 
         nvshmem_barrier_all();
 
