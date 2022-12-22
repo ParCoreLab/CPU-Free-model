@@ -178,7 +178,7 @@ __device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int
     }
 }
 
-__global__ void multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *r, real *p,
+__global__ void __launch_bounds__(1024, 1)
                                           real *s, real *z, real *w, real *q, real *ax0,
                                           double *dot_result_delta, double *dot_result_gamma,
                                           int nnz, int num_rows, int row_start_idx, int chunk_size,
@@ -558,10 +558,7 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
         (void *)&iter_max,          (void *)&sMemSize,
     };
 
-    // We normally do 512
-    // But thing doesn't launch with 512
-    // Have to do 256
-    int threadsPerBlock = 256;
+    int threadsPerBlock = 1024;
     int numBlocks = 0;
 
     nvshmemx_collective_launch_query_gridsize((void *)multiGpuConjugateGradient, threadsPerBlock,
