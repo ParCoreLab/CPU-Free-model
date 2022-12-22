@@ -179,10 +179,10 @@ __device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int
 }
 
 __global__ void __launch_bounds__(1024, 1)
-                                          real *s, real *z, real *w, real *q, real *ax0,
-                                          double *dot_result_delta, double *dot_result_gamma,
-                                          int nnz, int num_rows, int row_start_idx, int chunk_size,
-                                          real tol, const int iter_max, const int sMemSize) {
+    multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *r, real *p, real *s,
+                              real *z, real *w, real *q, real *ax0, double *dot_result_delta,
+                              double *dot_result_gamma, int nnz, int num_rows, int row_start_idx,
+                              int chunk_size, real tol, const int iter_max, const int sMemSize) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
     int grid_size = gridDim.x * blockDim.x;
 
@@ -206,6 +206,10 @@ __global__ void __launch_bounds__(1024, 1)
         x[i] = 0.0;
     }
 
+    if (grid.thread_rank() == 0) {
+        nvshmem_barrier_all();
+    }
+
     cg::sync(grid);
 
     // ax0 = AX0
@@ -217,14 +221,20 @@ __global__ void __launch_bounds__(1024, 1)
     // NOTE: b is a unit vector.
     gpuSaxpy(ax0, r, real_negative_one, chunk_size);
 
+    if (grid.thread_rank() == 0) {
+        nvshmem_barrier_all();
+    }
+
     cg::sync(grid);
 
     // w0 = Ar0
     gpuSpMV(I, J, val, real_positive_one, r, w, row_start_idx, chunk_size, num_rows);
 
-    cg::sync(grid);
+    if (grid.thread_rank() == 0) {
+        nvshmem_barrier_all();
+    }
 
-    nvshmem_barrier_all();
+    cg::sync(grid);
 
     int k = 1;
 
@@ -255,13 +265,11 @@ __global__ void __launch_bounds__(1024, 1)
             gpuSpMV(I, J, val, real_positive_one, w, q, row_start_idx, chunk_size, num_rows);
         }
 
-        cg::sync(grid);
-
-        nvshmem_barrier_all();
-
         if (grid.thread_rank() == 0) {
-            printf("Hello from the other side of the plastic marsh\n");
+            nvshmem_barrier_all();
         }
+
+        cg::sync(grid);
 
         tmp_dot_delta1 = *dot_result_delta;
         tmp_dot_gamma1 = *dot_result_gamma;
@@ -298,8 +306,11 @@ __global__ void __launch_bounds__(1024, 1)
 
         tmp_dot_delta0 = (real)tmp_dot_delta1;
 
+        if (grid.thread_rank() == 0) {
+            nvshmem_barrier_all();
+        }
+
         cg::sync(grid);
-        nvshmem_barrier_all();
 
         k++;
     }
@@ -563,8 +574,6 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
 
     nvshmemx_collective_launch_query_gridsize((void *)multiGpuConjugateGradient, threadsPerBlock,
                                               kernelArgs, sMemSize, &numBlocks);
-
-    printf("%d\n", numBlocks);
 
     nvshmem_barrier_all();
 
