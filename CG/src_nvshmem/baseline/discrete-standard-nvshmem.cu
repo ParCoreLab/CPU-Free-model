@@ -339,14 +339,14 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     NVSHMEM::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_r, device_x,
                                                                           chunk_size);
 
-    nvshmem_barrier_all();
+    nvshmemx_barrier_all_on_stream(mainStream);
 
     // ax0 = Ax0
     NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
         device_I, device_J, device_val, real_positive_one, device_x, device_ax0,
         row_start_global_idx, chunk_size, num_rows);
 
-    nvshmem_barrier_all();
+    nvshmemx_barrier_all_on_stream(mainStream);
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
@@ -367,7 +367,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     nvshmemx_double_max_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1, device_dot_gamma1,
                                          1, mainStream);
 
-    nvshmem_barrier_all();
+    nvshmemx_barrier_all_on_stream(mainStream);
 
     CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
                                  cudaMemcpyDeviceToHost, mainStream));
@@ -384,7 +384,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
             device_I, device_J, device_val, real_positive_one, device_p, device_s,
             row_start_global_idx, chunk_size, num_rows);
 
-        nvshmem_barrier_all();
+        nvshmemx_barrier_all_on_stream(mainStream);
 
         resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_delta1);
 
@@ -395,7 +395,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_delta1,
                                              device_dot_delta1, 1, mainStream);
 
-        nvshmem_barrier_all();
+        nvshmemx_barrier_all_on_stream(mainStream);
 
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_delta1, device_dot_delta1, sizeof(double),
                                      cudaMemcpyDeviceToHost, mainStream));
@@ -423,7 +423,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1,
                                              device_dot_gamma1, 1, mainStream);
 
-        nvshmem_barrier_all();
+        nvshmemx_barrier_all_on_stream(mainStream);
 
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
                                      cudaMemcpyDeviceToHost, mainStream));
@@ -439,13 +439,13 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         tmp_dot_gamma0 = (real)host_dot_gamma1;
 
         cudaStreamSynchronize(mainStream);
-        nvshmem_barrier_all();
+        nvshmemx_barrier_all_on_stream(mainStream);
 
         k++;
     }
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
-    nvshmem_barrier_all();
+    nvshmemx_barrier_all_on_stream(mainStream);
 
     double stop = MPI_Wtime();
 
