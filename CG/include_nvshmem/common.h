@@ -33,9 +33,15 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
 // convert NVSHMEM_SYMMETRIC_SIZE string to long long unsigned int
 long long unsigned int parse_nvshmem_symmetric_size(char *value);
 
-void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu, real *x,
-                    const int num_devices, const double single_gpu_runtime, const double start,
-                    const double stop, const bool compare_to_single_gpu, const bool compare_to_cpu);
+void report_errors(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu, real *x,
+                   int row_start_idx, int row_end_idx, const int num_devices,
+                   const double single_gpu_runtime, const double start, const double stop,
+                   const bool compare_to_single_gpu, const bool compare_to_cpu,
+                   bool &result_correct_single_gpu, bool &result_correct_cpu);
+
+void report_runtime(const int num_devices, const double single_gpu_runtime, const double start,
+                    const double stop, const bool result_correct_single_gpu,
+                    const bool result_correct_cpu);
 
 // Single GPU kernels
 namespace SingleGPU {

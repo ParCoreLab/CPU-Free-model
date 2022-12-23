@@ -320,10 +320,10 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMemset(device_dot_gamma1, 0, sizeof(double)));
 
     // Calculate local domain boundaries
-    int row_start_global_idx = mype * chunk_size;          // My start index in the global array
-    int row_end_global_idx = (mype + 1) * chunk_size - 1;  // My end index in the global array
+    int row_start_global_idx = mype * chunk_size;      // My start index in the global array
+    int row_end_global_idx = (mype + 1) * chunk_size;  // My end index in the global array
 
-    row_end_global_idx = std::min(row_end_global_idx, num_rows - 1);
+    row_end_global_idx = std::min(row_end_global_idx, num_rows);
 
     if (compare_to_single_gpu) {
         CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
@@ -465,63 +465,25 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
 
     double stop = MPI_Wtime();
 
-    // if (compare_to_single_gpu) {
-    //     CUDA_RT_CALL(cudaMallocHost(&x_final_result, num_rows * sizeof(real)));
+    if (compare_to_single_gpu || compare_to_cpu) {
+        CUDA_RT_CALL(cudaMallocHost(&x_final_result, num_rows * sizeof(real)));
 
-    //     CUDA_RT_CALL(cudaMemcpy(x_final_result + row_start_global_idx, device_x,
-    //                             chunk_size * sizeof(real), cudaMemcpyDeviceToHost));
-    // }
+        CUDA_RT_CALL(cudaMemcpy(x_final_result + row_start_global_idx, device_x,
+                                chunk_size * sizeof(real), cudaMemcpyDeviceToHost));
+    }
 
-    // report_results(num_rows, x_ref_single_gpu, x_ref_cpu, x_final_result, num_devices,
-    //                single_gpu_runtime, start, stop, compare_to_single_gpu, compare_to_cpu);
+    bool result_correct_single_gpu = true;
+    bool result_correct_cpu = true;
 
-    // bool result_correct_single_gpu = true;
+    report_errors(num_rows, x_ref_single_gpu, x_ref_cpu, x_final_result, row_start_global_idx,
+                  row_end_global_idx, npes, single_gpu_runtime, start, stop, compare_to_single_gpu,
+                  compare_to_cpu, result_correct_single_gpu, result_correct_cpu);
 
-    // if (compare_to_single_gpu) {
-    //     for (int i = row_start_global_idx; result_correct_single_gpu && (i < row_end_global_idx);
-    //          i++) {
-    //         if (std::fabs(x_ref_single_gpu[i] - x_final_result[i]) > tol ||
-    //             isnan(x_final_result[i]) || isnan(x_ref_single_gpu[i])) {
-    //             fprintf(stderr,
-    //                     "ERROR: x[%d] = %.8f does not match %.8f "
-    //                     "(reference)\n",
-    //                     i, x_final_result[i], x_ref_single_gpu[i]);
-
-    //             result_correct_single_gpu = false;
-    //         }
-    //     }
-    // }
-
-    // int global_result_correct = 1;
-
-    // MPI_CALL(MPI_Allreduce(&result_correct_single_gpu, &global_result_correct, 1, MPI_INT,
-    // MPI_MIN,
-    //                        MPI_COMM_WORLD));
-
-    // result_correct_single_gpu = global_result_correct;
-
-    // if (mype == 0 && result_correct_single_gpu) {
-    //     printf("Execution time: %8.4f s\n", (stop - start));
-
-    //     if (compare_to_single_gpu) {
-    //         printf(
-    //             "Non-persistent kernel - 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
-    //             "efficiency: %8.2f \n",
-    //             single_gpu_runtime, npes, (stop - start), single_gpu_runtime / (stop - start),
-    //             single_gpu_runtime / (npes * (stop - start)) * 100);
-    //     }
-    // }
+    nvshmem_barrier_all();
 
     if (mype == 0) {
-        printf("Execution time: %8.4f s\n", (stop - start));
-
-        if (compare_to_single_gpu) {
-            printf(
-                "Non-persistent kernel - 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
-                "efficiency: %8.2f \n",
-                single_gpu_runtime, npes, (stop - start), single_gpu_runtime / (stop - start),
-                single_gpu_runtime / (npes * (stop - start)) * 100);
-        }
+        report_runtime(npes, single_gpu_runtime, start, stop, result_correct_single_gpu,
+                       result_correct_cpu);
     }
 
     nvshmem_free(device_x);
@@ -543,11 +505,17 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     free(host_J);
     free(host_val);
 
-    // Free these when comparing
-    // CUDA_RT_CALL(cudaFreeHost(x_ref_single_gpu));
-    // CUDA_RT_CALL(cudaFreeHost(host_I));
-    // CUDA_RT_CALL(cudaFreeHost(host_J));
-    // CUDA_RT_CALL(cudaFreeHost(host_val));
+    if (compare_to_single_gpu || compare_to_cpu) {
+        cudaFreeHost(x_final_result);
+
+        if (compare_to_single_gpu) {
+            cudaFreeHost(x_ref_single_gpu);
+        }
+
+        if (compare_to_cpu) {
+            cudaFreeHost(x_ref_cpu);
+        }
+    }
 
     nvshmem_finalize();
     MPI_CALL(MPI_Finalize());

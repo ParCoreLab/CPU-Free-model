@@ -75,24 +75,23 @@ void genTridiag(int *I, int *J, real *val, int N, int nnz) {
     I[N] = nnz;
 }
 
-void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu, real *x,
-                    const int num_devices, const double single_gpu_runtime, const double start,
-                    const double stop, const bool compare_to_single_gpu,
-                    const bool compare_to_cpu) {
-    bool result_correct_single_gpu = true;
-    bool result_correct_cpu = true;
+void report_errors(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu, real *x,
+                   int row_start_idx, int row_end_idx, const int num_devices,
+                   const double single_gpu_runtime, const double start, const double stop,
+                   const bool compare_to_single_gpu, const bool compare_to_cpu,
+                   bool &result_correct_single_gpu, bool &result_correct_cpu) {
+    result_correct_single_gpu = true;
+    result_correct_cpu = true;
 
     int i = 0;
 
     if (compare_to_single_gpu) {
-        std::cout << "Comparing correctness against Single GPU" << std::endl;
-
-        for (i = 0; result_correct_single_gpu && (i < num_rows); i++) {
+        for (i = row_start_idx; result_correct_single_gpu && (i < row_end_idx); i++) {
             if (std::fabs(x_ref_single_gpu[i] - x[i]) > tol || isnan(x[i]) ||
                 isnan(x_ref_single_gpu[i])) {
                 fprintf(stderr,
                         "ERROR: x[%d] = %.8f does not match %.8f "
-                        "(reference)\n",
+                        "(Single GPU reference)\n",
                         i, x[i], x_ref_single_gpu[i]);
 
                 result_correct_single_gpu = false;
@@ -101,24 +100,26 @@ void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu,
     }
 
     if (compare_to_cpu) {
-        std::cout << "Comparing correctness against CPU" << std::endl;
-
-        for (i = 0; result_correct_cpu && (i < num_rows); i++) {
+        for (i = row_start_idx; result_correct_cpu && (i < row_end_idx); i++) {
             if (std::fabs(x_ref_cpu[i] - x[i]) > tol || isnan(x[i]) || isnan(x_ref_cpu[i])) {
                 fprintf(stderr,
                         "ERROR: x[%d] = %.8f does not match %.8f "
-                        "(reference)\n",
+                        "(CPU reference)\n",
                         i, x[i], x_ref_cpu[i]);
 
                 result_correct_cpu = false;
             }
         }
     }
+}
 
+void report_runtime(const int num_devices, const double single_gpu_runtime, const double start,
+                    const double stop, const bool result_correct_single_gpu,
+                    const bool result_correct_cpu) {
     if (result_correct_single_gpu && result_correct_cpu) {
         printf("Execution time: %8.4f s\n", (stop - start));
 
-        if (compare_to_single_gpu) {
+        if (result_correct_single_gpu && result_correct_cpu) {
             printf(
                 "Non-persistent kernel - 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
                 "efficiency: %8.2f \n",
