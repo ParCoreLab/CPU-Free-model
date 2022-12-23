@@ -145,12 +145,6 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
             cur_iter_mod = 1 - cur_iter_mod;
 
             cg::sync(grid);
-            if (!grid.thread_rank())
-            {
-                nvshmem_quiet();
-            }
-
-            cg::sync(grid);
         }
     }
 } // namespace SSMultiThreadedMultiBlockCommNvshmem
