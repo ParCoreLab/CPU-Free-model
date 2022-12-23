@@ -521,10 +521,10 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMemset(device_dot_gamma1, 0, sizeof(double)));
 
     // Calculate local domain boundaries
-    int row_start_global_idx = mype * chunk_size;          // My start index in the global array
-    int row_end_global_idx = (mype + 1) * chunk_size - 1;  // My end index in the global array
+    int row_start_global_idx = mype * chunk_size;      // My start index in the global array
+    int row_end_global_idx = (mype + 1) * chunk_size;  // My end index in the global array
 
-    row_end_global_idx = std::min(row_end_global_idx, num_rows - 1);
+    row_end_global_idx = std::min(row_end_global_idx, num_rows);
 
     if (compare_to_single_gpu) {
         CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
