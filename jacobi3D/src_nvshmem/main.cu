@@ -2,6 +2,7 @@
 #include "../include_nvshmem/baseline/multi-threaded-nvshmem-opt.cuh"
 #include "../include_nvshmem/single-stream/multi-threaded-one-block-comm.cuh"
 #include "../include_nvshmem/single-stream/multi-threaded-two-block-comm.cuh"
+#include "../include_nvshmem/single-stream/multi-threaded-multi-block-comm.cuh"
 #include "../include_nvshmem/multi-stream/multi-gpu-peer-tiling.cuh"
 #include "../include_nvshmem/no-compute/multi-threaded-nvshmem-no-compute.cuh"
 #include "../include_nvshmem/no-compute/multi-threaded-nvshmem-opt-no-compute.cuh"
@@ -23,7 +24,8 @@ int main(int argc, char *argv[])
         make_pair("NVSHMEM Baseline Multi Threaded Optimized (No Computation)", BaselineMultiThreadedNvshmemOptNoCompute::init),
         make_pair("NVSHMEM Single stream multi threaded Layer Put (one thread block communicates; no computation)", SSMultiThreadedOneBlockCommNvshmemNoCompute::init),
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate; no computation)", SSMultiThreadedTwoBlockCommNvshmem::init),
-        make_pair("NVSHMEM Double stream multi threaded with Tiling (No Computation)", MultiGPUPeerTilingNvshmemNoCompute::init)
+        make_pair("NVSHMEM Double stream multi threaded with Tiling (No Computation)", MultiGPUPeerTilingNvshmemNoCompute::init),
+        make_pair("NVSHMEM Single stream multi threaded (experimental)", SSMultiThreadedMultiBlockCommNvshmem::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);

@@ -250,8 +250,8 @@ int BaselineMultiThreadedNvshmemOpt::init(int argc, char *argv[])
     nvshmemx_barrier_all_on_stream(compute_stream);
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    constexpr int dim_block_x = 32;
-    constexpr int dim_block_y = 32;
+    constexpr int dim_block_x = 1024;
+    constexpr int dim_block_y = 1;
     constexpr int dim_block_z = 1;
 
     dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
