@@ -47,8 +47,8 @@
 #include <nvshmem.h>
 #include <nvshmemx.h>
 
-#include "../../include/baseline/discrete-pipelined-nvshmem.cuh"
-#include "../../include/common.h"
+#include "../../include_nvshmem/baseline/discrete-pipelined-nvshmem.cuh"
+#include "../../include_nvshmem/common.h"
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>

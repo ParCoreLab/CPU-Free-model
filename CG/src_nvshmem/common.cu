@@ -6,6 +6,9 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 
+#include <nvshmem.h>
+#include <nvshmemx.h>
+
 #include <iostream>
 
 namespace cg = cooperative_groups;
@@ -414,6 +417,138 @@ __global__ void init_b_k(real *b, const int gpu_idx) {
     }
 }
 }  // namespace MultiGPU
+
+// Common kernels used by NVSHMEM versions
+namespace NVSHMEM {
+__global__ void initVectors(real *r, real *x, int chunk_size) {
+    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t grid_size = gridDim.x * blockDim.x;
+
+    int my_pe = nvshmem_my_pe();
+
+    // if (grid_rank == 0) {
+    //     printf("%d\n", my_pe);
+    // }
+
+    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
+        r[i] = 1.0;
+        x[i] = 0.0;
+    }
+}
+
+__global__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, real *outputVecY,
+                        int row_start_idx, int chunk_size, int num_rows) {
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_size = gridDim.x * blockDim.x;
+
+    int mype = nvshmem_my_pe();
+
+    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
+        int global_row_idx = row_start_idx + local_row_idx;
+
+        if (global_row_idx < num_rows) {
+            int row_elem = I[global_row_idx];
+            int next_row_elem = I[global_row_idx + 1];
+            int num_elems_this_row = next_row_elem - row_elem;
+
+            real output = 0.0;
+
+            for (int j = 0; j < num_elems_this_row; j++) {
+                int input_vec_elem_idx = J[row_elem + j];
+                int remote_pe = input_vec_elem_idx / chunk_size;
+
+                int remote_pe_idx_offset = input_vec_elem_idx - remote_pe * chunk_size;
+
+                // NVSHMEM calls require explicitly specifying the type
+                // For now this will only work with double
+
+                real elem_val = (remote_pe == mype)
+                                    ? inputVecX[input_vec_elem_idx]
+                                    : nvshmem_double_g(inputVecX + remote_pe_idx_offset, remote_pe);
+
+                output += alpha * val[row_elem + j] * elem_val;
+            }
+
+            outputVecY[local_row_idx] = output;
+        }
+    }
+}
+
+__global__ void gpuSaxpy(real *x, real *y, real a, int chunk_size) {
+    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t grid_size = gridDim.x * blockDim.x;
+
+    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
+        y[i] = a * x[i] + y[i];
+    }
+}
+
+__global__ void gpuCopyVector(real *srcA, real *destB, int chunk_size) {
+    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t grid_size = gridDim.x * blockDim.x;
+
+    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
+        destB[i] = srcA[i];
+    }
+}
+
+__global__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int chunk_size) {
+    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t grid_size = gridDim.x * blockDim.x;
+
+    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
+        y[i] = a * x[i] + scale * y[i];
+    }
+}
+
+__global__ void r1_div_x(real r1, real r0, real *b, const int gpu_idx) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gpu_idx == 0 && gid == 0) {
+        *b = r1 / r0;
+    }
+}
+
+__global__ void a_minus(real a, real *na, const int gpu_idx) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gpu_idx == 0 && gid == 0) {
+        *na = -a;
+    }
+}
+
+__global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a, const int gpu_idx) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gpu_idx == 0 && gid == 0) {
+        *a = dot_delta_1 / (dot_gamma_1 - (b / *a) * dot_delta_1);
+    }
+}
+
+__global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b, const int gpu_idx) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gpu_idx == 0 && gid == 0) {
+        *b = dot_delta_1 / dot_delta_0;
+    }
+}
+
+__global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a, const int gpu_idx) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gpu_idx == 0 && gid == 0) {
+        *a = dot_delta_1 / dot_gamma_1;
+    }
+}
+
+__global__ void init_b_k(real *b, const int gpu_idx) {
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (gpu_idx == 0 && gid == 0) {
+        *b = 0.0;
+    }
+}
+}  // namespace NVSHMEM
 
 // Single GPU Pipelined Implementation
 
