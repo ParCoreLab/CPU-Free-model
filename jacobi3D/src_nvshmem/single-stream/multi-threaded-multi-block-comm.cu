@@ -281,9 +281,9 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
     int numSms = deviceProp.multiProcessorCount;
 
-    const int dim_block_x = nx >= num_threads_per_block ? num_threads_per_block : pow(2, std::ceil(std::log2(nx)));
-    const int dim_block_y = ny >= (num_threads_per_block / dim_block_x) ? (num_threads_per_block / dim_block_x) : pow(2, std::ceil(std::log2(ny)));
-    const int dim_block_z = chunk_size >= (num_threads_per_block / (dim_block_x * dim_block_y)) ? (num_threads_per_block / (dim_block_x * dim_block_y)) : pow(2, std::ceil(std::log2(chunk_size)));
+    const int dim_block_x = nx >= num_threads_per_block ? num_threads_per_block : (int)pow(2, ceil(log2(nx)));
+    const int dim_block_y = ny >= (num_threads_per_block / dim_block_x) ? (num_threads_per_block / dim_block_x) : (int)pow(2, ceil(log2(ny)));
+    const int dim_block_z = chunk_size >= (num_threads_per_block / (dim_block_x * dim_block_y)) ? (num_threads_per_block / (dim_block_x * dim_block_y)) : (int)pow(2, ceil(log2(chunk_size)));
 
     const int tile_count_x = nx / (dim_block_x) + (nx % (dim_block_x) != 0);
     const int tile_count_y = ny / (dim_block_y) + (ny % (dim_block_y) != 0);
