@@ -10,7 +10,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny, const int nx,
                       const int comm_sm_count_per_layer, const int comm_block_count_per_sm, const int comp_block_count_per_sm,
-                      const int tile_count_y, const int tile_count_x, const int comm_tile_count_x,
+                      const int tile_count_y, const int tile_count_x,
                       const int iter_max,
                       real *halo_buffer_top, real *halo_buffer_bottom,
                       uint64_t *is_done_computing_flags, const int top,
@@ -36,8 +36,8 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
         const int end_ix = (nx - 1);
 
         const int comm_block_id = ((gridDim.x - blockIdx.x) % comm_sm_count_per_layer);
-        const int comm_start_block_y = (((comm_block_id * comm_block_count_per_sm) / comm_tile_count_x) * blockDim.y) * nx;
-        const int comm_start_block_x = ((comm_block_id * comm_block_count_per_sm) % comm_tile_count_x) * blockDim.x;
+        const int comm_start_block_y = (((comm_block_id * comm_block_count_per_sm) / tile_count_x) * blockDim.y) * nx;
+        const int comm_start_block_x = ((comm_block_id * comm_block_count_per_sm) % tile_count_x) * blockDim.x;
         const int comm_start_iy = comm_start_block_y + (threadIdx.y + 1) * nx;
         const int comm_start_ix = comm_start_block_x + threadIdx.x + 1;
 
@@ -281,25 +281,19 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
     int numSms = deviceProp.multiProcessorCount;
 
-    const int comm_dim_block_x = nx >= num_threads_per_block ? num_threads_per_block : (int)pow(2, ceil(log2(nx)));
-    const int comm_dim_block_y = ny >= (num_threads_per_block / comm_dim_block_x) ? (num_threads_per_block / comm_dim_block_x) : (int)pow(2, ceil(log2(ny)));
-
-    const int dim_block_x = 32;
-    const int dim_block_y = 8;
-    const int dim_block_z = 4;
-
-    const int comm_tile_count_x = nx / (comm_dim_block_x) + (nx % (comm_dim_block_x) != 0);
-    const int comm_tile_count_y = ny / (comm_dim_block_y) + (ny % (comm_dim_block_y) != 0);
+    const int dim_block_x = nx >= num_threads_per_block ? num_threads_per_block : (int)pow(2, ceil(log2(nx)));
+    const int dim_block_y = ny >= (num_threads_per_block / dim_block_x) ? (num_threads_per_block / dim_block_x) : (int)pow(2, ceil(log2(ny)));
+    const int dim_block_z = chunk_size >= (num_threads_per_block / dim_block_x * dim_block_y) ? (num_threads_per_block / dim_block_x * dim_block_y) : (int)pow(2, ceil(log2(ny)));
 
     const int tile_count_x = nx / (dim_block_x) + (nx % (dim_block_x) != 0);
     const int tile_count_y = ny / (dim_block_y) + (ny % (dim_block_y) != 0);
     const int tile_count_z = chunk_size / (dim_block_z) + (chunk_size % (dim_block_z) != 0);
 
-    const int comm_layer_tile_count = comm_tile_count_x * comm_tile_count_y;
+    const int comm_layer_tile_count = tile_count_x * tile_count_y;
     const int comp_total_tile_count = tile_count_x * tile_count_y * tile_count_z;
 
-    const int comm_sm_count_per_layer = 1;
-    const int comp_sm_count = comp_total_tile_count < numSms - 2 * comm_sm_count_per_layer ? comp_total_tile_count : numSms - 2 * comm_sm_count_per_layer;
+    const int comp_sm_count = comp_total_tile_count < numSms ? comp_total_tile_count : numSms;
+    const int comm_sm_count_per_layer = comm_layer_tile_count < numSms / 2 ? comm_layer_tile_count : numSms / 2;
 
     int total_num_flags = 2 * 2 * comm_sm_count_per_layer;
 
@@ -363,7 +357,6 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
                           (void *)&comp_block_count_per_sm,
                           (void *)&tile_count_y,
                           (void *)&tile_count_x,
-                          (void *)&comm_tile_count_x,
                           (void *)&iter_max,
                           (void *)&halo_buffer_top,
                           (void *)&halo_buffer_bottom,
