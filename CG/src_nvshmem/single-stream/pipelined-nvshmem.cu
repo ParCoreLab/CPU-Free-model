@@ -86,24 +86,13 @@ __device__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, 
                 // NVSHMEM calls require explicitly specifying the type
                 // For now this will only work with double
 
-                real elem_val = (remote_pe == mype)
-                                    ? inputVecX[input_vec_elem_idx]
-                                    : nvshmem_double_g(inputVecX + remote_pe_idx_offset, remote_pe);
+                real elem_val = nvshmem_double_g(inputVecX + remote_pe_idx_offset, remote_pe);
 
                 output += alpha * val[row_elem + j] * elem_val;
             }
 
             outputVecY[local_row_idx] = output;
         }
-    }
-}
-
-__device__ void gpuSaxpy(real *x, real *y, real a, int chunk_size) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
-    for (int i = grid_rank; i < chunk_size; i += grid_size) {
-        y[i] = a * x[i] + y[i];
     }
 }
 
@@ -169,6 +158,15 @@ __device__ void gpuCopyVector(real *srcA, real *destB, int chunk_size) {
     }
 }
 
+__device__ void gpuSaxpy(real *x, real *y, real a, int chunk_size) {
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_size = gridDim.x * blockDim.x;
+
+    for (int i = grid_rank; i < chunk_size; i += grid_size) {
+        y[i] = a * x[i] + y[i];
+    }
+}
+
 __device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int chunk_size) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
     int grid_size = gridDim.x * blockDim.x;
@@ -180,8 +178,8 @@ __device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int
 
 __global__ void __launch_bounds__(1024, 1)
     multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *r, real *p, real *s,
-                              real *z, real *w, real *q, real *ax0, double *dot_result_delta,
-                              double *dot_result_gamma, int nnz, int num_rows, int row_start_idx,
+                              real *z, real *w, real *q, real *ax0, double *dot_delta1,
+                              double *dot_gamma1, int nnz, int num_rows, int row_start_idx,
                               int chunk_size, real tol, const int iter_max, const int sMemSize) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
     int grid_size = gridDim.x * blockDim.x;
@@ -194,8 +192,8 @@ __global__ void __launch_bounds__(1024, 1)
 
     real tmp_dot_delta0 = 0.0;
 
-    real tmp_dot_delta1;
-    real tmp_dot_gamma1;
+    real real_tmp_dot_delta1;
+    real real_tmp_dot_gamma1;
 
     real beta;
     real alpha;
@@ -216,6 +214,10 @@ __global__ void __launch_bounds__(1024, 1)
 
     // ax0 = AX0
     gpuSpMV(I, J, val, real_positive_one, x, ax0, row_start_idx, chunk_size, num_rows);
+
+    if (grid.thread_rank() == 0) {
+        nvshmem_barrier_all();
+    }
 
     cg::sync(grid);
 
@@ -242,14 +244,13 @@ __global__ void __launch_bounds__(1024, 1)
 
     while (k <= iter_max) {
         if (grid.thread_rank() == 0) {
-            *dot_result_delta = 0.0;
-            *dot_result_gamma = 0.0;
+            *dot_delta1 = 0.0;
+            *dot_gamma1 = 0.0;
         }
 
         cg::sync(grid);
 
-        gpuDotProductsMerged(r, r, r, w, dot_result_delta, dot_result_gamma, cta, chunk_size,
-                             sMemSize);
+        gpuDotProductsMerged(r, r, r, w, dot_delta1, dot_gamma1, cta, chunk_size, sMemSize);
 
         cg::sync(grid);
 
@@ -257,11 +258,9 @@ __global__ void __launch_bounds__(1024, 1)
         // Rest are for SpMV
 
         if (blockIdx.x == (gridDim.x - 1)) {
-            nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, dot_result_delta, dot_result_delta,
-                                             1);
+            nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, dot_delta1, dot_delta1, 1);
 
-            nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, dot_result_gamma, dot_result_gamma,
-                                             1);
+            nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
 
         } else {
             gpuSpMV(I, J, val, real_positive_one, w, q, row_start_idx, chunk_size, num_rows);
@@ -273,15 +272,16 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
-        tmp_dot_delta1 = *dot_result_delta;
-        tmp_dot_gamma1 = *dot_result_gamma;
+        real_tmp_dot_delta1 = (real)*dot_delta1;
+        real_tmp_dot_gamma1 = (real)*dot_gamma1;
 
         if (k > 1) {
-            beta = tmp_dot_delta1 / tmp_dot_delta0;
-            alpha = tmp_dot_delta1 / (tmp_dot_gamma1 - (beta / alpha) * tmp_dot_delta1);
+            beta = real_tmp_dot_delta1 / tmp_dot_delta0;
+            alpha =
+                real_tmp_dot_delta1 / (real_tmp_dot_gamma1 - (beta / alpha) * real_tmp_dot_delta1);
         } else {
             beta = 0.0;
-            alpha = tmp_dot_delta1 / tmp_dot_gamma1;
+            alpha = real_tmp_dot_delta1 / real_tmp_dot_gamma1;
         }
 
         // z_k = q_k + beta_k * z_(k-1)
@@ -306,7 +306,7 @@ __global__ void __launch_bounds__(1024, 1)
         // w_(k+1) = w_k - alpha_k * z_k
         gpuSaxpy(z, w, negative_alpha, chunk_size);
 
-        tmp_dot_delta0 = (real)tmp_dot_delta1;
+        tmp_dot_delta0 = real_tmp_dot_delta1;
 
         if (grid.thread_rank() == 0) {
             nvshmem_barrier_all();
@@ -458,7 +458,7 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     long long unsigned int mesh_size_per_rank = num_rows / size + (num_rows % size != 0);
 
     long long unsigned int required_symmetric_heap_size =
-        9 * mesh_size_per_rank * sizeof(real) * 1.1;
+        8 * mesh_size_per_rank * sizeof(real) * 1.1;
 
     char *value = getenv("NVSHMEM_SYMMETRIC_SIZE");
     if (value) { /* env variable is set */
@@ -556,7 +556,9 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaDeviceSynchronize());
     nvshmem_barrier_all();
 
-    int sMemSize = 2 * sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
+    int threadsPerBlock = 1024;
+
+    int sMemSize = 2 * sizeof(double) * ((threadsPerBlock / 32) + 1);
 
     void *kernelArgs[] = {
         (void *)&device_I,          (void *)&device_J,
@@ -571,7 +573,6 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
         (void *)&iter_max,          (void *)&sMemSize,
     };
 
-    int threadsPerBlock = 1024;
     int numBlocks = 0;
 
     nvshmemx_collective_launch_query_gridsize((void *)multiGpuConjugateGradient, threadsPerBlock,
