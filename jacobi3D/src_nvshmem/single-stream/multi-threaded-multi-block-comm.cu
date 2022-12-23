@@ -35,7 +35,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
         const int end_iy = (ny - 1) * nx;
         const int end_ix = (nx - 1);
 
-        const int comm_block_id = ((gridDim.x - blockIdx.x) % comm_sm_count_per_layer);
+        const int comm_block_id = blockIdx.x % comm_sm_count_per_layer;
         const int comm_start_block_y = (((comm_block_id * comm_block_count_per_sm) / tile_count_x) * blockDim.y) * nx;
         const int comm_start_block_x = ((comm_block_id * comm_block_count_per_sm) % tile_count_x) * blockDim.x;
         const int comm_start_iy = comm_start_block_y + (threadIdx.y + 1) * nx;
@@ -47,7 +47,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
         {
             int block_count = 0;
 
-            if (blockIdx.x >= gridDim.x - comm_sm_count_per_layer)
+            if (blockIdx.x < comm_sm_count_per_layer)
             {
                 int iy = comm_start_iy;
                 int ix = comm_start_ix;
@@ -81,7 +81,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                     is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
             }
-            else if (blockIdx.x >= gridDim.x - 2 * comm_sm_count_per_layer)
+            else if (blockIdx.x < 2 * comm_sm_count_per_layer)
             {
                 int iy = comm_start_iy;
                 int ix = comm_start_ix;
@@ -114,29 +114,27 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                     is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
             }
-            else
-            {
-                int iz = comp_start_iz;
-                int iy = comp_start_iy;
-                int ix = comp_start_ix;
 
-                for (; block_count < comp_block_count_per_sm && iz < end_iz; iz += iz_dim)
+            int iz = comp_start_iz;
+            int iy = comp_start_iy;
+            int ix = comp_start_ix;
+
+            for (; block_count < comp_block_count_per_sm && iz < end_iz; iz += iz_dim)
+            {
+                for (; block_count < comp_block_count_per_sm && iy < end_iy; iy += iy_dim)
                 {
-                    for (; block_count < comp_block_count_per_sm && iy < end_iy; iy += iy_dim)
+                    for (; block_count < comp_block_count_per_sm && ix < end_ix; ix += ix_dim)
                     {
-                        for (; block_count < comp_block_count_per_sm && ix < end_ix; ix += ix_dim)
-                        {
-                            a_new[iz + iy + ix] = (real(1) / real(6)) *
-                                                  (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
-                                                   a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
-                                                   a[iz - ny * nx + iy + ix]);
-                            block_count++;
-                        }
-                        block_count += (block_count < comp_block_count_per_sm) && !(ix < end_ix);
-                        ix = (threadIdx.x + 1);
+                        a_new[iz + iy + ix] = (real(1) / real(6)) *
+                                              (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
+                                               a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
+                                               a[iz - ny * nx + iy + ix]);
+                        block_count++;
                     }
-                    iy = (threadIdx.y + 1) * nx;
+                    block_count += (block_count < comp_block_count_per_sm) && !(ix < end_ix);
+                    ix = (threadIdx.x + 1);
                 }
+                iy = (threadIdx.y + 1) * nx;
             }
 
             // needs extensive testing
