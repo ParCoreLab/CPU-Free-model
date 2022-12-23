@@ -46,11 +46,10 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
         while (iter < iter_max)
         {
             int block_count = 0;
-
+            int iy = comm_start_iy;
+            int ix = comm_start_ix;
             if (blockIdx.x < comm_sm_count_per_layer)
             {
-                int iy = comm_start_iy;
-                int ix = comm_start_ix;
                 if (!cta.thread_rank())
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id, NVSHMEM_CMP_EQ, iter);
@@ -83,8 +82,6 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
             }
             else if (blockIdx.x < 2 * comm_sm_count_per_layer)
             {
-                int iy = comm_start_iy;
-                int ix = comm_start_ix;
                 if (!cta.thread_rank())
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, NVSHMEM_CMP_EQ, iter);
@@ -116,9 +113,9 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
             }
 
             int iz = comp_start_iz;
-            int iy = comp_start_iy;
-            int ix = comp_start_ix;
-
+            iy = comp_start_iy;
+            ix = comp_start_ix;
+            block_count = 0;
             for (; block_count < comp_block_count_per_sm && iz < end_iz; iz += iz_dim)
             {
                 for (; block_count < comp_block_count_per_sm && iy < end_iy; iy += iy_dim)
