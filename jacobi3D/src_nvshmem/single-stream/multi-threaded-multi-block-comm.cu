@@ -143,15 +143,14 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
-            
+
             cg::sync(grid);
             if (!grid.thread_rank())
             {
                 nvshmem_quiet();
             }
-            
-            cg::sync(grid);
 
+            cg::sync(grid);
         }
     }
 } // namespace SSMultiThreadedMultiBlockCommNvshmem
@@ -224,7 +223,7 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * 3 ;
+    long long unsigned int mesh_size_per_rank = nx * ny * 3;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -282,9 +281,9 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
     int numSms = deviceProp.multiProcessorCount;
 
-    const int dim_block_x = nx >= num_threads_per_block ? num_threads_per_block : 2 ^ ((unsigned int)std::ceil(std::log2(nx)));
-    const int dim_block_y = ny >= (num_threads_per_block / dim_block_x) ? (num_threads_per_block / dim_block_x) : 2 ^ ((unsigned int)std::ceil(std::log2(ny)));
-    const int dim_block_z = chunk_size >= (num_threads_per_block / (dim_block_x * dim_block_y)) ? (num_threads_per_block / (dim_block_x * dim_block_y)) : 2 ^ ((unsigned int)std::ceil(std::log2(chunk_size)));
+    const int dim_block_x = nx >= num_threads_per_block ? num_threads_per_block : pow(2, std::ceil(std::log2(nx)));
+    const int dim_block_y = ny >= (num_threads_per_block / dim_block_x) ? (num_threads_per_block / dim_block_x) : pow(2, std::ceil(std::log2(ny)));
+    const int dim_block_z = chunk_size >= (num_threads_per_block / (dim_block_x * dim_block_y)) ? (num_threads_per_block / (dim_block_x * dim_block_y)) : pow(2, std::ceil(std::log2(chunk_size)));
 
     const int tile_count_x = nx / (dim_block_x) + (nx % (dim_block_x) != 0);
     const int tile_count_y = ny / (dim_block_y) + (ny % (dim_block_y) != 0);
@@ -300,8 +299,8 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
 
     const int comp_block_count_per_sm = comp_total_tile_count / comp_sm_count + (comp_total_tile_count % comp_sm_count != 0);
     const int comm_block_count_per_sm = comm_layer_tile_count / comm_sm_count + (comm_layer_tile_count % comm_sm_count != 0);
-    printf("dim_block_x:%d\ndim_block_y:%d\ndim_block_z:%d\ntile_count_x:%d\ntile_count_y:%d\ntile_count_z:%d\ncomm_layer_tile_count:%d\ncomp_total_tile_count:%d\ncomp_sm_count:%d\ncomm_sm_count:%d",
-    dim_block_x,dim_block_y,dim_block_z,tile_count_x,tile_count_y,tile_count_z,comm_layer_tile_count,comp_total_tile_count,comp_sm_count,comm_sm_count);
+    printf("dim_block_x:%d\ndim_block_y:%d\ndim_block_z:%d\ntile_count_x:%d\ntile_count_y:%d\ntile_count_z:%d\ncomm_layer_tile_count:%d\ncomp_total_tile_count:%d\ncomp_sm_count:%d\ncomm_sm_count:%d\n",
+           dim_block_x, dim_block_y, dim_block_z, tile_count_x, tile_count_y, tile_count_z, comm_layer_tile_count, comp_total_tile_count, comp_sm_count, comm_sm_count);
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
 
