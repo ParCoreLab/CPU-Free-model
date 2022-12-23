@@ -243,12 +243,6 @@ __global__ void initVectors(real *r, real *x, int chunk_size) {
     size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
     size_t grid_size = gridDim.x * blockDim.x;
 
-    int my_pe = nvshmem_my_pe();
-
-    // if (grid_rank == 0) {
-    //     printf("%d\n", my_pe);
-    // }
-
     for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
         r[i] = 1.0;
         x[i] = 0.0;
