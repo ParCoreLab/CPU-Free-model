@@ -37,92 +37,6 @@ void report_results(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu,
                     const int num_devices, const double single_gpu_runtime, const double start,
                     const double stop, const bool compare_to_single_gpu, const bool compare_to_cpu);
 
-// Data filled on CPU needed for MultiGPU operations.
-struct MultiDeviceData {
-    unsigned char *hostMemoryArrivedList;
-    unsigned int numDevices;
-    unsigned int deviceRank;
-};
-
-// Class used for coordination of multiple devices.
-class PeerGroup {
-    const MultiDeviceData &data;
-    const cg::grid_group &grid;
-
-    __device__ unsigned char load_arrived(unsigned char *arrived) const {
-#if __CUDA_ARCH__ < 700
-        return *(volatile unsigned char *)arrived;
-#else
-        unsigned int result;
-        asm volatile("ld.acquire.sys.global.u8 %0, [%1];" : "=r"(result) : "l"(arrived) : "memory");
-        return result;
-#endif
-    }
-
-    __device__ void store_arrived(unsigned char *arrived, unsigned char val) const {
-#if __CUDA_ARCH__ < 700
-        *(volatile unsigned char *)arrived = val;
-#else
-        unsigned int reg_val = val;
-        asm volatile("st.release.sys.global.u8 [%1], %0;" ::"r"(reg_val) "l"(arrived) : "memory");
-
-        // Avoids compiler warnings from unused variable val.
-        (void)(reg_val = reg_val);
-#endif
-    }
-
-   public:
-    __device__ PeerGroup(const MultiDeviceData &data, const cg::grid_group &grid)
-        : data(data), grid(grid){};
-
-    __device__ unsigned int size() const { return data.numDevices * grid.size(); }
-
-    __device__ unsigned int thread_rank() const {
-        return data.deviceRank * grid.size() + grid.thread_rank();
-    }
-
-    __device__ void sync() const {
-        grid.sync();
-
-        // One thread from each grid participates in the sync.
-        if (grid.thread_rank() == 0) {
-            if (data.deviceRank == 0) {
-                // Leader grid waits for others to join and then releases them.
-                // Other GPUs can arrive in any order, so the leader have to wait for
-                // all others.
-                for (int i = 0; i < data.numDevices - 1; i++) {
-                    while (load_arrived(&data.hostMemoryArrivedList[i]) == 0)
-                        ;
-                }
-                for (int i = 0; i < data.numDevices - 1; i++) {
-                    store_arrived(&data.hostMemoryArrivedList[i], 0);
-                }
-                __threadfence_system();
-            } else {
-                // Other grids note their arrival and wait to be released.
-                store_arrived(&data.hostMemoryArrivedList[data.deviceRank - 1], 1);
-                while (load_arrived(&data.hostMemoryArrivedList[data.deviceRank - 1]) == 1)
-                    ;
-            }
-        }
-
-        grid.sync();
-    }
-
-    // Calculate size of a grid with `num_allocated_tbs` thread blocks
-    __device__ unsigned int calc_subgrid_size(const int num_allocated_tbs) const {
-        return num_allocated_tbs * THREADS_PER_BLOCK;
-    }
-
-    // Calculate rank of a thread in grid with `num_allocated_tbs thread blocks
-    __device__ unsigned int calc_subgrid_thread_rank(const int num_allocated_tbs) const {
-        int thread_rank = grid.thread_rank();
-        int subgrid_size = calc_subgrid_size(num_allocated_tbs);
-
-        return (subgrid_size > thread_rank) ? thread_rank : thread_rank - subgrid_size;
-    }
-};
-
 // Single GPU kernels
 namespace SingleGPU {
 __global__ void initVectors(real *r, real *x, int num_rows);
@@ -149,44 +63,6 @@ __global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a);
 __global__ void init_b_k(real *b);
 
 }  // namespace SingleGPU
-
-// Multi GPU kernels
-namespace MultiGPU {
-__global__ void initVectors(real *r, real *x, int num_rows, const int device_rank,
-                            const int num_devices);
-
-__global__ void gpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha,
-                        real *inputVecX, real *outputVecY, const int device_rank,
-                        const int num_devices);
-
-__global__ void gpuSaxpy(real *x, real *y, real a, int num_rows, const int device_rank,
-                         const int num_devices);
-
-__global__ void gpuCopyVector(real *srcA, real *destB, int num_rows, const int device_rank,
-                              const int num_devices);
-
-__global__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int num_rows,
-                                       const int device_rank, const int num_devices);
-
-__device__ unsigned char load_arrived(unsigned char *arrived);
-
-__device__ void store_arrived(unsigned char *arrived, unsigned char val);
-
-__global__ void syncPeers(const int device_rank, const int num_devices,
-                          unsigned char *hostMemoryArrivedList);
-
-__global__ void a_minus(real a, real *na, const int gpu_idx);
-
-__global__ void r1_div_x(real r1, real r0, real *b, const int gpu_idx);
-
-__global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a, const int gpu_idx);
-
-__global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b, const int gpu_idx);
-
-__global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a, const int gpu_idx);
-
-__global__ void init_b_k(real *b, const int gpu_idx);
-}  // namespace MultiGPU
 
 namespace NVSHMEM {
 __global__ void initVectors(real *r, real *x, int chunk_size);

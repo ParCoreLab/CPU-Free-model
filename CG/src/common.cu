@@ -18,27 +18,6 @@ bool get_arg(char **begin, char **end, const std::string &arg) {
     return false;
 }
 
-long long unsigned int parse_nvshmem_symmetric_size(char *value) {
-    long long unsigned int units, size;
-
-    assert(value != NULL);
-
-    if (strchr(value, 'G') != NULL) {
-        units = 1e9;
-    } else if (strchr(value, 'M') != NULL) {
-        units = 1e6;
-    } else if (strchr(value, 'K') != NULL) {
-        units = 1e3;
-    } else {
-        units = 1;
-    }
-
-    assert(atof(value) >= 0);
-    size = (long long unsigned int)atof(value) * units;
-
-    return size;
-}
-
 /* genTridiag: generate a random tridiagonal symmetric matrix */
 void genTridiag(int *I, int *J, real *val, int N, int nnz) {
     I[0] = 0, J[0] = 0, J[1] = 1;
