@@ -208,6 +208,7 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
         MPI_CALL(MPI_Finalize());
         return 1;
     }
+
     if (1 == num_devices) {
         // Only 1 device visible, assuming GPU affinity is handled via CUDA_VISIBLE_DEVICES
         CUDA_RT_CALL(cudaSetDevice(0));
@@ -257,7 +258,7 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     long long unsigned int mesh_size_per_rank = num_rows / size + (num_rows % size != 0);
 
     long long unsigned int required_symmetric_heap_size =
-        9 * mesh_size_per_rank * sizeof(real) * 1.1;
+        8 * mesh_size_per_rank * sizeof(real) * 1.1;
 
     char *value = getenv("NVSHMEM_SYMMETRIC_SIZE");
     if (value) { /* env variable is set */
@@ -286,6 +287,7 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     nvshmem_barrier_all();
 
     cudaStream_t mainStream;
+
     CUDA_RT_CALL(cudaStreamCreateWithFlags(&mainStream, cudaStreamNonBlocking));
 
     nvshmem_barrier_all();
@@ -355,7 +357,7 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaDeviceSynchronize());
     nvshmem_barrier_all();
 
-    int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
+    int sMemSize = 2 * sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
     int numBlocks = (chunk_size + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
     nvshmem_barrier_all();
@@ -365,33 +367,32 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     NVSHMEM::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_r, device_x,
                                                                           chunk_size);
 
-    // NOTE: Need nvshmem_barrier here
-    // To make sure all GPUs finished initializing vectors
+    nvshmemx_barrier_all_on_stream(mainStream);
 
     // ax0 = Ax0
     NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
         device_I, device_J, device_val, real_positive_one, device_x, device_ax0,
         row_start_global_idx, chunk_size, num_rows);
 
+    nvshmemx_barrier_all_on_stream(mainStream);
+
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
     NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
         device_ax0, device_r, real_negative_one, chunk_size);
 
-    // NOTE: Need nvshmem_barrier here
-    // All GPUs need to finish Saxpy before it's used for SpMV
+    nvshmemx_barrier_all_on_stream(mainStream);
 
     // w0 = Ar0
     NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
         device_I, device_J, device_val, real_positive_one, device_r, device_w, row_start_global_idx,
         chunk_size, num_rows);
 
-    nvshmem_barrier_all();
+    nvshmemx_barrier_all_on_stream(mainStream);
 
     int k = 1;
 
     while (k <= iter_max) {
-        // Two dot products => <r, r> and <r, w>
         resetLocalDotProducts<<<1, 1, 0, mainStream>>>(device_dot_delta1, device_dot_gamma1);
 
         // Dot
@@ -404,6 +405,8 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
             device_I, device_J, device_val, real_positive_one, device_w, device_q,
             row_start_global_idx, chunk_size, num_rows);
 
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
         // NOTE: Instead of doing this could have the local dots be in contiguous locations
         // And the use the same NVSHMEM call to do both at the same time
 
@@ -413,7 +416,11 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1,
                                              device_dot_gamma1, 1, mainStream);
 
-        nvshmem_barrier_all();
+        // Using nvshmem_barrier_all() here seems to cause a deadlock
+        // Wonder why?
+        // Because two reductions are enqued to same stream back to back?
+        // In any case, should use one contiguous array for reductions
+        nvshmemx_barrier_all_on_stream(mainStream);
 
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_delta1, device_dot_delta1, sizeof(double),
                                      cudaMemcpyDeviceToHost, mainStream));
@@ -421,14 +428,18 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
                                      cudaMemcpyDeviceToHost, mainStream));
 
-        cudaStreamSynchronize(mainStream);
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
+        real real_tmp_dot_delta1 = (real)host_dot_delta1;
+        real real_tmp_dot_gamma1 = (real)host_dot_gamma1;
 
         if (k > 1) {
-            beta = host_dot_delta1 / tmp_dot_delta0;
-            alpha = host_dot_delta1 / (host_dot_gamma1 - (beta / alpha) * host_dot_delta1);
+            beta = real_tmp_dot_delta1 / tmp_dot_delta0;
+            alpha =
+                real_tmp_dot_delta1 / (real_tmp_dot_gamma1 - (beta / alpha) * real_tmp_dot_delta1);
         } else {
             beta = 0.0;
-            alpha = host_dot_delta1 / host_dot_gamma1;
+            alpha = real_tmp_dot_delta1 / real_tmp_dot_gamma1;
         }
 
         NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
@@ -453,15 +464,16 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
         NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             device_z, device_w, negative_alpha, chunk_size);
 
-        tmp_dot_delta0 = (real)host_dot_delta1;
+        tmp_dot_delta0 = real_tmp_dot_delta1;
 
-        nvshmem_barrier_all();
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+        nvshmemx_barrier_all_on_stream(mainStream);
 
         k++;
     }
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
-    nvshmem_barrier_all();
+    nvshmemx_barrier_all_on_stream(mainStream);
 
     double stop = MPI_Wtime();
 
