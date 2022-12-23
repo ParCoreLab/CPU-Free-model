@@ -368,20 +368,8 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     real *device_q;
     real *device_ax0;
 
-    real alpha;
-    real negative_alpha;
-    real beta;
-
-    real tmp_dot_gamma0;
-    real tmp_dot_delta0;
-
     double *device_dot_delta1;
     double *device_dot_gamma1;
-    double host_dot_gamma1;
-    double host_dot_delta1;
-
-    real real_positive_one = 1.0;
-    real real_negative_one = -1.0;
 
     int rank = 0, size = 1;
     MPI_CALL(MPI_Init(&argc, &argv));
@@ -556,8 +544,11 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaDeviceSynchronize());
     nvshmem_barrier_all();
 
+    // WARNING!!!
+    // This was causing issues for me
+    // Get rid of THREADS_PER_BLOCK
+    // Use per version threadsPerBlock variable
     int threadsPerBlock = 1024;
-
     int sMemSize = 2 * sizeof(double) * ((threadsPerBlock / 32) + 1);
 
     void *kernelArgs[] = {

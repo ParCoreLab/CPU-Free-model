@@ -442,15 +442,19 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
             alpha = real_tmp_dot_delta1 / real_tmp_dot_gamma1;
         }
 
+        // z_k = q_k + beta_k * z_(k-1)
         NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             device_q, device_z, real_positive_one, beta, chunk_size);
 
+        // s_k = w_k + beta_k * s_(k-1)
         NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             device_w, device_s, real_positive_one, beta, chunk_size);
 
+        // p_k = r_k = beta_k * p_(k-1)
         NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             device_r, device_p, real_positive_one, beta, chunk_size);
 
+        // x_(k+1) = x_k + alpha_k * p_k
         NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_p, device_x,
                                                                            alpha, chunk_size);
 
