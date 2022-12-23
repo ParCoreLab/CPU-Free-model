@@ -10,7 +10,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
     __global__ void __launch_bounds__(1024, 1)
         jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny, const int nx,
                       const int comm_sm_count_per_layer, const int comm_block_count_per_sm, const int comp_block_count_per_sm,
-                      const int tile_count_y, const int tile_count_x,const int comm_tile_count_x,
+                      const int tile_count_y, const int tile_count_x, const int comm_tile_count_x,
                       const int iter_max,
                       real *halo_buffer_top, real *halo_buffer_bottom,
                       uint64_t *is_done_computing_flags, const int top,
@@ -35,7 +35,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
         const int end_iy = (ny - 1) * nx;
         const int end_ix = (nx - 1);
 
-        const int comm_block_id = ((gridDim.x-blockIdx.x) % comm_sm_count_per_layer);
+        const int comm_block_id = ((gridDim.x - blockIdx.x) % comm_sm_count_per_layer);
         const int comm_start_block_y = (((comm_block_id * comm_block_count_per_sm) / comm_tile_count_x) * blockDim.y) * nx;
         const int comm_start_block_x = ((comm_block_id * comm_block_count_per_sm) % comm_tile_count_x) * blockDim.x;
         const int comm_start_iy = comm_start_block_y + (threadIdx.y + 1) * nx;
@@ -53,7 +53,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                 int ix = comm_start_ix;
                 if (!cta.thread_rank())
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * comm_sm_count_per_layer + comm_block_id, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
 
@@ -78,7 +78,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                     halo_buffer_bottom + next_iter_mod * ny * nx + comm_start_block_y + comm_start_block_x,
                     a_new + comm_start_iz + comm_start_block_y + comm_start_block_x,
                     comm_block_count_per_sm * cta.num_threads() * sizeof(real),
-                    is_done_computing_flags + next_iter_mod * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
+                    is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
             }
             else if (blockIdx.x >= gridDim.x - 2 * comm_sm_count_per_layer)
@@ -87,7 +87,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                 int ix = comm_start_ix;
                 if (!cta.thread_rank())
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
 
@@ -111,7 +111,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                     halo_buffer_top + next_iter_mod * ny * nx + comm_start_block_y + comm_start_block_x,
                     a_new + end_iz + comm_start_block_y + comm_start_block_x,
                     comm_block_count_per_sm * cta.num_threads() * sizeof(real),
-                    is_done_computing_flags + next_iter_mod * comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
+                    is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
             }
             else
