@@ -281,9 +281,7 @@ __global__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, 
                 // NVSHMEM calls require explicitly specifying the type
                 // For now this will only work with double
 
-                real elem_val = (remote_pe == mype)
-                                    ? inputVecX[input_vec_elem_idx]
-                                    : nvshmem_double_g(inputVecX + remote_pe_idx_offset, remote_pe);
+                real elem_val = nvshmem_double_g(inputVecX + remote_pe_idx_offset, remote_pe);
 
                 output += alpha * val[row_elem + j] * elem_val;
             }
