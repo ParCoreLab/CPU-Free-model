@@ -57,8 +57,6 @@ namespace cg = cooperative_groups;
 
 namespace BaselineDiscreteStandardNVSHMEM {
 
-__device__ double grid_dot_result = 0.0;
-
 __global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, int chunk_size) {
     cg::thread_block cta = cg::this_thread_block();
 
@@ -91,15 +89,6 @@ __global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, 
         if (tile32.thread_rank() == 0) {
             atomicAdd(local_dot_result, temp_sum);
         }
-    }
-}
-
-__global__ void addLocalDotContribution(double *dot_result) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (gid == 0) {
-        atomicAdd_system(dot_result, grid_dot_result);
-        grid_dot_result = 0.0;
     }
 }
 
@@ -350,10 +339,14 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     NVSHMEM::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_r, device_x,
                                                                           chunk_size);
 
+    nvshmem_barrier_all();
+
     // ax0 = Ax0
     NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
         device_I, device_J, device_val, real_positive_one, device_x, device_ax0,
         row_start_global_idx, chunk_size, num_rows);
+
+    nvshmem_barrier_all();
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
@@ -364,19 +357,22 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     NVSHMEM::gpuCopyVector<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_r, device_p,
                                                                             chunk_size);
 
+    // Do we need to reset the local dot here?
+    resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_delta1);
+
     gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
         device_r, device_r, device_dot_gamma1, chunk_size);
 
     // Do global reduction to add up local dot products
-    nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1, device_dot_gamma1,
-                                         sizeof(double), mainStream);
+    nvshmemx_double_max_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1, device_dot_gamma1,
+                                         1, mainStream);
 
     nvshmem_barrier_all();
 
     CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
                                  cudaMemcpyDeviceToHost, mainStream));
 
-    cudaStreamSynchronize(mainStream);
+    CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
     tmp_dot_gamma0 = (real)host_dot_gamma1;
 
@@ -388,14 +384,12 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
             device_I, device_J, device_val, real_positive_one, device_p, device_s,
             row_start_global_idx, chunk_size, num_rows);
 
+        nvshmem_barrier_all();
+
         resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_delta1);
 
         gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
             device_p, device_s, device_dot_delta1, chunk_size);
-
-        // Do we need a stream sync here?
-        // To make sure dot is done before reduction happens
-        // cudaStreamSynchronize(mainStream);
 
         // Do global reduction to add up local dot products
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_delta1,
@@ -444,6 +438,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
         tmp_dot_gamma0 = (real)host_dot_gamma1;
 
+        cudaStreamSynchronize(mainStream);
         nvshmem_barrier_all();
 
         k++;
