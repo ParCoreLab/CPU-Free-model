@@ -171,7 +171,6 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     real negative_alpha;
     real beta;
 
-    real tmp_dot_gamma0;
     real tmp_dot_delta0;
 
     double *device_dot_delta1;
@@ -287,8 +286,12 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     nvshmem_barrier_all();
 
     cudaStream_t mainStream;
+    cudaStream_t SpMVStream;
+    cudaStream_t communicationStream;
 
     CUDA_RT_CALL(cudaStreamCreateWithFlags(&mainStream, cudaStreamNonBlocking));
+    CUDA_RT_CALL(cudaStreamCreateWithFlags(&SpMVStream, cudaStreamNonBlocking));
+    CUDA_RT_CALL(cudaStreamCreateWithFlags(&communicationStream, cudaStreamNonBlocking));
 
     nvshmem_barrier_all();
 
@@ -400,35 +403,35 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
             device_r, device_r, device_r, device_w, device_dot_delta1, device_dot_gamma1,
             chunk_size, sMemSize);
 
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
         // SpMV
-        NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, SpMVStream>>>(
             device_I, device_J, device_val, real_positive_one, device_w, device_q,
             row_start_global_idx, chunk_size, num_rows);
-
-        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         // NOTE: Instead of doing this could have the local dots be in contiguous locations
         // And the use the same NVSHMEM call to do both at the same time
 
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_delta1,
-                                             device_dot_delta1, 1, mainStream);
+                                             device_dot_delta1, 1, communicationStream);
 
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1,
-                                             device_dot_gamma1, 1, mainStream);
+                                             device_dot_gamma1, 1, communicationStream);
 
         // Using nvshmem_barrier_all() here seems to cause a deadlock
         // Wonder why?
         // Because two reductions are enqued to same stream back to back?
         // In any case, should use one contiguous array for reductions
-        nvshmemx_barrier_all_on_stream(mainStream);
+        nvshmemx_barrier_all_on_stream(communicationStream);
 
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_delta1, device_dot_delta1, sizeof(double),
-                                     cudaMemcpyDeviceToHost, mainStream));
+                                     cudaMemcpyDeviceToHost, communicationStream));
 
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
-                                     cudaMemcpyDeviceToHost, mainStream));
+                                     cudaMemcpyDeviceToHost, communicationStream));
 
-        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+        CUDA_RT_CALL(cudaStreamSynchronize(communicationStream));
 
         real real_tmp_dot_delta1 = (real)host_dot_delta1;
         real real_tmp_dot_gamma1 = (real)host_dot_gamma1;
@@ -441,6 +444,9 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
             beta = 0.0;
             alpha = real_tmp_dot_delta1 / real_tmp_dot_gamma1;
         }
+
+        CUDA_RT_CALL(cudaStreamSynchronize(SpMVStream));
+        nvshmemx_barrier_all_on_stream(SpMVStream);
 
         // z_k = q_k + beta_k * z_(k-1)
         NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
