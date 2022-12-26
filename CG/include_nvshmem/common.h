@@ -111,7 +111,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
 namespace SingleGPUDiscreteStandard {
 
-__global__ void gpuDotProduct(real *vecA, real *vecB, int num_rows);
+__global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, int num_rows);
 
 __global__ void addLocalDotContribution(double *dot_result);
 
