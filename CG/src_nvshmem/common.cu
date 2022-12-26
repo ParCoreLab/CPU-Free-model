@@ -1,4 +1,4 @@
-#include "../include/common.h"
+#include "../include_nvshmem/common.h"
 
 #include <math.h>
 #include <omp.h>
