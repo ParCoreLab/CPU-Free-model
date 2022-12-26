@@ -135,18 +135,22 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
                 executable_path = executable_dir + '/' + EXECUTABLE_NAME
                 full_executable = f'{executable_path} -s 1 -v {version_idx} -niter {NUM_ITERATIONS}'
 
-                if USING_NVSHMEM:
-                    full_executable = f'mpirun -np {num_gpus}' + \
-                        ' ' + full_executable
-
                 if matrix_path:
                     full_executable += f' -matrix_path {matrix_path}'
 
                 nsys_report_output_filename = SAVE_NSYS_REPORTS_TO_DIR_PATH + \
-                    f'/report-{num_gpus}{GPU_MODEL}-version{version_idx}-{matrix_name}.nsys-rep'
+                    f'/report-{num_gpus}{GPU_MODEL}-version{version_idx}-{matrix_name}'
+
+                if USING_NVSHMEM:
+                    nsys_report_output_filename += '-NVSHMEM'
+                    nsys_report_output_filename += '.nsys-rep'
 
                 nsys_profile_command = 'nsys profile'
                 nsys_profile_command += ' '
+
+                if USING_NVSHMEM:
+                    nsys_profile_command = f'mpirun -np {num_gpus}' + \
+                        ' ' + nsys_profile_command
 
                 # Trace only NVTX ranges
                 nsys_profile_command += '--trace nvtx'
@@ -162,6 +166,8 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
 
                 # Pass executable with arguments
                 nsys_profile_command += f'{full_executable}'
+
+                print(nsys_profile_command)
 
                 subprocess.run(
                     nsys_profile_command.split(), capture_output=False)
