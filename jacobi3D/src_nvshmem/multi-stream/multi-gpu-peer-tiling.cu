@@ -300,8 +300,10 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     else
         chunk_size = chunk_size_high;
 
+    int device;
+    CUDA_RT_CALL(cudaGetDevice(&device));
     cudaDeviceProp deviceProp{};
-    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
+    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, device));
     int numSms = deviceProp.multiProcessorCount;
 
     constexpr int dim_block_x = 32;

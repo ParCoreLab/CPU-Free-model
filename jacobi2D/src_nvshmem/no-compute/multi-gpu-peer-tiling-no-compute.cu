@@ -294,8 +294,10 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
     else
         chunk_size = chunk_size_high;
 
+    int device;
+    CUDA_RT_CALL(cudaGetDevice(&device));
     cudaDeviceProp deviceProp{};
-    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
+    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, device));
     int numSms = deviceProp.multiProcessorCount;
 
     constexpr int grid_dim_x = 8;
@@ -388,8 +390,8 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
                                              inner_domain_stream));
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch((void *)MultiGPUPeerTilingNvshmemNoCompute::boundary_sync_kernel,
-                                             comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
-                                             boundary_sync_stream));
+                                                         comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
+                                                         boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaGetLastError());

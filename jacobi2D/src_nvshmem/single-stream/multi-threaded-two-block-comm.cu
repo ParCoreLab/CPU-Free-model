@@ -240,8 +240,10 @@ int SSMultiThreadedTwoBlockCommNvshmem::init(int argc, char *argv[])
     else
         chunk_size = chunk_size_high;
 
+    int device;
+    CUDA_RT_CALL(cudaGetDevice(&device));
     cudaDeviceProp deviceProp{};
-    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
+    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, device));
     int numSms = deviceProp.multiProcessorCount;
 
     constexpr int grid_dim_x = 8;

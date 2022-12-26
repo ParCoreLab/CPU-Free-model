@@ -277,8 +277,10 @@ int SSMultiThreadedMultiBlockCommNvshmemNoCompute::init(int argc, char *argv[])
         chunk_size = chunk_size_high;
 
     constexpr int num_threads_per_block = 1024;
+    int device;
+    CUDA_RT_CALL(cudaGetDevice(&device));
     cudaDeviceProp deviceProp{};
-    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
+    CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, device));
     int numSms = deviceProp.multiProcessorCount;
 
     const int dim_block_x = nx >= num_threads_per_block ? num_threads_per_block : (int)pow(2, ceil(log2(nx)));
