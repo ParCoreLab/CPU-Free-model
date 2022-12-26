@@ -2,6 +2,8 @@
 
 #include "../include_nvshmem/baseline/discrete-pipelined-nvshmem.cuh"
 #include "../include_nvshmem/baseline/discrete-standard-nvshmem.cuh"
+#include "../include_nvshmem/profiling/discrete-pipelined-nvshmem.cuh"
+#include "../include_nvshmem/profiling/discrete-standard-nvshmem.cuh"
 #include "../include_nvshmem/single-stream/pipelined-nvshmem.cuh"
 
 #include "../include/common.h"
@@ -13,6 +15,8 @@ int main(int argc, char *argv[]) {
         make_pair("Baseline Discrete Standard NVSHMEM", BaselineDiscreteStandardNVSHMEM::init),
         make_pair("Baseline Discrete Pipelined NVSHMEM", BaselineDiscretePipelinedNVSHMEM::init),
         make_pair("Single Stream Pipelined NVSHMEM", SingleStreamPipelinedNVSHMEM::init),
+        make_pair("Profiling Discrete Standard NVSHMEM", ProfilingDiscreteStandardNVSHMEM::init),
+        make_pair("Profiling Discrete Pipelined NVSHMEM", ProfilingDiscretePipelinedNVSHMEM::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
