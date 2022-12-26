@@ -111,12 +111,6 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
     bool generate_random_tridiag_matrix = matrix_path_str.empty();
 
-    std::string matrix_name = std::filesystem::path(matrix_path_str).stem();
-
-    if (generate_random_tridiag_matrix) {
-        matrix_name = "random tridiagonal";
-    }
-
     int num_devices = 0;
     double single_gpu_runtime;
 
