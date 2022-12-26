@@ -42,13 +42,15 @@ version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized"]=1
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB"]=2
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB"]=3
 version_name_to_idx_map_nvshmem["NVSHMEM Double Stream"]=4
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream All TB Partitoned"]=5
 
-version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Compute)"]=5
-version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=6
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Compute)"]=6
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=7
 
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB (No Compute)"]=7
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=8
-version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB (No Compute)"]=8
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=9
+version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=10
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream All TB Partitoned (No Compute)"]=11
 
 
 BIN="./jacobi -s 1"

@@ -9,6 +9,7 @@
 #include "../include_nvshmem/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
 #include "../include_nvshmem/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
 #include "../include_nvshmem/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
+#include "../include_nvshmem/no-compute/multi-threaded-multi-block-comm-no-compute.cuh"
 
 using std::make_pair;
 
@@ -19,13 +20,14 @@ int main(int argc, char *argv[])
         make_pair("NVSHMEM Baseline Multi Threaded Optimized", BaselineMultiThreadedNvshmemOpt::init),
         make_pair("NVSHMEM Single stream multi threaded Layer Put (one thread block communicates)", SSMultiThreadedOneBlockCommNvshmem::init),
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate)", SSMultiThreadedTwoBlockCommNvshmem::init),
-        make_pair("NVSHMEM Double stream multi threaded with Tiling", MultiGPUPeerTilingNvshmem::init),
+        make_pair("NVSHMEM Double stream multi threaded", MultiGPUPeerTilingNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded Partitioned,All SM Comm", SSMultiThreadedMultiBlockCommNvshmem::init),
         make_pair("NVSHMEM Baseline Multi Threaded (No Computation)", BaselineMultiThreadedNvshmemNoCompute::init),
         make_pair("NVSHMEM Baseline Multi Threaded Optimized (No Computation)", BaselineMultiThreadedNvshmemOptNoCompute::init),
         make_pair("NVSHMEM Single stream multi threaded Layer Put (one thread block communicates; no computation)", SSMultiThreadedOneBlockCommNvshmemNoCompute::init),
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate; no computation)", SSMultiThreadedTwoBlockCommNvshmem::init),
         make_pair("NVSHMEM Double stream multi threaded with Tiling (No Computation)", MultiGPUPeerTilingNvshmemNoCompute::init),
-        make_pair("NVSHMEM Single stream multi threaded (experimental)", SSMultiThreadedMultiBlockCommNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded Partitioned,All SM Comm (No Computation)", SSMultiThreadedMultiBlockCommNvshmem::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);

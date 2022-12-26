@@ -1,14 +1,14 @@
 #!/bin/bash
 
-#SBATCH -J stencil-bench-strong
-#SBATCH -N 1
-#SBATCH -n 8
+#SBATCH -J multi-node-test
+#SBATCH -N 2
+#SBATCH -n 1
 #SBATCH -c 16
 #SBATCH -A proj16
 #SBATCH -p palamut-cuda
-#SBATCH --gres=gpu:8
-#SBATCH --time=24:00:00
-#SBATCH -o stencil_bench_strong_output_%j.log
+#SBATCH --gres=gpu:1
+#SBATCH --time=1:00:00
+#SBATCH -o multi-node-test_%j.log
 
 . ./scripts/modules_truba.sh > /dev/null
 
