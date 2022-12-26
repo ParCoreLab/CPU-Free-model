@@ -288,7 +288,7 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     const int comp_total_tile_count = tile_count_x * tile_count_y * tile_count_z;
 
     const int comp_sm_count = comp_total_tile_count < numSms ? comp_total_tile_count : numSms;
-    const int comm_sm_count_per_layer = comm_layer_tile_count < numSms / 8 ? comm_layer_tile_count : numSms / 8;
+    const int comm_sm_count_per_layer = comm_layer_tile_count < numSms / 2 ? comm_layer_tile_count : numSms / 2;
 
     int total_num_flags = 2 * 2 * comm_sm_count_per_layer;
 
