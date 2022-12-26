@@ -105,8 +105,8 @@ __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
 
 __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_result_gamma);
 
-double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *host_val,
-                      int num_rows, int nnz);
+double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *device_val,
+                      real *host_val, int num_rows, int nnz);
 }  // namespace SingleGPUDiscretePipelined
 
 namespace SingleGPUDiscreteStandard {
@@ -115,8 +115,8 @@ __global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, 
 
 __global__ void resetLocalDotProduct(double *dot_result);
 
-double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *host_val,
-                      int num_rows, int nnz);
+double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *device_val,
+                      real *host_val, int num_rows, int nnz);
 }  // namespace SingleGPUDiscreteStandard
 
 namespace CPU {

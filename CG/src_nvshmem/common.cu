@@ -405,8 +405,8 @@ __global__ void resetLocalDotProduct(double *dot_result) {
     }
 }
 
-double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *x_ref,
-                      int num_rows, int nnz) {
+double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *device_val,
+                      real *x_ref, int num_rows, int nnz) {
     real *device_x;
     real *device_r;
     real *device_p;
@@ -449,7 +449,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     // ax0 = Ax0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
-        um_I, um_J, um_val, nnz, num_rows, real_positive_one, device_x, device_ax0);
+        device_I, device_J, device_val, nnz, num_rows, real_positive_one, device_x, device_ax0);
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
@@ -476,7 +476,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     while (k <= iter_max) {
         // SpMV
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
-            um_I, um_J, um_val, nnz, num_rows, real_positive_one, device_p, device_s);
+            device_I, device_J, device_val, nnz, num_rows, real_positive_one, device_p, device_s);
 
         resetLocalDotProduct<<<1, 1, 0, 0>>>(device_dot_delta1);
 
@@ -609,8 +609,8 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
     }
 }
 
-double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, real *x_ref,
-                      int num_rows, int nnz) {
+double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *device_val,
+                      real *x_ref, int num_rows, int nnz) {
     real *device_x;
     real *device_r;
     real *device_p;
@@ -674,7 +674,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     // ax0 = Ax0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
-        um_I, um_J, um_val, nnz, num_rows, real_positive_one, device_x, device_ax0);
+        device_I, device_J, device_val, nnz, num_rows, real_positive_one, device_x, device_ax0);
 
     // r0 = b0 - s0
     // NOTE: b is a unit vector.
@@ -683,7 +683,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     // w0 = Ar0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
-        um_I, um_J, um_val, nnz, num_rows, real_positive_one, device_r, device_w);
+        device_I, device_J, device_val, nnz, num_rows, real_positive_one, device_r, device_w);
 
     CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
 
@@ -705,7 +705,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
         // SpMV
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamSpMV>>>(
-            um_I, um_J, um_val, nnz, num_rows, real_positive_one, device_w, device_q);
+            device_I, device_J, device_val, nnz, num_rows, real_positive_one, device_w, device_q);
 
         CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
 
