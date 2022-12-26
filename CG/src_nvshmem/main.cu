@@ -6,7 +6,7 @@
 #include "../include_nvshmem/profiling/discrete-standard-nvshmem.cuh"
 #include "../include_nvshmem/single-stream/pipelined-nvshmem.cuh"
 
-#include "../include/common.h"
+#include "../include_nvshmem/common.h"
 
 using std::make_pair;
 
