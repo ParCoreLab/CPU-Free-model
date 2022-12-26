@@ -79,10 +79,9 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                     min(comm_block_count_per_sm * cta.num_threads(), ny * nx - comm_start_block_y - comm_start_block_x) * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
-
-                block_count = 0;
-                iy = comm_start_iy;
-                ix = comm_start_ix;
+            }
+            else if (blockIdx.x < 2 * comm_sm_count_per_layer)
+            {
                 if (!cta.thread_rank())
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, NVSHMEM_CMP_EQ, iter);
@@ -289,7 +288,7 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     const int comp_total_tile_count = tile_count_x * tile_count_y * tile_count_z;
 
     const int comp_sm_count = comp_total_tile_count < numSms ? comp_total_tile_count : numSms;
-    const int comm_sm_count_per_layer = comm_layer_tile_count < numSms ? comm_layer_tile_count : numSms;
+    const int comm_sm_count_per_layer = comm_layer_tile_count < numSms / 4 ? comm_layer_tile_count : numSms / 4;
 
     int total_num_flags = 2 * 2 * comm_sm_count_per_layer;
 
