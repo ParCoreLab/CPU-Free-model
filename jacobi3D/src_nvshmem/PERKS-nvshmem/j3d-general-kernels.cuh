@@ -221,7 +221,8 @@ __device__ void __forceinline__ process_one_layer
 }
 
 
-#define NOCACHE_Z 0
+// THIS IS IMPORTANT
+//#define NOCACHE_Z 0
 template<class REAL, int halo, 
 int LOCAL_ITEM_PER_THREAD, int LOCAL_TILE_X, const int reg_folder_z, bool UseSMCache, int BLOCKDIM=256>
 // __launch_bounds__(256, 2)
@@ -280,6 +281,10 @@ kernel3d_general_inner(REAL * __restrict__ input,
 
   const int cpbase_y = -halo+tid_y*cpblocksize_y+(tid_y<=cpquotion_y?tid_y:cpquotion_y);
   const int cpend_y = cpbase_y + cpblocksize_y + (tid_y<=cpquotion_y?1:0);
+
+//  const int ps_y = halo;
+//  const int ps_x = halo;
+  // const int ps_z = halo;
 
   const int ps_y = halo;
   const int ps_x = halo;
@@ -958,6 +963,7 @@ kernel3d_general_inner(REAL * __restrict__ input,
 
     gg.sync();
 
+    /* a
     if (gg.thread_rank() == 0) {
         int iter_next = iter + 1;
 
@@ -965,6 +971,7 @@ kernel3d_general_inner(REAL * __restrict__ input,
 
         iteration_done[1] = iter_next;
     }
+     */
 
     gg.sync();
 

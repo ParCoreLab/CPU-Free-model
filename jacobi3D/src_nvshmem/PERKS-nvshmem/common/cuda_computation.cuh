@@ -60,13 +60,20 @@
   #define curshape (star_shape)
   #if HALO==1
     #define stencilParaT \
-      const REAL center=-1.67f;\
-      const REAL west[1]={0.162f};\
-      const REAL east[1]={0.161f};\
-      const REAL north[1]={0.163f};\
-      const REAL south[1]={0.164f};\
-      const REAL bottom[1]={0.166f};\
-      const REAL top[1]={0.165f};
+      const REAL center=1.0f;\
+      const REAL west[1]={1.0f};\
+      const REAL east[1]={1.0f};\
+      const REAL north[1]={1.0f};\
+      const REAL south[1]={1.0f};\
+      const REAL bottom[1]={1.0f};\
+      const REAL top[1]={1.0f};
+//const REAL center=-0.0f;\
+//const REAL west[1]={1.0f};\
+//const REAL east[1]={1.0f};\
+//const REAL north[1]={1.0f};\
+//const REAL south[1]={1.0f};\
+//const REAL bottom[1]={1.0f};\
+//const REAL top[1]={1.0f};
     #endif
     #if HALO==2
       #define stencilParaT \
@@ -162,12 +169,42 @@ __device__ void __forceinline__ computation(REAL result[RESULT_SIZE],
     _Pragma("unroll")
     for(int l_y=0; l_y<RESULT_SIZE; l_y++)
     {
-      _Pragma("unroll")
-      for(int hl=0; hl<halo; hl++)
-      {
-        result[l_y]+=west[hl]*
-              sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1-hl];
-      }
+//      _Pragma("unroll")
+//      for(int hl=0; hl<halo; hl++)
+//      {
+//        result[l_y]+=
+//              sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1];
+//      }
+    }
+    _Pragma("unroll")
+    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
+    {
+//      _Pragma("unroll")
+//      for(int hl=0; hl<halo; hl++)
+//      {
+//        result[l_y]+=
+//          sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1];
+//      }
+    }
+    _Pragma("unroll")
+    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
+    {
+//      _Pragma("unroll")
+//      for(int hl=0; hl<halo; hl++)
+//      {
+//        result[l_y]+=
+//          sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind];
+//      }
+    }
+    _Pragma("unroll")
+    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
+    {
+//      _Pragma("unroll")
+//      for(int hl=0; hl<halo; hl++)
+//      {
+//        result[l_y]+=
+//          sm_ptr[0][sm_width*(l_y+sm_y_base-1) + sm_x_ind];
+//      }
     }
     _Pragma("unroll")
     for(int l_y=0; l_y<RESULT_SIZE; l_y++)
@@ -175,45 +212,36 @@ __device__ void __forceinline__ computation(REAL result[RESULT_SIZE],
       _Pragma("unroll")
       for(int hl=0; hl<halo; hl++)
       {
-        result[l_y]+=east[hl]*
-          sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1+hl];
-      }
-    }
-    _Pragma("unroll")
-    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
-    {
-      _Pragma("unroll")
-      for(int hl=0; hl<halo; hl++)
-      {
-        result[l_y]+=north[hl]*
-          sm_ptr[0][sm_width*(l_y+sm_y_base+1+hl) + sm_x_ind];
-      }
-    }
-    _Pragma("unroll")
-    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
-    {
-      _Pragma("unroll")
-      for(int hl=0; hl<halo; hl++)
-      {
-        result[l_y]+=south[hl]*
-          sm_ptr[0][sm_width*(l_y+sm_y_base-1-hl) + sm_x_ind];
-      }
-    }
-    _Pragma("unroll")
-    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
-    {
-      _Pragma("unroll")
-      for(int hl=0; hl<halo; hl++)
-      {
-        result[l_y]+=bottom[hl]*reg_ptr[REG_BASE-1-hl][l_y];
-        result[l_y]+=top[hl]*reg_ptr[REG_BASE+1+hl][l_y];
+//        result[l_y]+=1.0f*reg_ptr[REG_BASE-1-hl][l_y];
+//        result[l_y]+=1.0f*reg_ptr[REG_BASE+1+hl][l_y];
       }
     }
   }
   _Pragma("unroll")
   for(int l_y=0; l_y<RESULT_SIZE; l_y++)
   {
-    result[l_y]+=center*reg_ptr[REG_BASE][l_y];
+      result[l_y] = REAL(
+            1.0f * sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind]       // north
+            + 1.0f * sm_ptr[0][sm_width*(l_y+sm_y_base-1) + sm_x_ind]       // south
+            + 1.0f * sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1]       // west
+            + 1.0f * sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1]       // east
+            + 1.0f * reg_ptr[REG_BASE][l_y]                                 // center
+            + 1.0f * reg_ptr[REG_BASE-1][l_y]    // top
+            + 1.0f * reg_ptr[REG_BASE+1][l_y]    // bottom?
+              );
+
+      result[l_y] = REAL(result[l_y] / 7.0f);
+
+//      if (reg_ptr[REG_BASE][l_y] == 16711937.0f) {
+//          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind]);
+//          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base-1) + sm_x_ind]);
+//          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1]);
+//          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1]);
+//          printf("%f\n", reg_ptr[REG_BASE-1][l_y]);
+//          printf("%f\n", reg_ptr[REG_BASE+1][l_y]);
+//          printf("%f\n", reg_ptr[REG_BASE][l_y]);
+//          printf("%f\n", result[l_y]);
+//      }
   }
   #else
     // register REAL reg_ptr[REGZ_SIZE][REGY_SIZE][REGX_SIZE];
