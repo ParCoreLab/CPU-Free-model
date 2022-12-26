@@ -42,6 +42,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
         const int comm_start_ix = comm_start_block_x + threadIdx.x + 1;
 
         const int comm_start_iz = iz_start * ny * nx;
+        const size_t total_comm_size = min(comm_block_count_per_sm * cta.num_threads(), ny * nx - comm_start_block_y - comm_start_block_x)* sizeof(real);
 
         while (iter < iter_max)
         {
@@ -76,7 +77,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_bottom + next_iter_mod * ny * nx + comm_start_block_y + comm_start_block_x,
                     a_new + comm_start_iz + comm_start_block_y + comm_start_block_x,
-                    min(comm_block_count_per_sm * cta.num_threads(), ny * nx - comm_start_block_y - comm_start_block_x) * sizeof(real),
+                    total_comm_size,
                     is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
             }
@@ -107,7 +108,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                 nvshmemx_putmem_signal_nbi_block(
                     halo_buffer_top + next_iter_mod * ny * nx + comm_start_block_y + comm_start_block_x,
                     a_new + end_iz + comm_start_block_y + comm_start_block_x,
-                    min(comm_block_count_per_sm * cta.num_threads(), ny * nx - comm_start_block_y - comm_start_block_x)* sizeof(real),
+                    total_comm_size,
                     is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
             }
