@@ -2,11 +2,11 @@
 
 #SBATCH -J multi-node-test
 #SBATCH -N 2
-#SBATCH -n 1
+#SBATCH -n 4
 #SBATCH -c 16
 #SBATCH -A proj16
 #SBATCH -p palamut-cuda
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:4
 #SBATCH --time=1:00:00
 #SBATCH -o multi-node-test_%j.log
 
