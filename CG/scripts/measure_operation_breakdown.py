@@ -29,11 +29,19 @@ SAVE_NSYS_REPORTS_TO_DIR_PATH = None
 NUM_ITERATIONS = 5000
 EXECUTABLE_NAME = 'cg_nvtx'
 GPU_MODEL = None
+USING_NVSHMEM = False
 
-VERSION_NAME_TO_IDX_MAP = {
+VERSION_NAME_TO_IDX_MAP_REGULAR = {
     'Baseline Discrete Standard': 4,
     'Baseline Discrete Pipelined (No Overlap)': 5,
 }
+
+VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
+    'Baseline Discrete Standard NVSHMEM': 3,
+    'Baseline Discrete Pipelined NVSHMEM (No Overlap)': 4,
+}
+
+VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_REGULAR.copy()
 
 MATRIX_NAMES = [
     '(generated)_tridiagonal',
@@ -49,7 +57,7 @@ MATRIX_NAMES = [
     'crankseg_2',
 ]
 
-VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
+VERSION_LABELS = None
 GPU_COLUMN_NAMES = None
 
 
@@ -107,7 +115,6 @@ def save_results(save_result_to_path, version_to_matrix_to_result_map, version_t
 
 def measure_operation_breakdown(save_result_to_path, executable_dir):
     for num_gpus in GPU_NUMS_TO_RUN:
-        print(num_gpus)
         cuda_string = CUDA_VISIBLE_DEVICES_SETTING[num_gpus]
         os.environ['CUDA_VISIBLE_DEVICES'] = cuda_string
 
@@ -127,6 +134,10 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
 
                 executable_path = executable_dir + '/' + EXECUTABLE_NAME
                 full_executable = f'{executable_path} -s 1 -v {version_idx} -niter {NUM_ITERATIONS}'
+
+                if USING_NVSHMEM:
+                    full_executable = f'mpirun -np {num_gpus}' + \
+                        ' ' + full_executable
 
                 if matrix_path:
                     full_executable += f' -matrix_path {matrix_path}'
@@ -221,11 +232,19 @@ if __name__ == "__main__":
 
             GPU_MODEL = sys.argv[arg_idx]
 
+        if sys.argv[arg_idx] == '-use_nvshmem':
+            USING_NVSHMEM = True
+
         arg_idx += 1
 
     BASE_FILENAME = 'cg_operation_breakdown'
-
     SAVE_RESULT_TO_FILE_PATH = SAVE_RESULT_TO_DIR_PATH + '/' + BASE_FILENAME
+
+    if USING_NVSHMEM:
+        VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
+        EXECUTABLE_NAME = 'cg_nvshmem_nvtx'
+
+    VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
 
     GPU_COLUMN_NAMES = [str(num_gpus) + ' GPU' + ('s' if num_gpus != 1 else '')
                         for num_gpus in range(1, MAX_NUM_GPUS + 1)]
