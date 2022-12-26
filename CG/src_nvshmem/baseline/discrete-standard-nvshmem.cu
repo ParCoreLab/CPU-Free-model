@@ -364,7 +364,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         device_r, device_r, device_dot_gamma1, chunk_size);
 
     // Do global reduction to add up local dot products
-    nvshmemx_double_max_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1, device_dot_gamma1,
+    nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1, device_dot_gamma1,
                                          1, mainStream);
 
     nvshmemx_barrier_all_on_stream(mainStream);
