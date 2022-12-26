@@ -247,12 +247,9 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     } else {
         char symmetric_heap_size_str[100];
         sprintf(symmetric_heap_size_str, "%llu", required_symmetric_heap_size);
-
-        // if (rank == 0) {
-        //     printf("Setting environment variable NVSHMEM_SYMMETRIC_SIZE = %llu\n",
-        //            required_symmetric_heap_size);
-        // }
-
+        if (!rank)
+            printf("Setting environment variable NVSHMEM_SYMMETRIC_SIZE = %llu\n",
+                   required_symmetric_heap_size);
         setenv("NVSHMEM_SYMMETRIC_SIZE", symmetric_heap_size_str, 1);
     }
     nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr);
@@ -397,7 +394,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_delta1, device_dot_delta1, sizeof(double),
                                      cudaMemcpyDeviceToHost, mainStream));
 
-        cudaStreamSynchronize(mainStream);
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         alpha = tmp_dot_gamma0 / ((real)host_dot_delta1);
 
@@ -425,7 +422,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
                                      cudaMemcpyDeviceToHost, mainStream));
 
-        cudaStreamSynchronize(mainStream);
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         beta = ((real)host_dot_gamma1) / tmp_dot_gamma0;
 
@@ -435,8 +432,8 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
         tmp_dot_gamma0 = (real)host_dot_gamma1;
 
-        cudaStreamSynchronize(mainStream);
         nvshmemx_barrier_all_on_stream(mainStream);
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         k++;
     }
