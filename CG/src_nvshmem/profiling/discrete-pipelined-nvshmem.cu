@@ -416,6 +416,8 @@ int ProfilingDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
 
         nvshmemx_barrier_all_on_stream(mainStream);
 
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
         POP_RANGE
 
         // NOTE: Instead of doing this could have the local dots be in contiguous locations
@@ -434,6 +436,8 @@ int ProfilingDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
         // Because two reductions are enqued to same stream back to back?
         // In any case, should use one contiguous array for reductions
         nvshmemx_barrier_all_on_stream(mainStream);
+
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         POP_RANGE
 
@@ -527,8 +531,8 @@ int ProfilingDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
 
         PUSH_RANGE("NVSHMEM Barrier 2 (End of Iteration)", 11);
 
-        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
         nvshmemx_barrier_all_on_stream(mainStream);
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         POP_RANGE
 

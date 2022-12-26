@@ -390,6 +390,8 @@ int ProfilingDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
         nvshmemx_barrier_all_on_stream(mainStream);
 
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
         POP_RANGE
 
         PUSH_RANGE("Dot 1 (+Reset)", 2);
@@ -410,6 +412,8 @@ int ProfilingDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
                                              device_dot_delta1, 1, mainStream);
 
         nvshmemx_barrier_all_on_stream(mainStream);
+
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         POP_RANGE
 
@@ -465,6 +469,8 @@ int ProfilingDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
         nvshmemx_barrier_all_on_stream(mainStream);
 
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
+
         POP_RANGE
 
         PUSH_RANGE("Memcpy Dot to Host 2", 9);
@@ -492,8 +498,8 @@ int ProfilingDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
         PUSH_RANGE("NVSHMEM Barrier 2 (End of Iteration)", 11);
 
-        cudaStreamSynchronize(mainStream);
         nvshmemx_barrier_all_on_stream(mainStream);
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         POP_RANGE
 
