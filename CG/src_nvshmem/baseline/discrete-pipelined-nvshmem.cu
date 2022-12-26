@@ -498,7 +498,7 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
 
     if (mype == 0) {
         report_runtime(npes, single_gpu_runtime, start, stop, result_correct_single_gpu,
-                       result_correct_cpu);
+                       result_correct_cpu, compare_to_single_gpu);
     }
 
     nvshmem_free(device_x);

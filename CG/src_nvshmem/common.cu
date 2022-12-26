@@ -115,11 +115,11 @@ void report_errors(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu, 
 
 void report_runtime(const int num_devices, const double single_gpu_runtime, const double start,
                     const double stop, const bool result_correct_single_gpu,
-                    const bool result_correct_cpu) {
+                    const bool result_correct_cpu, const bool compare_to_single_gpu) {
     if (result_correct_single_gpu && result_correct_cpu) {
         printf("Execution time: %8.4f s\n", (stop - start));
 
-        if (result_correct_single_gpu && result_correct_cpu) {
+        if (result_correct_single_gpu && result_correct_cpu && compare_to_single_gpu) {
             printf(
                 "Non-persistent kernel - 1 GPU: %8.4f s, %d GPUs: %8.4f s, speedup: %8.2f, "
                 "efficiency: %8.2f \n",
