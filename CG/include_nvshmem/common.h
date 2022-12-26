@@ -99,9 +99,9 @@ __global__ void init_b_k(real *b, const int gpu_idx);
 
 namespace SingleGPUDiscretePipelined {
 __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *vecA_gamma,
-                                     real *vecB_gamma, int num_rows, const int sMemSize);
-
-__global__ void addLocalDotContributions(double *dot_result_delta, double *dot_result_gamma);
+                                     real *vecB_gamma, double *local_dot_result_delta,
+                                     double *local_dot_result_gamma, int num_rows,
+                                     const int sMemSize);
 
 __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_result_gamma);
 
@@ -112,8 +112,6 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 namespace SingleGPUDiscreteStandard {
 
 __global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, int num_rows);
-
-__global__ void addLocalDotContribution(double *dot_result);
 
 __global__ void resetLocalDotProduct(double *dot_result);
 

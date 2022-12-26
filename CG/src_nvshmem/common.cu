@@ -551,7 +551,9 @@ __device__ double grid_dot_result_gamma = 0.0;
 // Can we combined the two atomicAdds somehow?
 
 __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *vecA_gamma,
-                                     real *vecB_gamma, int num_rows, const int sMemSize) {
+                                     real *vecB_gamma, double *local_dot_result_delta,
+                                     double *local_dot_result_gamma, int num_rows,
+                                     const int sMemSize) {
     cg::thread_block cta = cg::this_thread_block();
 
     size_t grid_size = gridDim.x * blockDim.x;
@@ -592,21 +594,9 @@ __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
         temp_sum_gamma = cg::reduce(tile32, temp_sum_gamma, cg::plus<double>());
 
         if (tile32.thread_rank() == 0) {
-            atomicAdd(&grid_dot_result_delta, temp_sum_delta);
-            atomicAdd(&grid_dot_result_gamma, temp_sum_gamma);
+            atomicAdd(local_dot_result_delta, temp_sum_delta);
+            atomicAdd(local_dot_result_gamma, temp_sum_gamma);
         }
-    }
-}
-
-__global__ void addLocalDotContributions(double *dot_result_delta, double *dot_result_gamma) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (gid == 0) {
-        atomicAdd(dot_result_delta, grid_dot_result_delta);
-        atomicAdd(dot_result_gamma, grid_dot_result_gamma);
-
-        grid_dot_result_delta = 0.0;
-        grid_dot_result_gamma = 0.0;
     }
 }
 
@@ -630,14 +620,16 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     real *device_q;
     real *device_ax0;
 
-    double *um_tmp_dot_delta1;
-    double *um_tmp_dot_gamma1;
-
-    real tmp_dot_delta0;
-
     real alpha;
     real negative_alpha;
     real beta;
+
+    real tmp_dot_delta0;
+
+    double *device_dot_delta1;
+    double *device_dot_gamma1;
+    double host_dot_gamma1;
+    double host_dot_delta1;
 
     real real_positive_one = 1.0;
     real real_negative_one = -1.0;
@@ -649,11 +641,11 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     CUDA_RT_CALL(cudaMalloc((void **)&device_x, sizeof(real) * num_rows));
 
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_delta1, sizeof(double)));
-    CUDA_RT_CALL(cudaMallocManaged((void **)&um_tmp_dot_gamma1, sizeof(double)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_dot_delta1, sizeof(double)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_dot_gamma1, sizeof(double)));
 
-    CUDA_RT_CALL(cudaMemset(um_tmp_dot_delta1, 0, sizeof(double)));
-    CUDA_RT_CALL(cudaMemset(um_tmp_dot_gamma1, 0, sizeof(double)));
+    CUDA_RT_CALL(cudaMemset(device_dot_delta1, 0, sizeof(double)));
+    CUDA_RT_CALL(cudaMemset(device_dot_gamma1, 0, sizeof(double)));
 
     // temp memory for ConjugateGradient
     CUDA_RT_CALL(cudaMalloc((void **)&device_r, num_rows * sizeof(real)));
@@ -665,9 +657,6 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     CUDA_RT_CALL(cudaMalloc((void **)&device_ax0, num_rows * sizeof(real)));
 
     int sMemSize = 2 * (sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1));
-
-    cudaDeviceProp deviceProp;
-    cudaGetDeviceProperties(&deviceProp, 0);
 
     int numBlocks = (num_rows + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
@@ -702,13 +691,17 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
     while (k <= iter_max) {
         // Two dot products => <r, r> and <r, w>
-        resetLocalDotProducts<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
+        resetLocalDotProducts<<<1, 1, 0, streamDot>>>(device_dot_delta1, device_dot_gamma1);
 
         gpuDotProductsMerged<<<numBlocks, THREADS_PER_BLOCK, sMemSize, streamDot>>>(
-            device_r, device_r, device_r, device_w, num_rows, sMemSize);
+            device_r, device_r, device_r, device_w, device_dot_delta1, device_dot_gamma1, num_rows,
+            sMemSize);
 
-        // This is where overlap should happen
-        addLocalDotContributions<<<1, 1, 0, streamDot>>>(um_tmp_dot_delta1, um_tmp_dot_gamma1);
+        CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_delta1, device_dot_delta1, sizeof(double),
+                                     cudaMemcpyDeviceToHost, streamDot));
+
+        CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
+                                     cudaMemcpyDeviceToHost, streamDot));
 
         // SpMV
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamSpMV>>>(
@@ -716,8 +709,8 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
 
         CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
 
-        real real_tmp_dot_delta1 = (real)*um_tmp_dot_delta1;
-        real real_tmp_dot_gamma1 = (real)*um_tmp_dot_gamma1;
+        real real_tmp_dot_delta1 = host_dot_delta1;
+        real real_tmp_dot_gamma1 = host_dot_gamma1;
 
         if (k > 1) {
             beta = real_tmp_dot_delta1 / tmp_dot_delta0;
@@ -756,7 +749,7 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
         SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
             device_z, device_w, negative_alpha, num_rows);
 
-        tmp_dot_delta0 = (real)*um_tmp_dot_delta1;
+        tmp_dot_delta0 = host_dot_delta1;
 
         CUDA_RT_CALL(cudaStreamSynchronize(streamSaxpy));
 
@@ -776,8 +769,8 @@ double run_single_gpu(const int iter_max, int *um_I, int *um_J, real *um_val, re
     CUDA_RT_CALL(cudaFree(device_q));
     CUDA_RT_CALL(cudaFree(device_ax0));
 
-    CUDA_RT_CALL(cudaFree(um_tmp_dot_delta1));
-    CUDA_RT_CALL(cudaFree(um_tmp_dot_gamma1));
+    CUDA_RT_CALL(cudaFree(device_dot_delta1));
+    CUDA_RT_CALL(cudaFree(device_dot_gamma1));
 
     CUDA_RT_CALL(cudaStreamDestroy(streamOtherOps));
     CUDA_RT_CALL(cudaStreamDestroy(streamDot));
