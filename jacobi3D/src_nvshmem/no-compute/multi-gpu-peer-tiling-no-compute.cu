@@ -343,7 +343,7 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaMemset((void *)halo_buffer_bottom, 0, 2 * nx * ny * sizeof(real)));
 
     CUDA_RT_CALL(cudaMalloc(&iteration_done_flags, 2 * sizeof(int)));
-    CUDA_RT_CALL(cudaMemset(&iteration_done_flags, 0, 2 * sizeof(int)));
+    CUDA_RT_CALL(cudaMemset(iteration_done_flags, 0, 2 * sizeof(int)));
 
     is_done_computing_flags = (uint64_t *)nvshmem_malloc(total_num_flags * sizeof(uint64_t));
     CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));

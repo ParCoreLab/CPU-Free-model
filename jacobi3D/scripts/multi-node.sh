@@ -1,12 +1,15 @@
 #!/bin/bash
 
 #SBATCH -J multi-node-test
-#SBATCH -N 2
+#SBATCH --nodes 2
+#SBATCH --gres=gpu:2
+#SBATCH --ntasks=4
 #SBATCH --ntasks-per-node=2 
-#SBATCH -c 16
+
+#SBATCH --cpus-per-task 16
 #SBATCH -A proj16
 #SBATCH -p palamut-cuda
-#SBATCH --gres=gpu:2
+
 #SBATCH --time=1:00:00
 #SBATCH -o %x_%j.log
 
