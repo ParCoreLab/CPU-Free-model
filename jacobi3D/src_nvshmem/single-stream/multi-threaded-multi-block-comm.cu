@@ -297,8 +297,6 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     const int comp_block_count_per_sm = comp_total_tile_count / comp_sm_count + (comp_total_tile_count % comp_sm_count != 0);
     const int comm_block_count_per_sm = comm_layer_tile_count / comm_sm_count_per_layer + (comm_layer_tile_count % comm_sm_count_per_layer != 0);
 
-    printf("dim_block_x:%d\ndim_block_y:%d\ndim_block_z:%d\ntile_count_x:%d\ntile_count_y:%d\ntile_count_z:%d\ncomm_layer_tile_count:%d\ncomp_total_tile_count:%d\ncomp_sm_count:%d\ncomm_sm_count:%d\n",
-           dim_block_x, dim_block_y, dim_block_z, tile_count_x, tile_count_y, tile_count_z, comm_layer_tile_count, comp_total_tile_count, comp_sm_count, comm_sm_count_per_layer);
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
 
