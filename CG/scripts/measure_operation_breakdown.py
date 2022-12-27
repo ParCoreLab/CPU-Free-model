@@ -37,8 +37,8 @@ VERSION_NAME_TO_IDX_MAP_REGULAR = {
 }
 
 VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
-    'Baseline Discrete Standard NVSHMEM': 3,
-    'Baseline Discrete Pipelined NVSHMEM (No Overlap)': 4,
+    'Baseline Discrete Standard NVSHMEM': 4,
+    'Baseline Discrete Pipelined NVSHMEM (No Overlap)': 5,
 }
 
 VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_REGULAR.copy()
@@ -166,8 +166,6 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
 
                 # Pass executable with arguments
                 nsys_profile_command += f'{full_executable}'
-
-                print(nsys_profile_command)
 
                 subprocess.run(
                     nsys_profile_command.split(), capture_output=False)

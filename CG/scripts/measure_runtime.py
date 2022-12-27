@@ -31,10 +31,10 @@ EXECUTABLE_NAME = 'cg'
 GPU_MODEL = None
 
 VERSION_NAME_TO_IDX_MAP = {
-    'Baseline Discrete Standard': 0,
-    'Baseline Discrete Pipelined': 1,
-    'Baseline Persistent Standard': 2,
-    '(Ours) Persistent Pipelined': 3
+    'Baseline Discrete Standard NVSHMEM': 0,
+    'Baseline Discrete Pipelined NVSHMEM': 1,
+    'Baseline Persistent Standard NVSHMEM': 2,
+    '(Ours) Persistent Pipelined NVSHMEM': 3
 }
 
 MATRIX_NAMES = [
