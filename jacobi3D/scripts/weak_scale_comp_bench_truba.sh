@@ -56,7 +56,7 @@ version_name_to_idx_map_nvshmem["NVSHMEM Single Stream All TB Partitoned (No Com
 BIN="./jacobi -s 1"
 NV_BIN="./jacobi_nvshmem -s 1"
 
-NUM_ITER=${NUM_ITER:-10000}
+NUM_ITER=${NUM_ITER:-100000}
 NUM_RUNS=${NUM_RUNS:-5}
 
 while [ $# -gt 0 ]; do
@@ -70,7 +70,7 @@ while [ $# -gt 0 ]; do
 done
 
 
-for (( STARTING_NX=512; STARTING_NX<=512; STARTING_NX*=2 )); do
+for (( STARTING_NX=128; STARTING_NX<=512; STARTING_NX*=2 )); do
 
     for version_name in "${!version_name_to_idx_map[@]}"; do
         echo "Running ${version_name}"; echo ""

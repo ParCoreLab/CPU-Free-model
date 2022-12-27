@@ -2,13 +2,13 @@
 
 #SBATCH -J multi-node-test
 #SBATCH -N 2
-#SBATCH -n 8
+#SBATCH --ntasks-per-node=2 
 #SBATCH -c 16
 #SBATCH -A proj16
 #SBATCH -p palamut-cuda
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:2
 #SBATCH --time=1:00:00
-#SBATCH -o multi-node-test_%j.log
+#SBATCH -o %x_%j.log
 
 . ./scripts/modules_truba.sh > /dev/null
 
@@ -17,22 +17,22 @@ CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2
 
 declare -A version_name_to_idx_map
 
-version_name_to_idx_map["Baseline Copy"]=0
-version_name_to_idx_map["Baseline Copy Overlap"]=1
-version_name_to_idx_map["Baseline P2P"]=2
+#version_name_to_idx_map["Baseline Copy"]=0
+#version_name_to_idx_map["Baseline Copy Overlap"]=1
+#version_name_to_idx_map["Baseline P2P"]=2
 #version_name_to_idx_map["Baseline Single Copy"]=3
 
-version_name_to_idx_map["Single Stream 1TB"]=4
-version_name_to_idx_map["Single Stream 2TB"]=5
-version_name_to_idx_map["Double Stream"]=6
+#version_name_to_idx_map["Single Stream 1TB"]=4
+#version_name_to_idx_map["Single Stream 2TB"]=5
+#version_name_to_idx_map["Double Stream"]=6
 
-version_name_to_idx_map["Baseline Copy (No compute)"]=7
-version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=8
-version_name_to_idx_map["Baseline P2P (No Compute)"]=9
+#version_name_to_idx_map["Baseline Copy (No compute)"]=7
+#version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=8
+#version_name_to_idx_map["Baseline P2P (No Compute)"]=9
 
-version_name_to_idx_map["Single Stream 1TB (No Compute)"]=10
-version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
-version_name_to_idx_map["Double Stream (No Compute)"]=12
+#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=10
+#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
+#version_name_to_idx_map["Double Stream (No Compute)"]=12
 
 declare -A version_name_to_idx_map_nvshmem
 
