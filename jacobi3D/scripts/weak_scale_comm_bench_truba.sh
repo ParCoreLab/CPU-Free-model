@@ -17,22 +17,22 @@ CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2
 
 declare -A version_name_to_idx_map
 
-version_name_to_idx_map["Baseline Copy"]=0
+#version_name_to_idx_map["Baseline Copy"]=0
 version_name_to_idx_map["Baseline Copy Overlap"]=1
 version_name_to_idx_map["Baseline P2P"]=2
 #version_name_to_idx_map["Baseline Single Copy"]=3
 
-version_name_to_idx_map["Single Stream 1TB"]=4
-version_name_to_idx_map["Single Stream 2TB"]=5
-version_name_to_idx_map["Double Stream"]=6
+#version_name_to_idx_map["Single Stream 1TB"]=4
+#version_name_to_idx_map["Single Stream 2TB"]=5
+#version_name_to_idx_map["Double Stream"]=6
 
-version_name_to_idx_map["Baseline Copy (No compute)"]=7
+#version_name_to_idx_map["Baseline Copy (No compute)"]=7
 version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=8
 version_name_to_idx_map["Baseline P2P (No Compute)"]=9
 
-version_name_to_idx_map["Single Stream 1TB (No Compute)"]=10
-version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
-version_name_to_idx_map["Double Stream (No Compute)"]=12
+#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=10
+#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
+#version_name_to_idx_map["Double Stream (No Compute)"]=12
 
 declare -A version_name_to_idx_map_nvshmem
 
@@ -70,7 +70,7 @@ while [ $# -gt 0 ]; do
 done
 
 
-for (( STARTING_NX=128; STARTING_NX<=512; STARTING_NX*=2 )); do
+for (( STARTING_NX=256; STARTING_NX<=256; STARTING_NX*=2 )); do
 
     for version_name in "${!version_name_to_idx_map[@]}"; do
         echo "Running ${version_name}"; echo ""
