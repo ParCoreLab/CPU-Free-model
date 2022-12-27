@@ -29,13 +29,23 @@ NUM_RUNS = 5
 NUM_ITERATIONS = 1000
 EXECUTABLE_NAME = 'cg'
 GPU_MODEL = None
+USING_NVSHMEM = False
 
-VERSION_NAME_TO_IDX_MAP = {
+VERSION_NAME_TO_IDX_MAP_REGULAR = {
+    'Baseline Discrete Standard': 0,
+    'Baseline Discrete Pipelined': 1,
+    'Baseline Persistent Standard': 2,
+    '(Ours) Persistent Pipelined': 3
+}
+
+VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
     'Baseline Discrete Standard NVSHMEM': 0,
     'Baseline Discrete Pipelined NVSHMEM': 1,
     'Baseline Persistent Standard NVSHMEM': 2,
     '(Ours) Persistent Pipelined NVSHMEM': 3
 }
+
+VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_REGULAR.copy()
 
 MATRIX_NAMES = [
     '(generated) tridiagonal',
@@ -102,6 +112,9 @@ def measure_runtime(save_result_to_path, executable_dir):
                 if matrix_path:
                     command += f' -matrix_path {matrix_path}'
 
+                if USING_NVSHMEM:
+                    command = f'mpirun -np {num_gpus}' + ' ' + command
+
                 execution_times = []
 
                 for _ in range(NUM_RUNS):
@@ -109,6 +122,8 @@ def measure_runtime(save_result_to_path, executable_dir):
                         command.split(), capture_output=True)
 
                     output = output.stdout.decode('utf-8')
+
+                    print(output)
 
                     execution_time_match = execution_time_regex_pattern.match(
                         output)
@@ -161,7 +176,7 @@ if __name__ == "__main__":
     SAVE_RESULT_TO_DIR_PATH = dir_path + '/../results'
     EXECUTABLE_DIR = dir_path + '/../bin'
     FILENAME = None
-    NUM_GPUS = range(1,)
+    NUM_GPUS = None
 
     arg_idx = 1
 
@@ -204,12 +219,23 @@ if __name__ == "__main__":
 
             NUM_RUNS = int(sys.argv[arg_idx])
 
+        if sys.argv[arg_idx] == '-use_nvshmem':
+            USING_NVSHMEM = True
+
         arg_idx += 1
 
+    BASE_FILENAME = 'cg_runtime'
+
+    if USING_NVSHMEM:
+        VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
+        EXECUTABLE_NAME = 'cg_nvshmem'
+        BASE_FILENAME = 'cg_nvshmem_runtime'
+
     if FILENAME == None:
-        BASE = 'cg_runtime'
-        FILENAME = BASE + '-' + datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + \
+        FILENAME = BASE_FILENAME + '-' + datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + \
             f'-{GPU_MODEL}' + '.txt'
+
+    VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
 
     GPU_COLUMN_NAMES = [str(num_gpus) + ' GPU' + ('s' if num_gpus != 1 else '')
                         for num_gpus in range(1, MAX_NUM_GPUS + 1)]
