@@ -143,7 +143,8 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
 
                 if USING_NVSHMEM:
                     nsys_report_output_filename += '-NVSHMEM'
-                    nsys_report_output_filename += '.nsys-rep'
+
+                nsys_report_output_filename += '.nsys-rep'
 
                 nsys_profile_command = 'nsys profile'
                 nsys_profile_command += ' '
@@ -160,9 +161,9 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
                     f'--output {nsys_report_output_filename}'
                 nsys_profile_command += ' '
 
-                # Overwrite any existing reports
-                nsys_profile_command += '--force-overwrite true'
-                nsys_profile_command += ' '
+                # # Overwrite any existing reports
+                # nsys_profile_command += '--force-overwrite true'
+                # nsys_profile_command += ' '
 
                 # Pass executable with arguments
                 nsys_profile_command += f'{full_executable}'
