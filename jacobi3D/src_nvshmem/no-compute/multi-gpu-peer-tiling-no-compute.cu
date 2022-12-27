@@ -8,8 +8,9 @@ namespace cg = cooperative_groups;
 namespace MultiGPUPeerTilingNvshmemNoCompute
 {
     __global__ void __launch_bounds__(1024, 1)
-        jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                      const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max,
+        jacobi_kernel(real *a_new, real *a,
+                      const int iz_start, const int iz_end,
+                      const int ny, const int nx, const int iter_max,
                       volatile int *iteration_done)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -17,17 +18,17 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
 
         int iter = 0;
 
-        //const int comp_size_iz = ((gridDim.x - 1) / (grid_dim_y * grid_dim_x)) * blockDim.z * ny * nx;
-        //const int comp_size_iy = grid_dim_y * blockDim.y * nx;
-        //const int comp_size_ix = grid_dim_x * blockDim.x;
+        // const int comp_size_iz = gridDim.z * blockDim.z * ny * nx;
+        // const int comp_size_iy = gridDim.y * blockDim.y * nx;
+        // const int comp_size_ix = gridDim.x * blockDim.x;
 
-        //const int comp_start_iz = ((blockIdx.x / (grid_dim_y * grid_dim_x)) * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-        //const int comp_start_iy = ((blockIdx.x / grid_dim_x % grid_dim_y) * blockDim.y + threadIdx.y + 1) * nx;
-        //const int comp_start_ix = ((blockIdx.x % grid_dim_x) * blockDim.x + threadIdx.x + 1);
+        // const int comp_start_iz = (blockIdx.z * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+        // const int comp_start_iy = (blockIdx.y * blockDim.y + threadIdx.y + 1) * nx;
+        // const int comp_start_ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
-        //const int end_iz = (iz_end - 1) * ny * nx;
-        //const int end_iy = (ny - 1) * nx;
-        //const int end_ix = (nx - 1);
+        // const int end_iz = (iz_end - 1) * ny * nx;
+        // const int end_iy = (ny - 1) * nx;
+        // const int end_ix = (nx - 1);
 
         while (iter < iter_max)
         {
@@ -38,10 +39,9 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                 {
                     for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
                     {
-                        a_new[iz + iy + ix] = (real(1) / real(6)) *
-                                              (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
-                                               a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
-                                               a[iz - ny * nx + iy + ix]);
+                        a_new[iz + iy + ix] = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
+                                                                     a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
+                                                                     a[iz - ny * nx + iy + ix]);
                     }
                 }
             }
@@ -52,9 +52,7 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
             a = temp_pointer;
 
             iter++;
-
             cg::sync(grid);
-
             if (!grid.thread_rank())
             {
                 while (iteration_done[0] != iter)
@@ -62,14 +60,13 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                 }
                 iteration_done[1] = iter;
             }
-
             cg::sync(grid);
         }
     }
 
     __global__ void __launch_bounds__(1024, 1)
         boundary_sync_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                             const int nx, const int grid_dim_y, const int grid_dim_x, const int iter_max, real *halo_buffer_top,
+                             const int nx, const int iter_max, real *halo_buffer_top,
                              real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
                              const int bottom, volatile int *iteration_done)
     {
@@ -81,30 +78,33 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
         int next_iter_mod = 1;
 
         const int end_iz = (iz_end - 1) * ny * nx;
-        //const int end_iy = (ny - 1) * nx;
-        //const int end_ix = (nx - 1);
+        // const int end_iy = (ny - 1) * nx;
+        // const int end_ix = (nx - 1);
 
-        //const int comm_size_iy = blockDim.y * blockDim.z * nx;
-        //const int comm_size_ix = blockDim.x;
+        // const int comm_size_iy = blockDim.y * nx;
+        // const int comm_size_ix = blockDim.x;
 
-        //const int comm_start_iy = (threadIdx.z * blockDim.y + threadIdx.y + 1) * nx;
-        //const int comm_start_ix = threadIdx.x + 1;
+        // const int comm_start_iy = (threadIdx.y + 1) * nx;
+        // const int comm_start_ix = threadIdx.x + 1;
         const int comm_start_iz = iz_start * ny * nx;
 
         while (iter < iter_max)
         {
-            while (iteration_done[1] != iter)
+            if (!grid.thread_rank())
             {
+                while (iteration_done[1] != iter)
+                {
+                }
             }
+            cg::sync(grid);
             if (blockIdx.x == gridDim.x - 1)
             {
                 if (!cta.thread_rank())
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
                 }
-                /*
                 cg::sync(cta);
-
+                /*
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
@@ -135,9 +135,8 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
                 {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
-                /*
                 cg::sync(cta);
-
+                /*
                 for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy)
                 {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix)
@@ -179,8 +178,6 @@ namespace MultiGPUPeerTilingNvshmemNoCompute
             {
                 iteration_done[0] = iter;
             }
-
-            cg::sync(grid);
         }
     }
 } // namespace MultiGPUPeerTilingNvshmemNoCompute
@@ -254,7 +251,7 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 2);
+    long long unsigned int mesh_size_per_rank = nx * ny * 2 + 2;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -287,8 +284,7 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
 
     nvshmem_barrier_all();
 
-    bool result_correct = true;
-    if (compare_to_single_gpu && 0 == mype)
+    if (compare_to_single_gpu)
     {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
         CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));
@@ -299,10 +295,10 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
     nvshmem_barrier_all();
 
     int chunk_size;
-    int chunk_size_low = (nz - 2) / num_devices;
+    int chunk_size_low = (nz - 2) / npes;
     int chunk_size_high = chunk_size_low + 1;
 
-    int num_ranks_low = num_devices * chunk_size_low + num_devices - (nz - 2);
+    int num_ranks_low = npes * chunk_size_low + npes - (nz - 2);
     if (mype < num_ranks_low)
         chunk_size = chunk_size_low;
     else
@@ -312,7 +308,6 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetDevice(&device));
     cudaDeviceProp deviceProp{};
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, device));
-    
     int numSms = deviceProp.multiProcessorCount;
 
     constexpr int dim_block_x = 32;
@@ -321,12 +316,12 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
 
     constexpr int grid_dim_x = 2;
     constexpr int grid_dim_y = 4;
-    const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+    const int grid_dim_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
     int total_num_flags = 4;
 
-    const int top = mype > 0 ? mype - 1 : (num_devices - 1);
-    const int bottom = (mype + 1) % num_devices;
+    const int top = mype > 0 ? mype - 1 : (npes - 1);
+    const int bottom = (mype + 1) % npes;
 
     nvshmem_barrier_all();
 
@@ -364,7 +359,7 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
     int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
 
     // Set diriclet boundary conditions on left and right border
-    initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
+    initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(
         a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
 
@@ -415,11 +410,11 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
                                              inner_domain_stream));
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch((void *)MultiGPUPeerTilingNvshmemNoCompute::boundary_sync_kernel,
-                                             comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
-                                             boundary_sync_stream));
+                                                         comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
+                                                         boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
-
+    CUDA_RT_CALL(cudaGetLastError());
     // Need to swap pointers on CPU if iteration count is odd
     // Technically, we don't know the iteration number (since we'll be doing l2-norm)
     // Could write iter to CPU when kernel is done
@@ -431,14 +426,16 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
     nvshmem_barrier_all();
     double stop = MPI_Wtime();
     nvshmem_barrier_all();
+    bool result_correct = 1;
     if (compare_to_single_gpu)
     {
+
         CUDA_RT_CALL(cudaMemcpy(
             a_h + iz_start_global * ny * nx, a + ny * nx,
-            std::min((nz - iz_start_global) * ny * nx, chunk_size * nx * ny) * sizeof(real),
+            std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
             cudaMemcpyDeviceToHost));
 
-        for (int iz = 1; result_correct && (iz < (nz - 1)); ++iz)
+        for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz)
         {
             for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy)
             {
@@ -453,38 +450,38 @@ int MultiGPUPeerTilingNvshmemNoCompute::init(int argc, char *argv[])
                                 "(reference)\n",
                                 rank, iz, ny * nx, iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix],
                                 a_ref_h[iz * ny * nx + iy * nx + ix]);
-                        // result_correct = false;
+                        // result_correct = 0;
                     }
                 }
             }
         }
-        if (result_correct)
-        {
-            // printf("Num GPUs: %d.\n", num_devices);
-            printf("Execution time: %8.4f s\n", (stop - start));
-
-            if (compare_to_single_gpu)
-            {
-                printf(
-                    "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: "
-                    "%8.4f "
-                    "s, speedup: "
-                    "%8.2f, "
-                    "efficiency: %8.2f \n",
-                    nz, ny, nx, runtime_serial_non_persistent, num_devices, (stop - start),
-                    runtime_serial_non_persistent / (stop - start),
-                    runtime_serial_non_persistent / (num_devices * (stop - start)) * 100);
-            }
-        }
     }
-
     int global_result_correct = 1;
     MPI_CALL(MPI_Allreduce(&result_correct, &global_result_correct, 1, MPI_INT, MPI_MIN,
                            MPI_COMM_WORLD));
-    result_correct = global_result_correct;
+
+    if (!mype && global_result_correct)
+    {
+        // printf("Num GPUs: %d.\n", npes);
+        printf("Execution time: %8.4f s\n", (stop - start));
+
+        if (compare_to_single_gpu)
+        {
+            printf(
+                "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: "
+                "%8.4f "
+                "s, speedup: "
+                "%8.2f, "
+                "efficiency: %8.2f \n",
+                nx, ny, nz, runtime_serial_non_persistent, npes, (stop - start),
+                runtime_serial_non_persistent / (stop - start),
+                runtime_serial_non_persistent / (npes * (stop - start)) * 100);
+        }
+    }
 
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));
+    CUDA_RT_CALL(cudaFree(iteration_done_flags));
     nvshmem_free((void *)halo_buffer_top);
     nvshmem_free((void *)halo_buffer_bottom);
     nvshmem_free(is_done_computing_flags);
