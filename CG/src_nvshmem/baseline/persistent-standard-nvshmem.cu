@@ -436,10 +436,10 @@ int BaselinePersistentStandardNVSHMEM::init(int argc, char *argv[]) {
         char symmetric_heap_size_str[100];
         sprintf(symmetric_heap_size_str, "%llu", required_symmetric_heap_size);
 
-        if (rank == 0) {
-            printf("Setting environment variable NVSHMEM_SYMMETRIC_SIZE = %llu\n",
-                   required_symmetric_heap_size);
-        }
+        // if (rank == 0) {
+        //     printf("Setting environment variable NVSHMEM_SYMMETRIC_SIZE = %llu\n",
+        //            required_symmetric_heap_size);
+        // }
 
         setenv("NVSHMEM_SYMMETRIC_SIZE", symmetric_heap_size_str, 1);
     }

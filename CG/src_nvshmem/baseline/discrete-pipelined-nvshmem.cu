@@ -266,9 +266,12 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     } else {
         char symmetric_heap_size_str[100];
         sprintf(symmetric_heap_size_str, "%llu", required_symmetric_heap_size);
-        if (!rank)
-            printf("Setting environment variable NVSHMEM_SYMMETRIC_SIZE = %llu\n",
-                   required_symmetric_heap_size);
+
+        // if (rank == 0) {
+        //     printf("Setting environment variable NVSHMEM_SYMMETRIC_SIZE = %llu\n",
+        //            required_symmetric_heap_size);
+        // }
+
         setenv("NVSHMEM_SYMMETRIC_SIZE", symmetric_heap_size_str, 1);
     }
     nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr);
