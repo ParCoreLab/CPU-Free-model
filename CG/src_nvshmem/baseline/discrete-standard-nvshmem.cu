@@ -352,7 +352,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
                                                                             chunk_size);
 
     // Do we need to reset the local dot here?
-    resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_delta1);
+    resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_gamma1);
 
     gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
         device_r, device_r, device_dot_gamma1, chunk_size);
