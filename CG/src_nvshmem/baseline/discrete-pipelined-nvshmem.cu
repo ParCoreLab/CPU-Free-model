@@ -517,6 +517,8 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     nvshmem_free(device_dot_gamma1);
 
     CUDA_RT_CALL(cudaStreamDestroy(mainStream));
+    CUDA_RT_CALL(cudaStreamDestroy(SpMVStream));
+    CUDA_RT_CALL(cudaStreamDestroy(communicationStream));
 
     CUDA_RT_CALL(cudaFree(device_I));
     CUDA_RT_CALL(cudaFree(device_J));
