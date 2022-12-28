@@ -441,8 +441,8 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
             alpha = real_tmp_dot_delta1 / real_tmp_dot_gamma1;
         }
 
-        CUDA_RT_CALL(cudaStreamSynchronize(SpMVStream));
         nvshmemx_barrier_all_on_stream(SpMVStream);
+        CUDA_RT_CALL(cudaStreamSynchronize(SpMVStream));
 
         // z_k = q_k + beta_k * z_(k-1)
         NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
