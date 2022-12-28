@@ -103,6 +103,9 @@ def measure_runtime(save_result_to_path, executable_dir):
 
         for version_name, version_idx in VERSION_NAME_TO_IDX_MAP.items():
             for num_gpus in GPU_NUMS_TO_RUN:
+                print(
+                    f'Running version {version_name} on matrix {matrix_name} with {num_gpus} GPUs')
+
                 cuda_string = CUDA_VISIBLE_DEVICES_SETTING[num_gpus]
                 os.environ['CUDA_VISIBLE_DEVICES'] = cuda_string
 
@@ -122,8 +125,6 @@ def measure_runtime(save_result_to_path, executable_dir):
                         command.split(), capture_output=True)
 
                     output = output.stdout.decode('utf-8')
-
-                    print(output)
 
                     execution_time_match = execution_time_regex_pattern.match(
                         output)
@@ -238,7 +239,7 @@ if __name__ == "__main__":
     VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
 
     GPU_COLUMN_NAMES = [str(num_gpus) + ' GPU' + ('s' if num_gpus != 1 else '')
-                        for num_gpus in range(1, MAX_NUM_GPUS + 1)]
+                        for num_gpus in GPU_NUMS_TO_RUN]
 
     SAVE_RESULT_TO_FILE_PATH = SAVE_RESULT_TO_DIR_PATH + '/' + FILENAME
 
