@@ -508,6 +508,9 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     nvshmem_free(device_r);
     nvshmem_free(device_p);
     nvshmem_free(device_s);
+    nvshmem_free(device_z);
+    nvshmem_free(device_w);
+    nvshmem_free(device_q);
     nvshmem_free(device_ax0);
 
     nvshmem_free(device_dot_delta1);
