@@ -177,9 +177,9 @@ __device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int
 
 __global__ void __launch_bounds__(1024, 1)
     multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *r, real *p, real *s,
-                              real *z, real *w, real *q, real *ax0, double *dot_delta1,
-                              double *dot_gamma1, int nnz, int num_rows, int row_start_idx,
-                              int chunk_size, real tol, const int iter_max, const int sMemSize) {
+                              real *z, real *w, real *q, real *ax0, double *device_merged_dots,
+                              int nnz, int num_rows, int row_start_idx, int chunk_size, real tol,
+                              const int iter_max, const int sMemSize) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
     int grid_size = gridDim.x * blockDim.x;
 
@@ -247,13 +247,14 @@ __global__ void __launch_bounds__(1024, 1)
 
     while (k <= iter_max) {
         if (grid.thread_rank() == 0) {
-            *dot_delta1 = 0.0;
-            *dot_gamma1 = 0.0;
+            device_merged_dots[0] = 0.0;
+            device_merged_dots[1] = 0.0;
         }
 
         cg::sync(grid);
 
-        gpuDotProductsMerged(r, r, r, w, dot_delta1, dot_gamma1, cta, chunk_size, sMemSize);
+        gpuDotProductsMerged(r, r, r, w, &device_merged_dots[0], &device_merged_dots[1], cta,
+                             chunk_size, sMemSize);
 
         cg::sync(grid);
 
@@ -261,10 +262,8 @@ __global__ void __launch_bounds__(1024, 1)
         // Rest are for SpMV
 
         if (blockIdx.x == (gridDim.x - 1)) {
-            nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, dot_delta1, dot_delta1, 1);
-
-            nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
-
+            nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, device_merged_dots,
+                                             device_merged_dots, 2);
         } else {
             gpuSpMV(I, J, val, real_positive_one, w, q, row_start_idx, chunk_size, num_rows);
         }
@@ -275,8 +274,8 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
-        real_tmp_dot_delta1 = (real)*dot_delta1;
-        real_tmp_dot_gamma1 = (real)*dot_gamma1;
+        real_tmp_dot_delta1 = (real)device_merged_dots[0];
+        real_tmp_dot_gamma1 = (real)device_merged_dots[1];
 
         if (k > 1) {
             beta = real_tmp_dot_delta1 / tmp_dot_delta0;
@@ -365,8 +364,7 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     real *device_q;
     real *device_ax0;
 
-    double *device_dot_delta1;
-    double *device_dot_gamma1;
+    double *device_merged_dots;
 
     int rank = 0, size = 1;
     MPI_CALL(MPI_Init(&argc, &argv));
@@ -502,11 +500,11 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMemset(device_q, 0, chunk_size * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(device_ax0, 0, chunk_size * sizeof(real)));
 
-    device_dot_delta1 = (double *)nvshmem_malloc(sizeof(double));
-    device_dot_gamma1 = (double *)nvshmem_malloc(sizeof(double));
+    // device_merged_dots[0] is dot delta
+    // device_merged_dots[1] is dot gamma
+    device_merged_dots = (double *)nvshmem_malloc(2 * sizeof(double));
 
-    CUDA_RT_CALL(cudaMemset(device_dot_delta1, 0, sizeof(double)));
-    CUDA_RT_CALL(cudaMemset(device_dot_gamma1, 0, sizeof(double)));
+    CUDA_RT_CALL(cudaMemset(device_merged_dots, 0, 2 * sizeof(double)));
 
     // Calculate local domain boundaries
     int row_start_global_idx = mype * chunk_size;      // My start index in the global array
@@ -552,16 +550,13 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     int sMemSize = 2 * sizeof(double) * ((threadsPerBlock / 32) + 1);
 
     void *kernelArgs[] = {
-        (void *)&device_I,          (void *)&device_J,
-        (void *)&device_val,        (void *)&device_x,
-        (void *)&device_r,          (void *)&device_p,
-        (void *)&device_s,          (void *)&device_z,
-        (void *)&device_w,          (void *)&device_q,
-        (void *)&device_ax0,        (void *)&device_dot_delta1,
-        (void *)&device_dot_gamma1, (void *)&nnz,
-        (void *)&num_rows,          (void *)&row_start_global_idx,
-        (void *)&chunk_size,        (void *)&tol,
-        (void *)&iter_max,          (void *)&sMemSize,
+        (void *)&device_I,   (void *)&device_J,   (void *)&device_val,
+        (void *)&device_x,   (void *)&device_r,   (void *)&device_p,
+        (void *)&device_s,   (void *)&device_z,   (void *)&device_w,
+        (void *)&device_q,   (void *)&device_ax0, (void *)&device_merged_dots,
+        (void *)&nnz,        (void *)&num_rows,   (void *)&row_start_global_idx,
+        (void *)&chunk_size, (void *)&tol,        (void *)&iter_max,
+        (void *)&sMemSize,
     };
 
     int numBlocks = 0;
@@ -614,8 +609,7 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     nvshmem_free(device_q);
     nvshmem_free(device_ax0);
 
-    nvshmem_free(device_dot_delta1);
-    nvshmem_free(device_dot_gamma1);
+    nvshmem_free(device_merged_dots);
 
     CUDA_RT_CALL(cudaStreamDestroy(mainStream));
 

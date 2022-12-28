@@ -166,10 +166,9 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
 
     real tmp_dot_delta0;
 
-    double *device_dot_delta1;
-    double *device_dot_gamma1;
-    double host_dot_gamma1;
-    double host_dot_delta1;
+    double *device_merged_dots;
+
+    double *host_merged_dots = (double *)malloc(2 * sizeof(double));
 
     real real_positive_one = 1.0;
     real real_negative_one = -1.0;
@@ -314,11 +313,11 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaMemset(device_q, 0, chunk_size * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(device_ax0, 0, chunk_size * sizeof(real)));
 
-    device_dot_delta1 = (double *)nvshmem_malloc(sizeof(double));
-    device_dot_gamma1 = (double *)nvshmem_malloc(sizeof(double));
+    // device_merged_dots[0] is dot delta
+    // device_merged_dots[1] is dot gamma
+    device_merged_dots = (double *)nvshmem_malloc(2 * sizeof(double));
 
-    CUDA_RT_CALL(cudaMemset(device_dot_delta1, 0, sizeof(double)));
-    CUDA_RT_CALL(cudaMemset(device_dot_gamma1, 0, sizeof(double)));
+    CUDA_RT_CALL(cudaMemset(device_merged_dots, 0, 2 * sizeof(double)));
 
     // Calculate local domain boundaries
     int row_start_global_idx = mype * chunk_size;      // My start index in the global array
@@ -392,11 +391,12 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     int k = 1;
 
     while (k <= iter_max) {
-        resetLocalDotProducts<<<1, 1, 0, mainStream>>>(device_dot_delta1, device_dot_gamma1);
+        resetLocalDotProducts<<<1, 1, 0, mainStream>>>(&device_merged_dots[0],
+                                                       &device_merged_dots[1]);
 
         // Dot
         gpuDotProductsMerged<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
-            device_r, device_r, device_r, device_w, device_dot_delta1, device_dot_gamma1,
+            device_r, device_r, device_r, device_w, &device_merged_dots[0], &device_merged_dots[1],
             chunk_size, sMemSize);
 
         CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
@@ -409,11 +409,8 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
         // NOTE: Instead of doing this could have the local dots be in contiguous locations
         // And the use the same NVSHMEM call to do both at the same time
 
-        nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_delta1,
-                                             device_dot_delta1, 1, communicationStream);
-
-        nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1,
-                                             device_dot_gamma1, 1, communicationStream);
+        nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_merged_dots,
+                                             device_merged_dots, 2, communicationStream);
 
         // Using nvshmem_barrier_all() here seems to cause a deadlock
         // Wonder why?
@@ -421,16 +418,13 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
         // In any case, should use one contiguous array for reductions
         nvshmemx_barrier_all_on_stream(communicationStream);
 
-        CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_delta1, device_dot_delta1, sizeof(double),
-                                     cudaMemcpyDeviceToHost, communicationStream));
-
-        CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
+        CUDA_RT_CALL(cudaMemcpyAsync(host_merged_dots, device_merged_dots, 2 * sizeof(double),
                                      cudaMemcpyDeviceToHost, communicationStream));
 
         CUDA_RT_CALL(cudaStreamSynchronize(communicationStream));
 
-        real real_tmp_dot_delta1 = (real)host_dot_delta1;
-        real real_tmp_dot_gamma1 = (real)host_dot_gamma1;
+        real real_tmp_dot_delta1 = (real)host_merged_dots[0];
+        real real_tmp_dot_gamma1 = (real)host_merged_dots[1];
 
         if (k > 1) {
             beta = real_tmp_dot_delta1 / tmp_dot_delta0;
@@ -516,8 +510,7 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     nvshmem_free(device_q);
     nvshmem_free(device_ax0);
 
-    nvshmem_free(device_dot_delta1);
-    nvshmem_free(device_dot_gamma1);
+    nvshmem_free(device_merged_dots);
 
     CUDA_RT_CALL(cudaStreamDestroy(mainStream));
     CUDA_RT_CALL(cudaStreamDestroy(SpMVStream));
@@ -530,6 +523,7 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
     free(host_I);
     free(host_J);
     free(host_val);
+    free(host_merged_dots);
 
     if (compare_to_single_gpu || compare_to_cpu) {
         cudaFreeHost(x_final_result);
