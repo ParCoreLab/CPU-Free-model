@@ -506,8 +506,8 @@ int ProfilingDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         k++;
     }
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
     nvshmemx_barrier_all_on_stream(mainStream);
+    CUDA_RT_CALL(cudaDeviceSynchronize());
 
     double stop = MPI_Wtime();
 
