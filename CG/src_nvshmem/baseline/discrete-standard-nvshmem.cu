@@ -333,8 +333,8 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
     double start = MPI_Wtime();
 
-    NVSHMEM::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_r, device_x,
-                                                                          chunk_size);
+    NVSHMEM::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        device_r, device_x, row_start_global_idx, chunk_size, num_rows);
 
     nvshmemx_barrier_all_on_stream(mainStream);
 
@@ -449,8 +449,11 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     if (compare_to_single_gpu || compare_to_cpu) {
         CUDA_RT_CALL(cudaMallocHost(&x_final_result, num_rows * sizeof(real)));
 
+        // Need to do this when when num_rows % npes != 0
+        int num_elems_to_copy = row_end_global_idx - row_start_global_idx;
+
         CUDA_RT_CALL(cudaMemcpy(x_final_result + row_start_global_idx, device_x,
-                                chunk_size * sizeof(real), cudaMemcpyDeviceToHost));
+                                num_elems_to_copy * sizeof(real), cudaMemcpyDeviceToHost));
     }
 
     bool result_correct_single_gpu = true;
@@ -495,6 +498,8 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
         if (compare_to_cpu) {
             cudaFreeHost(x_ref_cpu);
+
+            // Free CPU arrays here
         }
     }
 

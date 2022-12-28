@@ -200,9 +200,13 @@ __global__ void __launch_bounds__(1024, 1)
 
     int mype = nvshmem_my_pe();
 
-    for (int i = grid_rank; i < chunk_size; i += grid_size) {
-        r[i] = 1.0;
-        x[i] = 0.0;
+    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
+        int global_row_idx = row_start_idx + local_row_idx;
+
+        if (global_row_idx < num_rows) {
+            r[local_row_idx] = 1.0;
+            x[local_row_idx] = 0.0;
+        }
     }
 
     if (grid.thread_rank() == 0) {
@@ -456,10 +460,10 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
         char symmetric_heap_size_str[100];
         sprintf(symmetric_heap_size_str, "%llu", required_symmetric_heap_size);
 
-        // if (rank == 0) {
-        //     printf("Setting environment variable NVSHMEM_SYMMETRIC_SIZE = %llu\n",
-        //            required_symmetric_heap_size);
-        // }
+        if (rank == 0) {
+            printf("Setting environment variable NVSHMEM_SYMMETRIC_SIZE = %llu\n",
+                   required_symmetric_heap_size);
+        }
 
         setenv("NVSHMEM_SYMMETRIC_SIZE", symmetric_heap_size_str, 1);
     }
@@ -572,7 +576,7 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     nvshmemx_collective_launch((void *)multiGpuConjugateGradient, numBlocks, threadsPerBlock,
                                kernelArgs, sMemSize, mainStream);
 
-    nvshmem_barrier_all();
+    nvshmemx_barrier_all_on_stream(mainStream);
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
     double stop = MPI_Wtime();
@@ -580,8 +584,11 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     if (compare_to_single_gpu || compare_to_cpu) {
         CUDA_RT_CALL(cudaMallocHost(&x_final_result, num_rows * sizeof(real)));
 
+        // Need to do this when when num_rows % npes != 0
+        int num_elems_to_copy = row_end_global_idx - row_start_global_idx;
+
         CUDA_RT_CALL(cudaMemcpy(x_final_result + row_start_global_idx, device_x,
-                                chunk_size * sizeof(real), cudaMemcpyDeviceToHost));
+                                num_elems_to_copy * sizeof(real), cudaMemcpyDeviceToHost));
     }
 
     bool result_correct_single_gpu = true;

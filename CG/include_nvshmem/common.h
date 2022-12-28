@@ -71,7 +71,7 @@ __global__ void init_b_k(real *b);
 }  // namespace SingleGPU
 
 namespace NVSHMEM {
-__global__ void initVectors(real *r, real *x, int chunk_size);
+__global__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size, int num_rows);
 
 __global__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, real *outputVecY,
                         int row_start_idx, int chunk_size, int num_rows);

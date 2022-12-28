@@ -239,13 +239,17 @@ __global__ void init_b_k(real *b) {
 
 // Common kernels used by NVSHMEM versions
 namespace NVSHMEM {
-__global__ void initVectors(real *r, real *x, int chunk_size) {
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t grid_size = gridDim.x * blockDim.x;
+__global__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size, int num_rows) {
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_size = gridDim.x * blockDim.x;
 
-    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
-        r[i] = 1.0;
-        x[i] = 0.0;
+    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
+        int global_row_idx = row_start_idx + local_row_idx;
+
+        if (global_row_idx < num_rows) {
+            r[local_row_idx] = 1.0;
+            x[local_row_idx] = 0.0;
+        }
     }
 }
 
