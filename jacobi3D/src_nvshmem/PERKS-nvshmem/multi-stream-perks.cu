@@ -346,17 +346,11 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     nvshmem_barrier_all();
 
-    //   CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
-    //   CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
-    //
-    //   CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
-    //   CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
 
-    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * nz * sizeof(real)));
-    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * nz * sizeof(real)));
-
-    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * nz * sizeof(real)));
-    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * nz * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
 
     halo_buffer_top = (real *) nvshmem_malloc(2 * nx * ny * sizeof(real));
     halo_buffer_bottom = (real *) nvshmem_malloc(2 * nx * ny * sizeof(real));
@@ -681,14 +675,14 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
                           (void *) &iteration_done_flags,
                           (void *) &max_sm_flder};
 
-    //   void *kernelArgsInner[] = {(void *)&a_new,
-    //                              (void *)&a,
-    //                              (void *)&iz_start,
-    //                              (void *)&iz_end,
-    //                              (void *)&ny,
-    //                              (void *)&nx,
-    //                              (void *)&iter_max,
-    //                              (void *)&iteration_done_flags};
+    void *kernelArgsInner[] = {(void *) &a_new,
+                               (void *) &a,
+                               (void *) &iz_start,
+                               (void *) &iz_end,
+                               (void *) &ny,
+                               (void *) &nx,
+                               (void *) &iter_max,
+                               (void *) &iteration_done_flags};
 
     void *kernelArgsBoundary[] = {(void *) &a_new,
                                   (void *) &a,
@@ -713,17 +707,17 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
     CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-    //   CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKSNvshmem::jacobi_kernel,
-    //                                            comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
-    //                                            inner_domain_stream));
+//       CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKSNvshmem::jacobi_kernel,
+//                                                comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
+//                                                inner_domain_stream));
 
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) execute_kernel, executeGridDim,
                                              executeBlockDim, KernelArgs, executeSM,
                                              inner_domain_stream));
 
-    //   CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKSNvshmem::boundary_sync_kernel,
-    //                                            comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
-    //                                            boundary_sync_stream));
+//    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) MultiStreamPERKSNvshmem::boundary_sync_kernel,
+//                                             comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
+//                                             boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaGetLastError());
@@ -733,8 +727,6 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     if (iter_max % 2 != 1) {
         std::swap(a_new, a);
     }
-
-    //   std::swap(a_new, a);
 
     nvshmem_barrier_all();
     double stop = MPI_Wtime();

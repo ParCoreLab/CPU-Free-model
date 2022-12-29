@@ -48,6 +48,12 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
     int ix = blockIdx.x * blockDim.x + threadIdx.x;
     //    real local_l2_norm = 0.0;
 
+    if (iz < iz_start + 1 || iz > iz_end - 2) {
+        return;
+    }
+
+//    const int chunk_size = iz_end - 2;
+
     real east = 1.0f * a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
     real north = 1.0f * a[iz * ny * nx + (iy + (iy < (ny - 1))) * nx + ix];
 
@@ -61,6 +67,10 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
 //    real east = 1.0f * a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
 //    real east = 1.0f * a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
 
+//    if (iz > iz_start) {
+//        return;
+//    }
+
     const real new_val = real((
           north     // north
           + south     // south
@@ -71,7 +81,19 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
                 + bottom     // bottom
         ) / 7.0f);
 
-        a_new[iz * ny * nx + iy * nx + ix] = new_val;
+    a_new[iz * ny * nx + iy * nx + ix] = new_val;
+//    a_new[iz * ny * nx + iy * nx + ix] = -1.0;
+
+//        if (iz * ny * nx + iy * nx + ix == 16711937) {
+//            printf("%f\n", a[iz * ny * nx + (iy + 1) * nx + ix]);
+//            printf("%f\n", a[iz * ny * nx + (iy - 1) * nx + ix]);
+//            printf("%f\n", a[iz * ny * nx + iy * nx + ix - 1]);
+//            printf("%f\n", a[iz * ny * nx + iy * nx + ix + 1]);
+//            printf("%f\n", a[iz * ny * nx + iy * nx + ix]);
+//            printf("%f\n", a[(iz - 1) * ny * nx + iy * nx + ix]);
+//            printf("%f\n", a[(iz + 1) * ny * nx + iy * nx + ix]);
+//            printf("%f\n\n", new_val);
+//        }
 
         //        if (calculate_norm) {
         //            real residue = new_val - a[iz * ny * nx + iy * nx + ix];
@@ -207,6 +229,7 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
 
     double start = omp_get_wtime();
     PUSH_RANGE("Jacobi solve", 0)
+
     while (iter < iter_max) {
         //        CUDA_RT_CALL(cudaMemsetAsync(l2_norm_d, 0, sizeof(real),
         //        compute_stream));

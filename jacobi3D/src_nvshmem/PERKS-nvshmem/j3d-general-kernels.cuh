@@ -242,6 +242,8 @@ kernel3d_general_inner(REAL * __restrict__ input,
   if(!UseSMCache) max_sm_flder=0;
   #define UseRegCache (reg_folder_z!=0)
 
+  const int iz_start = 1;
+
   const int tile_x_with_halo=LOCAL_TILE_X+2*halo;
   const int tile_y_with_halo=LOCAL_TILE_Y+2*halo;
   stencilParaT;
@@ -288,7 +290,7 @@ kernel3d_general_inner(REAL * __restrict__ input,
 
   const int ps_y = halo;
   const int ps_x = halo;
-  // const int ps_z = halo;
+//  const int ps_z = 1;
 
   const int p_x = blockIdx.x * LOCAL_TILE_X;
   const int p_y = blockIdx.y * LOCAL_TILE_Y;
@@ -296,13 +298,15 @@ kernel3d_general_inner(REAL * __restrict__ input,
   int blocksize_z=(width_z/gridDim.z);
   int z_quotient = width_z%gridDim.z;
 
-  const int p_z =  blockIdx.z * (blocksize_z) + (blockIdx.z<=z_quotient?blockIdx.z:z_quotient);
-  blocksize_z += (blockIdx.z<z_quotient?1:0);
+  const int p_z =  blockIdx.z * (blocksize_z) + 2; // + (blockIdx.z<=z_quotient?blockIdx.z:z_quotient) + 1;
+//  blocksize_z += (blockIdx.z<z_quotient?1:0);
   const int p_z_reg_start=p_z+NOCACHE_Z;
   const int p_z_sm_start=p_z+NOCACHE_Z + reg_folder_z;
   const int p_z_sm_end=p_z_sm_start+max_sm_flder;
   const int p_z_end = p_z + (blocksize_z);
   const int total_folder_z=max_sm_flder+reg_folder_z;
+
+//  printf("%d\n", p_z);
 
   const int boundary_east_step=0;
   const int boundary_west_step=(LOCAL_TILE_Y+isBOX*2)*(total_folder_z)*halo;
