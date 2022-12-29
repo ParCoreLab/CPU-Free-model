@@ -57,7 +57,8 @@ namespace cg = cooperative_groups;
 namespace SingleStreamPipelinedNVSHMEM {
 
 __device__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, real *outputVecY,
-                        int row_start_idx, int chunk_size, int num_rows) {
+                        int row_start_idx, int chunk_size, int num_rows,
+                        bool matrix_is_zero_indexed) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
     // One thread block spared for communication
@@ -70,14 +71,14 @@ __device__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, 
         int global_row_idx = row_start_idx + local_row_idx;
 
         if (global_row_idx < num_rows) {
-            int row_elem = I[global_row_idx];
-            int next_row_elem = I[global_row_idx + 1];
+            int row_elem = I[global_row_idx] - int(!matrix_is_zero_indexed);
+            int next_row_elem = I[global_row_idx + 1] - int(!matrix_is_zero_indexed);
             int num_elems_this_row = next_row_elem - row_elem;
 
             real output = 0.0;
 
             for (int j = 0; j < num_elems_this_row; j++) {
-                int input_vec_elem_idx = J[row_elem + j];
+                int input_vec_elem_idx = J[row_elem + j] - int(!matrix_is_zero_indexed);
                 int remote_pe = input_vec_elem_idx / chunk_size;
 
                 int remote_pe_idx_offset = input_vec_elem_idx - remote_pe * chunk_size;
@@ -178,8 +179,9 @@ __device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int
 __global__ void __launch_bounds__(1024, 1)
     multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *r, real *p, real *s,
                               real *z, real *w, real *q, real *ax0, double *device_merged_dots,
-                              int nnz, int num_rows, int row_start_idx, int chunk_size, real tol,
-                              const int iter_max, const int sMemSize) {
+                              int nnz, int num_rows, int row_start_idx, int chunk_size,
+                              bool matrix_is_zero_indexed, real tol, const int iter_max,
+                              const int sMemSize) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
     int grid_size = gridDim.x * blockDim.x;
 
@@ -216,7 +218,8 @@ __global__ void __launch_bounds__(1024, 1)
     cg::sync(grid);
 
     // ax0 = AX0
-    gpuSpMV(I, J, val, real_positive_one, x, ax0, row_start_idx, chunk_size, num_rows);
+    gpuSpMV(I, J, val, real_positive_one, x, ax0, row_start_idx, chunk_size, num_rows,
+            matrix_is_zero_indexed);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -235,7 +238,8 @@ __global__ void __launch_bounds__(1024, 1)
     cg::sync(grid);
 
     // w0 = Ar0
-    gpuSpMV(I, J, val, real_positive_one, r, w, row_start_idx, chunk_size, num_rows);
+    gpuSpMV(I, J, val, real_positive_one, r, w, row_start_idx, chunk_size, num_rows,
+            matrix_is_zero_indexed);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -265,7 +269,8 @@ __global__ void __launch_bounds__(1024, 1)
             nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, device_merged_dots,
                                              device_merged_dots, 2);
         } else {
-            gpuSpMV(I, J, val, real_positive_one, w, q, row_start_idx, chunk_size, num_rows);
+            gpuSpMV(I, J, val, real_positive_one, w, q, row_start_idx, chunk_size, num_rows,
+                    matrix_is_zero_indexed);
         }
 
         if (grid.thread_rank() == 0) {
@@ -338,6 +343,7 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     int num_rows = 0;
     int num_cols = 0;
     int nnz = 0;
+    bool matrix_is_zero_indexed;
 
     int *host_I = NULL;
     int *host_J = NULL;
@@ -424,6 +430,15 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
                                      &host_val, &host_I, &host_J, true)) {
             exit(EXIT_FAILURE);
         }
+    }
+
+    // Check if matrix is 0 or 1 indexed
+    int index_base = host_I[0];
+
+    if (index_base == 1) {
+        matrix_is_zero_indexed = false;
+    } else if (index_base == 0) {
+        matrix_is_zero_indexed = true;
     }
 
     CUDA_RT_CALL(cudaMalloc((void **)&device_I, sizeof(int) * (num_rows + 1)));
@@ -516,10 +531,12 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
 
         single_gpu_runtime = SingleGPUDiscreteStandard::run_single_gpu(
-            iter_max, device_I, device_J, device_val, x_ref_single_gpu, num_rows, nnz);
+            iter_max, device_I, device_J, device_val, x_ref_single_gpu, num_rows, nnz,
+            matrix_is_zero_indexed);
 
         // single_gpu_runtime = SingleGPUDiscretePipelined::run_single_gpu(
-        //     iter_max, device_I, device_J, device_val, x_ref_single_gpu, num_rows, nnz);
+        //     iter_max, device_I, device_J, device_val, x_ref_single_gpu, num_rows, nnz,
+        //     matrix_is_zero_indexed);
     }
 
     if (compare_to_cpu) {
@@ -550,12 +567,25 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
     int sMemSize = 2 * sizeof(double) * ((threadsPerBlock / 32) + 1);
 
     void *kernelArgs[] = {
-        (void *)&device_I,   (void *)&device_J,   (void *)&device_val,
-        (void *)&device_x,   (void *)&device_r,   (void *)&device_p,
-        (void *)&device_s,   (void *)&device_z,   (void *)&device_w,
-        (void *)&device_q,   (void *)&device_ax0, (void *)&device_merged_dots,
-        (void *)&nnz,        (void *)&num_rows,   (void *)&row_start_global_idx,
-        (void *)&chunk_size, (void *)&tol,        (void *)&iter_max,
+        (void *)&device_I,
+        (void *)&device_J,
+        (void *)&device_val,
+        (void *)&device_x,
+        (void *)&device_r,
+        (void *)&device_p,
+        (void *)&device_s,
+        (void *)&device_z,
+        (void *)&device_w,
+        (void *)&device_q,
+        (void *)&device_ax0,
+        (void *)&device_merged_dots,
+        (void *)&nnz,
+        (void *)&num_rows,
+        (void *)&row_start_global_idx,
+        (void *)&chunk_size,
+        (void *)&matrix_is_zero_indexed,
+        (void *)&tol,
+        (void *)&iter_max,
         (void *)&sMemSize,
     };
 

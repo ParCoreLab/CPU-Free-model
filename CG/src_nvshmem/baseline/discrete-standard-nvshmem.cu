@@ -119,6 +119,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     int num_rows = 0;
     int num_cols = 0;
     int nnz = 0;
+    bool matrix_is_zero_indexed;
 
     int *host_I = NULL;
     int *host_J = NULL;
@@ -216,6 +217,15 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         }
     }
 
+    // Check if matrix is 0 or 1 indexed
+    int index_base = host_I[0];
+
+    if (index_base == 1) {
+        matrix_is_zero_indexed = false;
+    } else if (index_base == 0) {
+        matrix_is_zero_indexed = true;
+    }
+
     CUDA_RT_CALL(cudaMalloc((void **)&device_I, sizeof(int) * (num_rows + 1)));
     CUDA_RT_CALL(cudaMalloc((void **)&device_J, sizeof(int) * nnz));
     CUDA_RT_CALL(cudaMalloc((void **)&device_val, sizeof(real) * nnz));
@@ -300,10 +310,12 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
 
         single_gpu_runtime = SingleGPUDiscreteStandard::run_single_gpu(
-            iter_max, device_I, device_J, device_val, x_ref_single_gpu, num_rows, nnz);
+            iter_max, device_I, device_J, device_val, x_ref_single_gpu, num_rows, nnz,
+            matrix_is_zero_indexed);
 
         // single_gpu_runtime = SingleGPUDiscretePipelined::run_single_gpu(
-        //     iter_max, device_I, device_J, device_val, x_ref_single_gpu, num_rows, nnz);
+        //     iter_max, device_I, device_J, device_val, x_ref_single_gpu, num_rows, nnz,
+        //     matrix_is_zero_indexed);
     }
 
     if (compare_to_cpu) {
@@ -341,7 +353,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
     // ax0 = Ax0
     NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
         device_I, device_J, device_val, real_positive_one, device_x, device_ax0,
-        row_start_global_idx, chunk_size, num_rows);
+        row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
     nvshmemx_barrier_all_on_stream(mainStream);
 
@@ -379,7 +391,7 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
         // SpMV
         NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             device_I, device_J, device_val, real_positive_one, device_p, device_s,
-            row_start_global_idx, chunk_size, num_rows);
+            row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
         nvshmemx_barrier_all_on_stream(mainStream);
 
