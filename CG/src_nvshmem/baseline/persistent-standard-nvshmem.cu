@@ -58,13 +58,11 @@ namespace BaselinePersistentStandardNVSHMEM {
 
 __device__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *inputVecX,
                         real *outputVecY, int row_start_idx, int chunk_size, int num_rows,
-                        bool matrix_is_zero_indexed) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
+                        bool matrix_is_zero_indexed, const cg::grid_group &grid) {
     int mype = nvshmem_my_pe();
 
-    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
+    for (int local_row_idx = grid.thread_rank(); local_row_idx < chunk_size;
+         local_row_idx += grid.size()) {
         int global_row_idx = row_start_idx + local_row_idx;
 
         if (global_row_idx < num_rows) {
@@ -95,15 +93,13 @@ __device__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *i
 }
 
 __device__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result,
-                              const cg::thread_block &cta, int chunk_size) {
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t grid_size = gridDim.x * blockDim.x;
-
+                              const cg::thread_block &cta, int chunk_size,
+                              const cg::grid_group &grid) {
     extern __shared__ double tmp[];
 
     double temp_sum = 0.0;
 
-    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
+    for (size_t i = grid.thread_rank(); i < chunk_size; i += grid.size()) {
         temp_sum += (double)(vecA[i] * vecB[i]);
     }
 
@@ -128,11 +124,10 @@ __device__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result,
     }
 }
 
-__device__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size, int num_rows) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
-    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
+__device__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size, int num_rows,
+                            const cg::grid_group &grid) {
+    for (int local_row_idx = grid.thread_rank(); local_row_idx < chunk_size;
+         local_row_idx += grid.size()) {
         int global_row_idx = row_start_idx + local_row_idx;
 
         if (global_row_idx < num_rows) {
@@ -142,33 +137,24 @@ __device__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size,
     }
 }
 
-__device__ void gpuCopyVector(real *srcA, real *destB, int chunk_size) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
-    for (int i = grid_rank; i < chunk_size; i += grid_size) {
+__device__ void gpuCopyVector(real *srcA, real *destB, int chunk_size, const cg::grid_group &grid) {
+    for (int i = grid.thread_rank(); i < chunk_size; i += grid.size()) {
         destB[i] = srcA[i];
     }
 }
 
-__device__ void gpuSaxpy(real *x, real *y, real a, int chunk_size) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
-    for (int i = grid_rank; i < chunk_size; i += grid_size) {
+__device__ void gpuSaxpy(real *x, real *y, real a, int chunk_size, const cg::grid_group &grid) {
+    for (int i = grid.thread_rank(); i < chunk_size; i += grid.size()) {
         y[i] = a * x[i] + y[i];
     }
 }
 
-__device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int chunk_size) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
-    for (int i = grid_rank; i < chunk_size; i += grid_size) {
+__device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int chunk_size,
+                                       const cg::grid_group &grid) {
+    for (int i = grid.thread_rank(); i < chunk_size; i += grid.size()) {
         y[i] = a * x[i] + scale * y[i];
     }
 }
-
 __global__ void __launch_bounds__(1024, 1)
     multiGpuConjugateGradient(int *device_csrRowIndices, int *device_csrColIndices,
                               real *device_csrVal, real *x, real *r, real *p, real *s, real *ax0,
@@ -187,7 +173,7 @@ __global__ void __launch_bounds__(1024, 1)
     real alpha;
     real negative_alpha;
 
-    initVectors(r, x, row_start_idx, chunk_size, num_rows);
+    initVectors(r, x, row_start_idx, chunk_size, num_rows, grid);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -197,7 +183,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     // ax0 = AX0
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, x, ax0,
-            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed);
+            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -207,7 +193,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
-    gpuSaxpy(ax0, r, real_negative_one, chunk_size);
+    gpuSaxpy(ax0, r, real_negative_one, chunk_size, grid);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -216,7 +202,7 @@ __global__ void __launch_bounds__(1024, 1)
     cg::sync(grid);
 
     // p0 = r0
-    gpuCopyVector(r, p, chunk_size);
+    gpuCopyVector(r, p, chunk_size, grid);
 
     cg::sync(grid);
 
@@ -226,7 +212,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     cg::sync(grid);
 
-    gpuDotProduct(r, r, dot_gamma1, cta, chunk_size);
+    gpuDotProduct(r, r, dot_gamma1, cta, chunk_size, grid);
 
     cg::sync(grid);
 
@@ -243,7 +229,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     while (k <= iter_max) {
         gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, p, s,
-                row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed);
+                row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 
         if (grid.thread_rank() == 0) {
             nvshmem_barrier_all();
@@ -257,7 +243,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
-        gpuDotProduct(p, s, dot_delta1, cta, chunk_size);
+        gpuDotProduct(p, s, dot_delta1, cta, chunk_size, grid);
 
         cg::sync(grid);
 
@@ -270,11 +256,11 @@ __global__ void __launch_bounds__(1024, 1)
 
         alpha = tmp_dot_gamma0 / (real)*dot_delta1;
 
-        gpuSaxpy(p, x, alpha, chunk_size);
+        gpuSaxpy(p, x, alpha, chunk_size, grid);
 
         negative_alpha = -alpha;
 
-        gpuSaxpy(s, r, negative_alpha, chunk_size);
+        gpuSaxpy(s, r, negative_alpha, chunk_size, grid);
 
         if (grid.thread_rank() == 0) {
             *dot_gamma1 = 0.0;
@@ -282,7 +268,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
-        gpuDotProduct(r, r, dot_gamma1, cta, chunk_size);
+        gpuDotProduct(r, r, dot_gamma1, cta, chunk_size, grid);
 
         cg::sync(grid);
 
@@ -297,7 +283,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         beta = tmp_dot_gamma1 / tmp_dot_gamma0;
 
-        gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, chunk_size);
+        gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, chunk_size, grid);
 
         tmp_dot_gamma0 = tmp_dot_gamma1;
 

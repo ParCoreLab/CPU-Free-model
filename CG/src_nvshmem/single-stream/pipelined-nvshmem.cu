@@ -58,16 +58,15 @@ namespace SingleStreamPipelinedNVSHMEM {
 
 __device__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *inputVecX,
                         real *outputVecY, int row_start_idx, int chunk_size, int num_rows,
-                        bool matrix_is_zero_indexed) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-
+                        bool matrix_is_zero_indexed, const cg::grid_group &grid) {
     // One thread block spared for communication
     // Need to subtract 1 when calculating total grid size
-    int grid_size = (gridDim.x - 1) * blockDim.x;
+    int grid_size = grid.size() - blockDim.x;
 
     int mype = nvshmem_my_pe();
 
-    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
+    for (int local_row_idx = grid.thread_rank(); local_row_idx < chunk_size;
+         local_row_idx += grid_size) {
         int global_row_idx = row_start_idx + local_row_idx;
 
         if (global_row_idx < num_rows) {
@@ -102,10 +101,8 @@ __device__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *i
 __device__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *vecA_gamma,
                                      real *vecB_gamma, double *local_dot_result_delta,
                                      double *local_dot_result_gamma, const cg::thread_block &cta,
-                                     int chunk_size, const int sMemSize) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
+                                     int chunk_size, const int sMemSize,
+                                     const cg::grid_group &grid) {
     // First half (up to sMemSize / 2) will be used for delta
     // Second half (from sMemSize / 2) will be used for gamma
     extern __shared__ double tmp[];
@@ -116,7 +113,7 @@ __device__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
     double temp_sum_delta = 0.0;
     double temp_sum_gamma = 0.0;
 
-    for (int i = grid_rank; i < chunk_size; i += grid_size) {
+    for (int i = grid.thread_rank(); i < chunk_size; i += grid.size()) {
         temp_sum_delta += (double)(vecA_delta[i] * vecB_delta[i]);
         temp_sum_gamma += (double)(vecA_gamma[i] * vecB_gamma[i]);
     }
@@ -149,11 +146,10 @@ __device__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
     }
 }
 
-__device__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size, int num_rows) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
-    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
+__device__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size, int num_rows,
+                            const cg::grid_group &grid) {
+    for (int local_row_idx = grid.thread_rank(); local_row_idx < chunk_size;
+         local_row_idx += grid.size()) {
         int global_row_idx = row_start_idx + local_row_idx;
 
         if (global_row_idx < num_rows) {
@@ -163,20 +159,15 @@ __device__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size,
     }
 }
 
-__device__ void gpuSaxpy(real *x, real *y, real a, int chunk_size) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
-    for (int i = grid_rank; i < chunk_size; i += grid_size) {
+__device__ void gpuSaxpy(real *x, real *y, real a, int chunk_size, const cg::grid_group &grid) {
+    for (int i = grid.thread_rank(); i < chunk_size; i += grid.size()) {
         y[i] = a * x[i] + y[i];
     }
 }
 
-__device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int chunk_size) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
-    for (int i = grid_rank; i < chunk_size; i += grid_size) {
+__device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int chunk_size,
+                                       const cg::grid_group &grid) {
+    for (int i = grid.thread_rank(); i < chunk_size; i += grid.size()) {
         y[i] = a * x[i] + scale * y[i];
     }
 }
@@ -203,7 +194,7 @@ __global__ void __launch_bounds__(1024, 1)
     real alpha;
     real negative_alpha;
 
-    initVectors(r, x, row_start_idx, chunk_size, num_rows);
+    initVectors(r, x, row_start_idx, chunk_size, num_rows, grid);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -213,7 +204,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     // ax0 = AX0
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, x, ax0,
-            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed);
+            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -223,7 +214,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
-    gpuSaxpy(ax0, r, real_negative_one, chunk_size);
+    gpuSaxpy(ax0, r, real_negative_one, chunk_size, grid);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -232,8 +223,14 @@ __global__ void __launch_bounds__(1024, 1)
     cg::sync(grid);
 
     // w0 = Ar0
+    // Technically we are wasting a bit of computation here
+    // Giving away one thread block for nothing
+    // Tiny optimization idea =>
+    //    1) Pass bool checking whether we are overlapping
+    //    2) If no, use all thread blocks for SpMV computation
+    // Whatever we waste is probably amortized anyway but still
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, r, w,
-            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed);
+            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -252,7 +249,7 @@ __global__ void __launch_bounds__(1024, 1)
         cg::sync(grid);
 
         gpuDotProductsMerged(r, r, r, w, &device_merged_dots[0], &device_merged_dots[1], cta,
-                             chunk_size, sMemSize);
+                             chunk_size, sMemSize, grid);
 
         cg::sync(grid);
 
@@ -264,7 +261,7 @@ __global__ void __launch_bounds__(1024, 1)
                                              device_merged_dots, 2);
         } else {
             gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, w,
-                    q, row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed);
+                    q, row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
         }
 
         if (grid.thread_rank() == 0) {
@@ -286,26 +283,26 @@ __global__ void __launch_bounds__(1024, 1)
         }
 
         // z_k = q_k + beta_k * z_(k-1)
-        gpuScaleVectorAndSaxpy(q, z, real_positive_one, beta, chunk_size);
+        gpuScaleVectorAndSaxpy(q, z, real_positive_one, beta, chunk_size, grid);
 
         // s_k = w_k + beta_k * s_(k-1)
-        gpuScaleVectorAndSaxpy(w, s, real_positive_one, beta, chunk_size);
+        gpuScaleVectorAndSaxpy(w, s, real_positive_one, beta, chunk_size, grid);
 
         // p_k = r_k = beta_k * p_(k-1)
-        gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, chunk_size);
+        gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, chunk_size, grid);
 
         cg::sync(grid);
 
         // x_(k+1) = x_k + alpha_k * p_k
-        gpuSaxpy(p, x, alpha, chunk_size);
+        gpuSaxpy(p, x, alpha, chunk_size, grid);
 
         negative_alpha = -alpha;
 
         // r_(k+1) = r_k - alpha_k * s_k
-        gpuSaxpy(s, r, negative_alpha, chunk_size);
+        gpuSaxpy(s, r, negative_alpha, chunk_size, grid);
 
         // w_(k+1) = w_k - alpha_k * z_k
-        gpuSaxpy(z, w, negative_alpha, chunk_size);
+        gpuSaxpy(z, w, negative_alpha, chunk_size, grid);
 
         tmp_dot_delta0 = real_tmp_dot_delta1;
 
