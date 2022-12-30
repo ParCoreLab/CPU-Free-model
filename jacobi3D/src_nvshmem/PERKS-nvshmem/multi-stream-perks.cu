@@ -19,57 +19,6 @@ namespace cg = cooperative_groups;
 
 namespace MultiStreamPERKSNvshmem {
     __global__ void __launch_bounds__(1024, 1)
-            jacobi_kernel(real *a_new, real *a,
-                          const int iz_start, const int iz_end,
-                          const int ny, const int nx, const int iter_max,
-                          volatile int *iteration_done) {
-        cg::thread_block cta = cg::this_thread_block();
-        cg::grid_group grid = cg::this_grid();
-
-        int iter = 0;
-
-        const int comp_size_iz = gridDim.z * blockDim.z * ny * nx;
-        const int comp_size_iy = gridDim.y * blockDim.y * nx;
-        const int comp_size_ix = gridDim.x * blockDim.x;
-
-        const int comp_start_iz = (blockIdx.z * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-        const int comp_start_iy = (blockIdx.y * blockDim.y + threadIdx.y + 1) * nx;
-        const int comp_start_ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-
-        const int end_iz = (iz_end - 1) * ny * nx;
-        const int end_iy = (ny - 1) * nx;
-        const int end_ix = (nx - 1);
-
-        while (iter < iter_max) {
-            for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz) {
-                for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy) {
-                    for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix) {
-                        a_new[iz + iy + ix] = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] + a[iz + iy + nx + ix] +
-                                                                     a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] +
-                                                                     a[iz - ny * nx + iy + ix]);
-                    }
-                }
-            }
-
-            real *temp_pointer = a_new;
-            a_new = a;
-            a = temp_pointer;
-
-            iter++;
-
-            cg::sync(grid);
-
-            if (grid.thread_rank() == 0) {
-                while (iteration_done[0] != iter) {
-                }
-                iteration_done[1] = iter;
-            }
-
-            cg::sync(grid);
-        }
-    }
-
-    __global__ void __launch_bounds__(1024, 1)
             boundary_sync_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
                                  const int nx, const int iter_max, real *halo_buffer_top,
                                  real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
@@ -82,70 +31,142 @@ namespace MultiStreamPERKSNvshmem {
         int next_iter_mod = 1;
 
         const int end_iz = (iz_end - 1) * ny * nx;
-        const int end_iy = (ny - 1) * nx;
-        const int end_ix = (nx - 1);
+//        const int end_iy = (ny) * nx;
+        const int end_iy = (ny);
+        const int end_ix = (nx);
 
         const int comm_size_iy = blockDim.y * nx;
         const int comm_size_ix = blockDim.x;
 
-        const int comm_start_iy = (threadIdx.y + 1) * nx;
-        const int comm_start_ix = threadIdx.x + 1;
+        const int comm_start_iy = (threadIdx.y) * nx;
+        const int comm_start_ix = threadIdx.x;
         const int comm_start_iz = iz_start * ny * nx;
 
         while (iter < iter_max) {
-            while (iteration_done[1] != iter) {
-            }
+            while (iteration_done[1] != iter) {}
+
             if (blockIdx.x == gridDim.x - 1) {
-                if (cta.thread_rank() == cta.num_threads() - 1) {
-                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
-                }
+//                if (cta.thread_rank() == cta.num_threads() - 1) {
+//                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
+//                }
                 cg::sync(cta);
 
-                for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy) {
+                for (int i_iy = comm_start_iy; i_iy < end_iy; i_iy++) {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix) {
-                        const real first_row_val = (real(1) / real(6)) * (a[comm_start_iz + iy + ix + 1] +
-                                                                          a[comm_start_iz + iy + ix - 1] +
-                                                                          a[comm_start_iz + iy + nx + ix] +
-                                                                          a[comm_start_iz + iy - nx + ix] +
-                                                                          a[comm_start_iz + ny * nx + iy + ix] +
-                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);
-                        //                       a_new[comm_start_iz + iy + ix] = first_row_val;
+                        // i_iy is the logical index
+
+                        // this is the real index
+                        const int iy = i_iy * nx;
+
+                        real east = a[comm_start_iz + iy + ix + (ix < (nx - 1))];
+                        real west = a[comm_start_iz + iy + ix - (ix > 0)];
+
+                        // no
+                        //                        real north = a[comm_start_iz + (iy + (iy < (iy * (ny - 1))) * ny) + ix];
+                        real north = a[comm_start_iz + (i_iy + (i_iy < (ny - 1))) * nx + ix];
+
+                        //                        real north = 1.0f * a[iz * ny * nx + (iy + (iy < (ny - 1))) * nx + ix];
+
+                        real south = a[comm_start_iz + (i_iy - (i_iy > 0)) * nx + ix];
+
+                        const real first_row_val = (north +
+                                                    south +
+                                                    west +
+                                                    east +
+                                                    a[comm_start_iz + iy + ix] +// center
+                                                    halo_buffer_top[cur_iter_mod * ny * nx + iy + ix] +
+                                                    a[comm_start_iz + ny * nx + iy + ix]// bottom
+                                                    ) /
+                                                   7.0f;
+
+//                        if (comm_start_iz + iy + ix == 65793) {
+//                            printf("\nBoundary Kernel\n");
+//                            printf("%f\n", north);
+//                            printf("%f\n", south);
+//                            printf("%f\n", west);
+//                            printf("%f\n", east);
+//                            printf("%f\n", halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);// top
+//                            printf("%f\n", a[comm_start_iz + ny * nx + iy + ix]);             // bottom
+//                            printf("%f\n", a[comm_start_iz + iy + ix]);                       // center
+//                            printf("%f\n", first_row_val);
+//                        }
+
+                        a_new[comm_start_iz + iy + ix] = first_row_val;
                     }
                 }
 
-                nvshmemx_putmem_signal_nbi_block(
-                        halo_buffer_bottom + next_iter_mod * ny * nx, a_new + comm_start_iz, ny * nx * sizeof(real),
-                        is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
-                        top);
-                if (cta.thread_rank() == cta.num_threads() - 1) {
-                    nvshmem_quiet();
-                }
+//                nvshmemx_putmem_signal_nbi_block(
+//                        halo_buffer_bottom + next_iter_mod * ny * nx, a_new + comm_start_iz, ny * nx * sizeof(real),
+//                        is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
+//                        top);
+//                if (cta.thread_rank() == cta.num_threads() - 1) {
+//                    nvshmem_quiet();
+//                }
             } else if (blockIdx.x == gridDim.x - 2) {
-                if (cta.thread_rank() == cta.num_threads() - 1) {
-                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
-                }
-                cg::sync(cta);
+//                if (cta.thread_rank() == cta.num_threads() - 1) {
+//                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
+//                }
+//                cg::sync(cta);
 
-                for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy) {
+                for (int i_iy = comm_start_iy; i_iy < end_iy; i_iy++) {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix) {
+                        const int iy = i_iy * nx;
 
-                        const real last_row_val = (real(1) / real(6)) * (a[end_iz + iy + ix + 1] +
-                                                                         a[end_iz + iy + ix - 1] +
-                                                                         a[end_iz + iy + nx + ix] +
-                                                                         a[end_iz + iy - nx + ix] +
-                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix] +
-                                                                         a[end_iz - ny * nx + iy + ix]);
-                        //                       a_new[end_iz + iy + ix] = last_row_val;
+                        real east = a[end_iz + iy + ix + (ix < (nx - 1))];
+                        real west = a[end_iz + iy + ix - (ix > 0)];
+
+//                        real north = a[end_iz + iy + ny + ix];
+//                        real south = a[end_iz + (iy - (iy > 0) * ny) + ix];
+
+                        //                        real north = a[comm_start_iz + (iy + (iy < (iy * (ny - 1))) * ny) + ix];
+                        real north = a[end_iz + (i_iy + (i_iy < (ny - 1))) * nx + ix];
+
+                        //                        real north = 1.0f * a[iz * ny * nx + (iy + (iy < (ny - 1))) * nx + ix];
+
+                        real south = a[end_iz + (i_iy - (i_iy > 0)) * nx + ix];
+
+//                        const real last_row_val = (real(1) / real(6)) * (a[end_iz + iy + ix + 1] +
+//                                                                         a[end_iz + iy + ix - 1] +
+//                                                                         a[end_iz + iy + nx + ix] +
+//                                                                         a[end_iz + iy - nx + ix] +
+//                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix] +
+//                                                                         a[end_iz - ny * nx + iy + ix]);
+
+
+                        const real last_row_val = (
+                            north +
+                            south +
+                            west +
+                            east +
+                            a[end_iz + iy + ix] +   // center
+                            a[end_iz - ny * nx + iy + ix] +   // top
+                            halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]    // bottom
+                        ) / 7.0f;
+
+                        if (end_iz + iy + ix == 15991041) {
+//                        if (end_iz + iy + ix == 15991041) {
+                            printf("\nBoundary Kernel\n");
+                            printf("%f\n", north);
+                            printf("%f\n", south);
+                            printf("%f\n", east);
+                            printf("%f\n", west);
+                            printf("%f\n", a[end_iz - ny * nx + iy + ix]);
+                            printf("%f\n", halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]);
+                            printf("%f\n", a[end_iz + iy + ix]);
+                            printf("%f\n", last_row_val);
+                        }
+
+                       a_new[end_iz + iy + ix] = last_row_val;
                     }
                 }
 
-                nvshmemx_putmem_signal_nbi_block(
-                        halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
-                        is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
-                        bottom);
-                if (cta.thread_rank() == cta.num_threads() - 1) {
-                    nvshmem_quiet();
-                }
+//                nvshmemx_putmem_signal_nbi_block(
+//                        halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
+//                        is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
+//                        bottom);
+//                if (cta.thread_rank() == cta.num_threads() - 1) {
+//                    nvshmem_quiet();
+//                }
             }
 
             real *temp_pointer_first = a_new;
@@ -156,6 +177,8 @@ namespace MultiStreamPERKSNvshmem {
 
             next_iter_mod = cur_iter_mod;
             cur_iter_mod = 1 - cur_iter_mod;
+
+            cg::sync(grid);
 
             if (grid.thread_rank() == 0) {
                 iteration_done[0] = iter;
@@ -661,12 +684,17 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     int l_iteration = iter_max;
 
-    const auto a_local = a;        // + ny * nx;
-    const auto a_new_local = a_new;// + ny * nx;
+    const auto a_local = a; //        + ny * nx;
+    const auto a_new_local = a_new; // + ny * nx;
 
-    void *KernelArgs[] = {(void *) &a,
-                          (void *) &a_new,
-                          (void *) &nz,
+    // PERKS has no iz_start, so we include the halos
+//    const auto chunk_size_local = chunk_size + 5;
+    const auto chunk_size_local = chunk_size + 1;
+//    const auto chunk_size_local = nz - 1;
+
+    void *KernelArgs[] = {(void *) &a_local,
+                          (void *) &a_new_local,
+                          (void *) &chunk_size_local,
                           (void *) &ny,
                           (void *) &nx,
                           (void *) &l2_cache1,
@@ -715,9 +743,9 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
                                              executeBlockDim, KernelArgs, executeSM,
                                              inner_domain_stream));
 
-//    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) MultiStreamPERKSNvshmem::boundary_sync_kernel,
-//                                             comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
-//                                             boundary_sync_stream));
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) MultiStreamPERKSNvshmem::boundary_sync_kernel,
+                                             comm_dim_grid, comm_dim_block, kernelArgsBoundary, 0,
+                                             boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaGetLastError());

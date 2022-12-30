@@ -4,6 +4,8 @@
 #define SYNC (true)
 #define NOSYNC (false)
 
+#include <stdio.h>
+
 //#undef TILE_Y
 // #define USESM
 
@@ -232,8 +234,9 @@ __device__ void __forceinline__ computation(REAL result[RESULT_SIZE],
 
       result[l_y] = REAL(result[l_y] / 7.0f);
 
-//      if (reg_ptr[REG_BASE][l_y] == 16711937.0f) {
-//          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind]);
+//      if (reg_ptr[REG_BASE][l_y] == 131329) {
+//      if (result[l_y] == 0.063290) {
+//          printf("\n%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind]);
 //          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base-1) + sm_x_ind]);
 //          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1]);
 //          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1]);

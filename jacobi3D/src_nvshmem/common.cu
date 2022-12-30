@@ -30,6 +30,9 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new,
             {
                 a[iz * ny * nx + iy * nx + ix] = y0;
                 a_new[iz * ny * nx + iy * nx + ix] = y0;
+
+//                a[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix;
+//                a_new[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix; // + 0.5;
             }
         }
     }
@@ -48,7 +51,13 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
     int ix = blockIdx.x * blockDim.x + threadIdx.x;
     //    real local_l2_norm = 0.0;
 
-    if (iz < iz_start + 1 || iz > iz_end - 2) {
+    // WE COMPUTE 1 AND 244 YOU
+    if (iz < iz_start || iz > (iz_end - 1)) {
+//    if (iz != iz_start && iz != (iz_end - 1)) {
+        //        if (iz == iz_start || iz == iz_end) {
+        //            a_new[iz * ny * nx + iy * nx + ix] = -1.0f;
+        //        }
+
         return;
     }
 
@@ -60,26 +69,39 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
     real west = 1.0f * a[iz * ny * nx + iy * nx + ix - (ix > 0)];
     real south = 1.0f * a[iz * ny * nx + (iy - (iy > 0)) * nx + ix];
 
-    real top = 1.0f * a[(iz - (iz > 0)) * ny * nx + iy * nx + ix];
-    real bottom = 1.0f * a[(iz + (iz < (iz_end))) * ny * nx + iy * nx + ix];
+    real top = 1.0f * a[(iz - 1) * ny * nx + iy * nx + ix];
+    real bottom = 1.0f * a[(iz + 1) * ny * nx + iy * nx + ix];
+
+//    real top = 1.0f * a[(iz - (iz > 0)) * ny * nx + iy * nx + ix];
+//    real bottom = 1.0f * a[(iz + (iz < (iz_end))) * ny * nx + iy * nx + ix];
 
 //    real east = 1.0f * a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
 //    real east = 1.0f * a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
 //    real east = 1.0f * a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
 
-//    if (iz > iz_start) {
-//        return;
+
+
+    const real new_val = (
+        north     // north
+        + south     // south
+        + west       // west
+        + east         // east
+        + a[iz * ny * nx + iy * nx + ix]        // center
+        + top     // top      // might be bottom
+        + bottom     // bottom
+    ) / 7.0f;
+
+//        if (iz * ny * nx + iy * nx + ix == 15991041) {
+//            printf("\nBaseline\n");
+//            printf("%f\n", north);
+//            printf("%f\n", south);
+//            printf("%f\n", west);
+//            printf("%f\n", east);
+//            printf("%f\n", top);
+//            printf("%f\n", bottom);
+//            printf("%f\n", a[iz * ny * nx + iy * nx + ix]);
+//            printf("%f\n", new_val);
 //    }
-
-    const real new_val = real((
-          north     // north
-          + south     // south
-          + west       // west
-           + east         // east
-            + 1.0f * a[iz * ny * nx + iy * nx + ix]        // center
-                + top     // top      // might be bottom
-                + bottom     // bottom
-        ) / 7.0f);
 
     a_new[iz * ny * nx + iy * nx + ix] = new_val;
 //    a_new[iz * ny * nx + iy * nx + ix] = -1.0;
@@ -254,14 +276,14 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
         // Apply periodic boundary conditions
 
 //        CUDA_RT_CALL(cudaStreamWaitEvent(push_top_stream, compute_done, 0));
-//        CUDA_RT_CALL(cudaMemcpyAsync(a_new, a_new + (iz_end - 1) * ny * nx,
+//        CUDA_RT_CALL(cudaMemcpyAsync(a_new + iz_start * ny, a_new + (iz_end - 1) * ny * nx,
 //                                     nx * ny * sizeof(real),
 //                                     cudaMemcpyDeviceToDevice, push_top_stream));
 //        CUDA_RT_CALL(cudaEventRecord(push_top_done, push_top_stream));
-
+//
 //        CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream, compute_done, 0));
 //        CUDA_RT_CALL(cudaMemcpyAsync(
-//                a_new + iz_end * ny * nx, a_new + iz_start * ny * nx,
+//                a_new + (iz_end - 1) * ny * nx, a_new + iz_start * ny * nx,
 //                nx * ny * sizeof(real), cudaMemcpyDeviceToDevice, compute_stream));
 //        CUDA_RT_CALL(cudaEventRecord(push_bottom_done, push_bottom_stream));
 
@@ -276,6 +298,8 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
         std::swap(a_new, a);
         iter++;
     }
+
+    CUDA_RT_CALL(cudaDeviceSynchronize());
 
     POP_RANGE
     double stop = omp_get_wtime();
