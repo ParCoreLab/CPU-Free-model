@@ -128,6 +128,20 @@ __device__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result,
     }
 }
 
+__device__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size, int num_rows) {
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_size = gridDim.x * blockDim.x;
+
+    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
+        int global_row_idx = row_start_idx + local_row_idx;
+
+        if (global_row_idx < num_rows) {
+            r[local_row_idx] = 1.0;
+            x[local_row_idx] = 0.0;
+        }
+    }
+}
+
 __device__ void gpuCopyVector(real *srcA, real *destB, int chunk_size) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
     int grid_size = gridDim.x * blockDim.x;
@@ -161,9 +175,6 @@ __global__ void __launch_bounds__(1024, 1)
                               double *dot_delta1, double *dot_gamma1, int nnz, int num_rows,
                               int row_start_idx, int chunk_size, bool matrix_is_zero_indexed,
                               real tol, const int iter_max, const int sMemSize) {
-    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
-
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
@@ -176,16 +187,7 @@ __global__ void __launch_bounds__(1024, 1)
     real alpha;
     real negative_alpha;
 
-    int mype = nvshmem_my_pe();
-
-    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
-        int global_row_idx = row_start_idx + local_row_idx;
-
-        if (global_row_idx < num_rows) {
-            r[local_row_idx] = 1.0;
-            x[local_row_idx] = 0.0;
-        }
-    }
+    initVectors(r, x, row_start_idx, chunk_size, num_rows);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
