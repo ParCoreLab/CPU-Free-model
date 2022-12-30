@@ -257,7 +257,7 @@ __global__ void __launch_bounds__(1024, 1)
         // Allocate one thread block for dot global reduction (`atomicAdd`s)
         // Rest are for SpMV
 
-        if (blockIdx.x == (gridDim.x - 1)) {
+        if (cta.group_index().x == (grid.num_blocks() - 1)) {
             nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, device_merged_dots,
                                              device_merged_dots, 2);
         } else {
