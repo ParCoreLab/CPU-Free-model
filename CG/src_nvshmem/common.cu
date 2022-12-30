@@ -151,19 +151,19 @@ __global__ void gpuCopyVector(real *srcA, real *destB, int num_rows) {
     }
 }
 
-__global__ void gpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha,
+__global__ void gpuSpMV(int *rowInd, int *colInd, real *val, int nnz, int num_rows, real alpha,
                         real *inputVecX, real *outputVecY, bool matrix_is_zero_indexed) {
     size_t grid_size = gridDim.x * blockDim.x;
     size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
     for (size_t i = grid_rank; i < num_rows; i += grid_size) {
-        int row_elem = I[i] - int(!matrix_is_zero_indexed);
-        int next_row_elem = I[i + 1] - int(!matrix_is_zero_indexed);
+        int row_elem = rowInd[i] - int(!matrix_is_zero_indexed);
+        int next_row_elem = rowInd[i + 1] - int(!matrix_is_zero_indexed);
         int num_elems_this_row = next_row_elem - row_elem;
 
         real output = 0.0;
         for (int j = 0; j < num_elems_this_row; j++) {
-            int input_vec_elem_idx = J[row_elem + j] - int(!matrix_is_zero_indexed);
+            int input_vec_elem_idx = colInd[row_elem + j] - int(!matrix_is_zero_indexed);
 
             output += alpha * val[row_elem + j] * inputVecX[input_vec_elem_idx];
         }
@@ -255,8 +255,8 @@ __global__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size,
     }
 }
 
-__global__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, real *outputVecY,
-                        int row_start_idx, int chunk_size, int num_rows,
+__global__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *inputVecX,
+                        real *outputVecY, int row_start_idx, int chunk_size, int num_rows,
                         bool matrix_is_zero_indexed) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
     int grid_size = gridDim.x * blockDim.x;
@@ -267,14 +267,14 @@ __global__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, 
         int global_row_idx = row_start_idx + local_row_idx;
 
         if (global_row_idx < num_rows) {
-            int row_elem = I[global_row_idx] - int(!matrix_is_zero_indexed);
-            int next_row_elem = I[global_row_idx + 1] - int(!matrix_is_zero_indexed);
+            int row_elem = rowInd[global_row_idx] - int(!matrix_is_zero_indexed);
+            int next_row_elem = rowInd[global_row_idx + 1] - int(!matrix_is_zero_indexed);
             int num_elems_this_row = next_row_elem - row_elem;
 
             real output = 0.0;
 
             for (int j = 0; j < num_elems_this_row; j++) {
-                int input_vec_elem_idx = J[row_elem + j] - int(!matrix_is_zero_indexed);
+                int input_vec_elem_idx = colInd[row_elem + j] - int(!matrix_is_zero_indexed);
                 int remote_pe = input_vec_elem_idx / chunk_size;
 
                 int remote_pe_idx_offset = input_vec_elem_idx - remote_pe * chunk_size;
@@ -409,8 +409,9 @@ __global__ void resetLocalDotProduct(double *dot_result) {
     }
 }
 
-double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *device_val,
-                      real *x_ref, int num_rows, int nnz, bool matrix_is_zero_indexed) {
+double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device_csrColIndices,
+                      real *device_csrVal, real *x_ref, int num_rows, int nnz,
+                      bool matrix_is_zero_indexed) {
     real *device_x;
     real *device_r;
     real *device_p;
@@ -453,8 +454,8 @@ double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *de
 
     // ax0 = Ax0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
-        device_I, device_J, device_val, nnz, num_rows, real_positive_one, device_x, device_ax0,
-        matrix_is_zero_indexed);
+        device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows, real_positive_one,
+        device_x, device_ax0, matrix_is_zero_indexed);
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
@@ -481,8 +482,8 @@ double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *de
     while (k <= iter_max) {
         // SpMV
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
-            device_I, device_J, device_val, nnz, num_rows, real_positive_one, device_p, device_s,
-            matrix_is_zero_indexed);
+            device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows,
+            real_positive_one, device_p, device_s, matrix_is_zero_indexed);
 
         resetLocalDotProduct<<<1, 1, 0, 0>>>(device_dot_delta1);
 
@@ -615,8 +616,9 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
     }
 }
 
-double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *device_val,
-                      real *x_ref, int num_rows, int nnz, bool matrix_is_zero_indexed) {
+double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device_csrColIndices,
+                      real *device_csrVal, real *x_ref, int num_rows, int nnz,
+                      bool matrix_is_zero_indexed) {
     real *device_x;
     real *device_r;
     real *device_p;
@@ -680,8 +682,8 @@ double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *de
 
     // ax0 = Ax0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
-        device_I, device_J, device_val, nnz, num_rows, real_positive_one, device_x, device_ax0,
-        matrix_is_zero_indexed);
+        device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows, real_positive_one,
+        device_x, device_ax0, matrix_is_zero_indexed);
 
     // r0 = b0 - s0
     // NOTE: b is a unit vector.
@@ -690,8 +692,8 @@ double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *de
 
     // w0 = Ar0
     SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
-        device_I, device_J, device_val, nnz, num_rows, real_positive_one, device_r, device_w,
-        matrix_is_zero_indexed);
+        device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows, real_positive_one,
+        device_r, device_w, matrix_is_zero_indexed);
 
     CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
 
@@ -713,8 +715,8 @@ double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *de
 
         // SpMV
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamSpMV>>>(
-            device_I, device_J, device_val, nnz, num_rows, real_positive_one, device_w, device_q,
-            matrix_is_zero_indexed);
+            device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows,
+            real_positive_one, device_w, device_q, matrix_is_zero_indexed);
 
         CUDA_RT_CALL(cudaStreamSynchronize(streamDot));
 
@@ -791,14 +793,14 @@ double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *de
 }  // namespace SingleGPUDiscretePipelined
 
 namespace CPU {
-void cpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha, real *inputVecX,
-             real *outputVecY) {
+void cpuSpMV(int *rowInd, int *colInd, real *val, int nnz, int num_rows, real alpha,
+             real *inputVecX, real *outputVecY) {
     for (int i = 0; i < num_rows; i++) {
-        int num_elems_this_row = I[i + 1] - I[i];
+        int num_elems_this_row = rowInd[i + 1] - rowInd[i];
 
         real output = 0.0;
         for (int j = 0; j < num_elems_this_row; j++) {
-            output += alpha * val[I[i] + j] * inputVecX[J[I[i] + j]];
+            output += alpha * val[rowInd[i] + j] * inputVecX[colInd[rowInd[i] + j]];
         }
         outputVecY[i] = output;
     }
@@ -828,8 +830,9 @@ void saxpy(real *x, real *y, real a, int size) {
     }
 }
 
-void cpuConjugateGrad(const int iter_max, int *I, int *J, real *val, real *x, real *Ax, real *p,
-                      real *r, int nnz, int num_rows, real tol) {
+void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csrColIndices,
+                      real *host_csrVal, real *x, real *Ax, real *p, real *r, int nnz, int num_rows,
+                      real tol) {
     int max_iter = iter_max;
 
     real alpha = 1.0;
@@ -839,7 +842,7 @@ void cpuConjugateGrad(const int iter_max, int *I, int *J, real *val, real *x, re
     real a;
     real na;
 
-    cpuSpMV(I, J, val, nnz, num_rows, alpha, x, Ax);
+    cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, nnz, num_rows, alpha, x, Ax);
     saxpy(Ax, r, alpham1, num_rows);
 
     real r1 = dotProduct(r, r, num_rows);
@@ -856,7 +859,7 @@ void cpuConjugateGrad(const int iter_max, int *I, int *J, real *val, real *x, re
             for (int i = 0; i < num_rows; i++) p[i] = r[i];
         }
 
-        cpuSpMV(I, J, val, nnz, num_rows, alpha, p, Ax);
+        cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, nnz, num_rows, alpha, p, Ax);
 
         real dot = dotProduct(p, Ax, num_rows);
         a = r1 / dot;

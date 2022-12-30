@@ -56,8 +56,8 @@ namespace cg = cooperative_groups;
 
 namespace BaselinePersistentStandardNVSHMEM {
 
-__device__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, real *outputVecY,
-                        int row_start_idx, int chunk_size, int num_rows,
+__device__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *inputVecX,
+                        real *outputVecY, int row_start_idx, int chunk_size, int num_rows,
                         bool matrix_is_zero_indexed) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
     int grid_size = gridDim.x * blockDim.x;
@@ -68,15 +68,15 @@ __device__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, 
         int global_row_idx = row_start_idx + local_row_idx;
 
         if (global_row_idx < num_rows) {
-            int row_elem = I[global_row_idx] - int(!matrix_is_zero_indexed);
-            int next_row_elem = I[global_row_idx + 1] - int(!matrix_is_zero_indexed);
+            int row_elem = rowInd[global_row_idx] - int(!matrix_is_zero_indexed);
+            int next_row_elem = rowInd[global_row_idx + 1] - int(!matrix_is_zero_indexed);
             int num_elems_this_row = next_row_elem - row_elem;
 
             real output = 0.0;
 
             for (int j = 0; j < num_elems_this_row; j++) {
                 // If matrix is 1-indexed, need to move indices back by 1
-                int input_vec_elem_idx = J[row_elem + j] - int(!matrix_is_zero_indexed);
+                int input_vec_elem_idx = colInd[row_elem + j] - int(!matrix_is_zero_indexed);
                 int remote_pe = input_vec_elem_idx / chunk_size;
 
                 int remote_pe_idx_offset = input_vec_elem_idx - remote_pe * chunk_size;
@@ -156,11 +156,11 @@ __device__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int
 }
 
 __global__ void __launch_bounds__(1024, 1)
-    multiGpuConjugateGradient(int *I, int *J, real *val, real *x, real *r, real *p, real *s,
-                              real *ax0, double *dot_delta1, double *dot_gamma1, int nnz,
-                              int num_rows, int row_start_idx, int chunk_size,
-                              bool matrix_is_zero_indexed, real tol, const int iter_max,
-                              const int sMemSize) {
+    multiGpuConjugateGradient(int *device_csrRowIndices, int *device_csrColIndices,
+                              real *device_csrVal, real *x, real *r, real *p, real *s, real *ax0,
+                              double *dot_delta1, double *dot_gamma1, int nnz, int num_rows,
+                              int row_start_idx, int chunk_size, bool matrix_is_zero_indexed,
+                              real tol, const int iter_max, const int sMemSize) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
     int grid_size = gridDim.x * blockDim.x;
 
@@ -194,8 +194,8 @@ __global__ void __launch_bounds__(1024, 1)
     cg::sync(grid);
 
     // ax0 = AX0
-    gpuSpMV(I, J, val, real_positive_one, x, ax0, row_start_idx, chunk_size, num_rows,
-            matrix_is_zero_indexed);
+    gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, x, ax0,
+            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -240,8 +240,8 @@ __global__ void __launch_bounds__(1024, 1)
     int k = 1;
 
     while (k <= iter_max) {
-        gpuSpMV(I, J, val, real_positive_one, p, s, row_start_idx, chunk_size, num_rows,
-                matrix_is_zero_indexed);
+        gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, p, s,
+                row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
         if (grid.thread_rank() == 0) {
             nvshmem_barrier_all();
@@ -329,9 +329,9 @@ int BaselinePersistentStandardNVSHMEM::init(int argc, char *argv[]) {
     int nnz = 0;
     bool matrix_is_zero_indexed;
 
-    int *host_I = NULL;
-    int *host_J = NULL;
-    real *host_val = NULL;
+    int *host_csrRowIndices = NULL;
+    int *host_csrColIndices = NULL;
+    real *host_csrVal = NULL;
 
     real *x_ref_single_gpu = NULL;
     real *x_final_result = NULL;
@@ -341,8 +341,8 @@ int BaselinePersistentStandardNVSHMEM::init(int argc, char *argv[]) {
     real *p_cpu = NULL;
     real *x_ref_cpu = NULL;
 
-    int *device_I = NULL;
-    int *device_J = NULL;
+    int *device_csrRowIndices = NULL;
+    int *device_csrColIndices = NULL;
     real *device_val = NULL;
 
     real *device_x;
@@ -401,21 +401,22 @@ int BaselinePersistentStandardNVSHMEM::init(int argc, char *argv[]) {
 
         nnz = (num_rows - 2) * 3 + 4;
 
-        host_I = (int *)malloc(sizeof(int) * (num_rows + 1));
-        host_J = (int *)malloc(sizeof(int) * nnz);
-        host_val = (real *)malloc(sizeof(real) * nnz);
+        host_csrRowIndices = (int *)malloc(sizeof(int) * (num_rows + 1));
+        host_csrColIndices = (int *)malloc(sizeof(int) * nnz);
+        host_csrVal = (real *)malloc(sizeof(real) * nnz);
 
         /* Generate a random tridiagonal symmetric matrix in CSR format */
-        genTridiag(host_I, host_J, host_val, num_rows, nnz);
+        genTridiag(host_csrRowIndices, host_csrColIndices, host_csrVal, num_rows, nnz);
     } else {
         if (loadMMSparseMatrix<real>(matrix_path_char, 'd', true, &num_rows, &num_cols, &nnz,
-                                     &host_val, &host_I, &host_J, true)) {
+                                     &host_csrVal, &host_csrRowIndices, &host_csrColIndices,
+                                     true)) {
             exit(EXIT_FAILURE);
         }
     }
 
     // Check if matrix is 0 or 1 indexed
-    int index_base = host_I[0];
+    int index_base = host_csrRowIndices[0];
 
     if (index_base == 1) {
         matrix_is_zero_indexed = false;
@@ -423,14 +424,15 @@ int BaselinePersistentStandardNVSHMEM::init(int argc, char *argv[]) {
         matrix_is_zero_indexed = true;
     }
 
-    CUDA_RT_CALL(cudaMalloc((void **)&device_I, sizeof(int) * (num_rows + 1)));
-    CUDA_RT_CALL(cudaMalloc((void **)&device_J, sizeof(int) * nnz));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_csrRowIndices, sizeof(int) * (num_rows + 1)));
+    CUDA_RT_CALL(cudaMalloc((void **)&device_csrColIndices, sizeof(int) * nnz));
     CUDA_RT_CALL(cudaMalloc((void **)&device_val, sizeof(real) * nnz));
 
-    CUDA_RT_CALL(
-        cudaMemcpy(device_I, host_I, sizeof(int) * (num_rows + 1), cudaMemcpyHostToDevice));
-    CUDA_RT_CALL(cudaMemcpy(device_J, host_J, sizeof(int) * nnz, cudaMemcpyHostToDevice));
-    CUDA_RT_CALL(cudaMemcpy(device_val, host_val, sizeof(real) * nnz, cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMemcpy(device_csrRowIndices, host_csrRowIndices, sizeof(int) * (num_rows + 1),
+                            cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMemcpy(device_csrColIndices, host_csrColIndices, sizeof(int) * nnz,
+                            cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMemcpy(device_val, host_csrVal, sizeof(real) * nnz, cudaMemcpyHostToDevice));
 
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
@@ -507,12 +509,12 @@ int BaselinePersistentStandardNVSHMEM::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
 
         single_gpu_runtime = SingleGPUDiscreteStandard::run_single_gpu(
-            iter_max, device_I, device_J, device_val, x_ref_single_gpu, num_rows, nnz,
-            matrix_is_zero_indexed);
+            iter_max, device_csrRowIndices, device_csrColIndices, device_val, x_ref_single_gpu,
+            num_rows, nnz, matrix_is_zero_indexed);
 
         // single_gpu_runtime = SingleGPUDiscretePipelined::run_single_gpu(
-        //     iter_max, device_I, device_J, device_val, x_ref_single_gpu, num_rows, nnz,
-        //     matrix_is_zero_indexed);
+        //     iter_max, device_csrRowIndices, device_csrColIndices, device_val, x_ref_single_gpu,
+        //     num_rows, nnz, matrix_is_zero_indexed);
     }
 
     if (compare_to_cpu) {
@@ -528,8 +530,8 @@ int BaselinePersistentStandardNVSHMEM::init(int argc, char *argv[]) {
             x_ref_cpu[i] = 0.0;
         }
 
-        CPU::cpuConjugateGrad(iter_max, host_I, host_J, host_val, x_ref_cpu, s_cpu, p_cpu, r_cpu,
-                              nnz, num_rows, tol);
+        CPU::cpuConjugateGrad(iter_max, host_csrRowIndices, host_csrColIndices, host_csrVal,
+                              x_ref_cpu, s_cpu, p_cpu, r_cpu, nnz, num_rows, tol);
     }
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
@@ -543,8 +545,8 @@ int BaselinePersistentStandardNVSHMEM::init(int argc, char *argv[]) {
     int sMemSize = sizeof(double) * ((threadsPerBlock / 32) + 1);
 
     void *kernelArgs[] = {
-        (void *)&device_I,
-        (void *)&device_J,
+        (void *)&device_csrRowIndices,
+        (void *)&device_csrColIndices,
         (void *)&device_val,
         (void *)&device_x,
         (void *)&device_r,
@@ -615,13 +617,13 @@ int BaselinePersistentStandardNVSHMEM::init(int argc, char *argv[]) {
 
     CUDA_RT_CALL(cudaStreamDestroy(mainStream));
 
-    CUDA_RT_CALL(cudaFree(device_I));
-    CUDA_RT_CALL(cudaFree(device_J));
+    CUDA_RT_CALL(cudaFree(device_csrRowIndices));
+    CUDA_RT_CALL(cudaFree(device_csrColIndices));
     CUDA_RT_CALL(cudaFree(device_val));
 
-    free(host_I);
-    free(host_J);
-    free(host_val);
+    free(host_csrRowIndices);
+    free(host_csrColIndices);
+    free(host_csrVal);
 
     if (compare_to_single_gpu || compare_to_cpu) {
         cudaFreeHost(x_final_result);

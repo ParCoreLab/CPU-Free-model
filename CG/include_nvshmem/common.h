@@ -49,7 +49,7 @@ __global__ void initVectors(real *r, real *x, int num_rows);
 
 __global__ void gpuCopyVector(real *srcA, real *destB, int num_rows);
 
-__global__ void gpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha,
+__global__ void gpuSpMV(int *rowInd, int *colInd, real *val, int nnz, int num_rows, real alpha,
                         real *inputVecX, real *outputVecY, bool matrix_is_zero_indexed);
 
 __global__ void gpuSaxpy(real *x, real *y, real a, int num_rows);
@@ -73,8 +73,8 @@ __global__ void init_b_k(real *b);
 namespace NVSHMEM {
 __global__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size, int num_rows);
 
-__global__ void gpuSpMV(int *I, int *J, real *val, real alpha, real *inputVecX, real *outputVecY,
-                        int row_start_idx, int chunk_size, int num_rows,
+__global__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *inputVecX,
+                        real *outputVecY, int row_start_idx, int chunk_size, int num_rows,
                         bool matrix_is_zero_indexed);
 
 __global__ void gpuSaxpy(real *x, real *y, real a, int chunk_size);
@@ -106,8 +106,9 @@ __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
 
 __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_result_gamma);
 
-double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *device_val,
-                      real *host_val, int num_rows, int nnz, bool matrix_is_zero_indexed);
+double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device_csrColIndices,
+                      real *device_csrVal, real *x_ref, int num_rows, int nnz,
+                      bool matrix_is_zero_indexed);
 }  // namespace SingleGPUDiscretePipelined
 
 namespace SingleGPUDiscreteStandard {
@@ -116,13 +117,14 @@ __global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, 
 
 __global__ void resetLocalDotProduct(double *dot_result);
 
-double run_single_gpu(const int iter_max, int *device_I, int *device_J, real *device_val,
-                      real *host_val, int num_rows, int nnz, bool matrix_is_zero_indexed);
+double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device_csrColIndices,
+                      real *device_csrVal, real *x_ref, int num_rows, int nnz,
+                      bool matrix_is_zero_indexed);
 }  // namespace SingleGPUDiscreteStandard
 
 namespace CPU {
-void cpuSpMV(int *I, int *J, real *val, int nnz, int num_rows, real alpha, real *inputVecX,
-             real *outputVecY);
+void cpuSpMV(int *rowInd, int *colInd, real *val, int nnz, int num_rows, real alpha,
+             real *inputVecX, real *outputVecY);
 
 real dotProduct(real *vecA, real *vecB, int size);
 
@@ -130,8 +132,9 @@ void scaleVector(real *vec, real alpha, int size);
 
 void saxpy(real *x, real *y, real a, int size);
 
-void cpuConjugateGrad(const int iter_max, int *I, int *J, real *val, real *x, real *Ax, real *p,
-                      real *r, int nnz, int num_rows, real tol);
+void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csrColIndices,
+                      real *host_csrVal, real *x, real *Ax, real *p, real *r, int nnz, int num_rows,
+                      real tol);
 }  // namespace CPU
 
 bool get_arg(char **begin, char **end, const std::string &arg);
