@@ -58,10 +58,11 @@ namespace SingleStreamPipelinedNVSHMEM {
 
 __device__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *inputVecX,
                         real *outputVecY, int row_start_idx, int chunk_size, int num_rows,
-                        bool matrix_is_zero_indexed, const cg::grid_group &grid) {
-    // One thread block spared for communication
-    // Need to subtract 1 when calculating total grid size
-    int grid_size = grid.size() - blockDim.x;
+                        bool matrix_is_zero_indexed, bool is_comm_comp_overlap_on,
+                        const cg::grid_group &grid) {
+    // If we are overlapping communication with compute => 1 thread block spared for communication
+    // If not => Use full grid for computation
+    int grid_size = grid.size() - blockDim.x * int(is_comm_comp_overlap_on);
 
     int mype = nvshmem_my_pe();
 
@@ -204,7 +205,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     // ax0 = AX0
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, x, ax0,
-            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
+            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, false, grid);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -230,7 +231,7 @@ __global__ void __launch_bounds__(1024, 1)
     //    2) If no, use all thread blocks for SpMV computation
     // Whatever we waste is probably amortized anyway but still
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, r, w,
-            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
+            row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, false, grid);
 
     if (grid.thread_rank() == 0) {
         nvshmem_barrier_all();
@@ -261,7 +262,7 @@ __global__ void __launch_bounds__(1024, 1)
                                              device_merged_dots, 2);
         } else {
             gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, w,
-                    q, row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
+                    q, row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, true, grid);
         }
 
         if (grid.thread_rank() == 0) {
