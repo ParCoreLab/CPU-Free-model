@@ -369,11 +369,18 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     nvshmem_barrier_all();
 
-    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
+    // Using chunk_size_high so that it is same across all PEs
+    a = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
+    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
 
-    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+    cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real));
+    cudaMemset(a_new, 0, nx * (chunk_size + 2) * sizeof(real));
+
+//    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
+//    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
+
+//    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+//    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
 
     halo_buffer_top = (real *) nvshmem_malloc(2 * nx * ny * sizeof(real));
     halo_buffer_bottom = (real *) nvshmem_malloc(2 * nx * ny * sizeof(real));
@@ -692,6 +699,7 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     const auto chunk_size_local = chunk_size + 1;
 //    const auto chunk_size_local = nz - 1;
 
+
     void *KernelArgs[] = {(void *) &a_local,
                           (void *) &a_new_local,
                           (void *) &chunk_size_local,
@@ -817,8 +825,8 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
         }
     }
 
-    CUDA_RT_CALL(cudaFree(a_new));
-    CUDA_RT_CALL(cudaFree(a));
+    nvshmem_free(a_new);
+    nvshmem_free(a);
     CUDA_RT_CALL(cudaFree(iteration_done_flags));
     nvshmem_free((void *) halo_buffer_top);
     nvshmem_free((void *) halo_buffer_bottom);
