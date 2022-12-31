@@ -29,19 +29,14 @@ SAVE_NSYS_REPORTS_TO_DIR_PATH = None
 NUM_ITERATIONS = 5000
 EXECUTABLE_NAME = 'cg_nvtx'
 GPU_MODEL = None
-USING_NVSHMEM = False
-
-VERSION_NAME_TO_IDX_MAP_REGULAR = {
-    'Profiling Discrete Standard': 4,
-    'Profiling Discrete Pipelined (No Overlap)': 5,
-}
+USING_NVSHMEM = True
 
 VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
     'Profiling Discrete Standard NVSHMEM': 5,
     'Profiling Discrete Pipelined NVSHMEM (No Overlap)': 6,
 }
 
-VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_REGULAR.copy()
+VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
 
 MATRIX_NAMES = [
     '(generated)_tridiagonal',

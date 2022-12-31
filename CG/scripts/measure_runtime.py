@@ -29,14 +29,7 @@ NUM_RUNS = 5
 NUM_ITERATIONS = 1000
 EXECUTABLE_NAME = 'cg'
 GPU_MODEL = None
-USING_NVSHMEM = False
-
-VERSION_NAME_TO_IDX_MAP_REGULAR = {
-    'Baseline Discrete Standard': 0,
-    'Baseline Discrete Pipelined': 1,
-    'Baseline Persistent Standard': 2,
-    '(Ours) Persistent Pipelined': 3
-}
+USING_NVSHMEM = True
 
 VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
     'Baseline Discrete Standard NVSHMEM': 0,
@@ -46,7 +39,7 @@ VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
     '(Ours) Persistent Pipelined Multi-Overlap NVSHMEM': 4
 }
 
-VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_REGULAR.copy()
+VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
 
 MATRIX_NAMES = [
     '(generated) tridiagonal',
@@ -61,7 +54,6 @@ MATRIX_NAMES = [
     'crankseg_1',
     'crankseg_2',
 ]
-
 
 EXECUTION_TIME_REGEX = 'Execution time:\s+(?P<exec_time>[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) s'
 VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
