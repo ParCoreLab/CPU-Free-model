@@ -32,13 +32,13 @@ GPU_MODEL = None
 USING_NVSHMEM = False
 
 VERSION_NAME_TO_IDX_MAP_REGULAR = {
-    'Baseline Discrete Standard': 4,
-    'Baseline Discrete Pipelined (No Overlap)': 5,
+    'Profiling Discrete Standard': 4,
+    'Profiling Discrete Pipelined (No Overlap)': 5,
 }
 
 VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
-    'Baseline Discrete Standard NVSHMEM': 4,
-    'Baseline Discrete Pipelined NVSHMEM (No Overlap)': 5,
+    'Profiling Discrete Standard NVSHMEM': 5,
+    'Profiling Discrete Pipelined NVSHMEM (No Overlap)': 6,
 }
 
 VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_REGULAR.copy()

@@ -5,6 +5,7 @@
 #include "../include_nvshmem/baseline/persistent-standard-nvshmem.cuh"
 #include "../include_nvshmem/profiling/discrete-pipelined-nvshmem.cuh"
 #include "../include_nvshmem/profiling/discrete-standard-nvshmem.cuh"
+#include "../include_nvshmem/single-stream/pipelined-multi-overlap.cuh"
 #include "../include_nvshmem/single-stream/pipelined-nvshmem.cuh"
 
 #include "../include_nvshmem/common.h"
@@ -17,6 +18,8 @@ int main(int argc, char *argv[]) {
         make_pair("Baseline Discrete Pipelined NVSHMEM", BaselineDiscretePipelinedNVSHMEM::init),
         make_pair("Baseline Persistent Standard NVSHMEM", BaselinePersistentStandardNVSHMEM::init),
         make_pair("Single Stream Pipelined NVSHMEM", SingleStreamPipelinedNVSHMEM::init),
+        make_pair("Single Stream Pipelined Multi Overlap NVSHMEM",
+                  SingleStreamPipelinedMultiOverlapNVSHMEM::init),
         make_pair("Profiling Discrete Standard NVSHMEM", ProfilingDiscreteStandardNVSHMEM::init),
         make_pair("Profiling Discrete Pipelined NVSHMEM", ProfilingDiscretePipelinedNVSHMEM::init),
     };
