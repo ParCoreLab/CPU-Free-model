@@ -164,6 +164,8 @@ __global__ void __launch_bounds__(1024, 1)
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
+    int last_thread_idx = grid.size() - 1;
+
     real real_positive_one = 1.0;
     real real_negative_one = -1.0;
 
@@ -175,7 +177,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     initVectors(r, x, row_start_idx, chunk_size, num_rows, grid);
 
-    if (grid.thread_rank() == 0) {
+    if (grid.thread_rank() == last_thread_idx) {
         nvshmem_barrier_all();
     }
 
@@ -185,7 +187,7 @@ __global__ void __launch_bounds__(1024, 1)
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, x, ax0,
             row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 
-    if (grid.thread_rank() == 0) {
+    if (grid.thread_rank() == last_thread_idx) {
         nvshmem_barrier_all();
     }
 
@@ -195,7 +197,7 @@ __global__ void __launch_bounds__(1024, 1)
     // NOTE: b is a unit vector.
     gpuSaxpy(ax0, r, real_negative_one, chunk_size, grid);
 
-    if (grid.thread_rank() == 0) {
+    if (grid.thread_rank() == last_thread_idx) {
         nvshmem_barrier_all();
     }
 
@@ -206,7 +208,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     cg::sync(grid);
 
-    if (grid.thread_rank() == 0) {
+    if (grid.thread_rank() == last_thread_idx) {
         *dot_gamma1 = 0.0;
     }
 
@@ -216,7 +218,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     cg::sync(grid);
 
-    if (grid.thread_rank() == 0) {
+    if (grid.thread_rank() == last_thread_idx) {
         nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
         nvshmem_barrier_all();
     }
@@ -231,13 +233,13 @@ __global__ void __launch_bounds__(1024, 1)
         gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, p, s,
                 row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 
-        if (grid.thread_rank() == 0) {
+        if (grid.thread_rank() == last_thread_idx) {
             nvshmem_barrier_all();
         }
 
         cg::sync(grid);
 
-        if (grid.thread_rank() == 0) {
+        if (grid.thread_rank() == last_thread_idx) {
             *dot_delta1 = 0.0;
         }
 
@@ -247,7 +249,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
-        if (grid.thread_rank() == 0) {
+        if (grid.thread_rank() == last_thread_idx) {
             nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_delta1, dot_delta1, 1);
             nvshmem_barrier_all();
         }
@@ -262,7 +264,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         gpuSaxpy(s, r, negative_alpha, chunk_size, grid);
 
-        if (grid.thread_rank() == 0) {
+        if (grid.thread_rank() == last_thread_idx) {
             *dot_gamma1 = 0.0;
         }
 
@@ -272,7 +274,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
-        if (grid.thread_rank() == 0) {
+        if (grid.thread_rank() == last_thread_idx) {
             nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
             nvshmem_barrier_all();
         }
@@ -287,7 +289,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         tmp_dot_gamma0 = tmp_dot_gamma1;
 
-        if (grid.thread_rank() == 0) {
+        if (grid.thread_rank() == last_thread_idx) {
             nvshmem_barrier_all();
         }
 
