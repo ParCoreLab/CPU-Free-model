@@ -597,7 +597,7 @@ int SingleStreamPipelinedNVSHMEM::init(int argc, char *argv[]) {
                                kernelArgs, sMemSize, mainStream);
 
     nvshmemx_barrier_all_on_stream(mainStream);
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
     double stop = MPI_Wtime();
 

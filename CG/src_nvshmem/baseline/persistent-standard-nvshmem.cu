@@ -565,8 +565,8 @@ int BaselinePersistentStandardNVSHMEM::init(int argc, char *argv[]) {
     nvshmemx_collective_launch((void *)multiGpuConjugateGradient, numBlocks, threadsPerBlock,
                                kernelArgs, sMemSize, mainStream);
 
-    nvshmem_barrier_all();
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    nvshmemx_barrier_all_on_stream(mainStream);
+    CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
     double stop = MPI_Wtime();
 
