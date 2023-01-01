@@ -40,6 +40,7 @@ VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
 }
 
 VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
+VERSIONS_INDICES_TO_RUN = list(VERSION_NAME_TO_IDX_MAP_NVSHMEM.values())
 
 MATRIX_NAMES = [
     '(generated)_tridiagonal',
@@ -106,6 +107,9 @@ def measure_runtime(save_result_to_path, executable_dir):
         version_to_result_map = defaultdict(list)
 
         for version_name, version_idx in VERSION_NAME_TO_IDX_MAP.items():
+            if version_idx not in VERSIONS_INDICES_TO_RUN:
+                continue
+
             for num_gpus in GPU_NUMS_TO_RUN:
                 print(
                     f'Running version {version_name} on matrix {matrix_name} with {num_gpus} GPUs')
@@ -213,6 +217,15 @@ if __name__ == "__main__":
                                for gpu_num in gpu_nums_to_run]
 
             GPU_NUMS_TO_RUN = gpu_nums_to_run[:]
+
+        if sys.argv[arg_idx] == '--versions_to_run':
+            arg_idx += 1
+
+            versions_to_run = sys.argv[arg_idx].split(',')
+            versions_to_run = [int(version_index.strip())
+                               for version_index in versions_to_run]
+
+            VERSIONS_INDICES_TO_RUN = versions_to_run[:]
 
         if sys.argv[arg_idx] == '--gpu_model':
             arg_idx += 1
