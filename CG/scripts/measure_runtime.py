@@ -42,7 +42,7 @@ VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
 VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
 
 MATRIX_NAMES = [
-    '(generated) tridiagonal',
+    '(generated)_tridiagonal',
     'ecology2',
     #   'shallow_water2', Too little non-zeros
     #   'Trefethen_2000', Too little non-zeros
@@ -53,6 +53,17 @@ MATRIX_NAMES = [
     'tmt_sym',
     'crankseg_1',
     'crankseg_2',
+    'Queen_4147',
+    'Bump_2911',
+    'G3_circuit',
+    'StocF-1465',
+    'Flan_1565',
+    'audikw_1',
+    'Serena',
+    'Geo_1438',
+    'Hook_1498',
+    'bone010',
+    'ldoor'
 ]
 
 EXECUTION_TIME_REGEX = 'Execution time:\s+(?P<exec_time>[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) s'

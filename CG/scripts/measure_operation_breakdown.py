@@ -50,6 +50,17 @@ MATRIX_NAMES = [
     'tmt_sym',
     'crankseg_1',
     'crankseg_2',
+    'Queen_4147',
+    'Bump_2911',
+    'G3_circuit',
+    'StocF-1465',
+    'Flan_1565',
+    'audikw_1',
+    'Serena',
+    'Geo_1438',
+    'Hook_1498',
+    'bone010',
+    'ldoor'
 ]
 
 VERSION_LABELS = None
