@@ -10,35 +10,37 @@ SAVE_MATRICES_TO_FOLDER = None
 
 SUITE_SPARSE_BASE_URL = 'https://suitesparse-collection-website.herokuapp.com/MM'
 
-MATRIX_NAME_TO_INDEX_MAP = {
-    'ecology2': 'McRae/ecology2',
-    'hood': 'GHS_psdef/hood',
-    'bmwcra_1': 'GHS_psdef/bmwcra_1',
-    'consph': 'Williams/consph',
-    'thermotech_dM': 'Botonakis/thermomech_dM',
-    'tmt_sym': 'CEMW/tmt_sym',
-    'crankseg_1': 'GHS_psdef/crankseg_1',
-    'crankseg_2': 'GHS_psdef/crankseg_2',
-    'cbuckle': 'TKK/cbuckle',
-    'BenElechi1': 'BenElechi/BenElechi1',
-    'shallow_water': 'MaxPlanck/shallow_water2',
-    'Trefethen_2000': 'JGD_Trefethen/Trefethen_2000',
-    'Queen_4147': 'Janna/Queen_4147',
-    'Bump_2911': 'Janna/Bump_2911',
-    'G3_circuit': 'AMD/G3_circuit',
-    'StocF-1465': 'Janna/StocF-1465',
-    'Flan_1565': 'Janna/Flan_1565',
-    'audikw_1': 'GHS_psdef/audikw_1',
-    'Serena': 'Janna/Serena',
-    'Geo_1438': 'Janna/Geo_1438',
-    'Hook_1498': 'Janna/Hook_1498',
-    'bone010': 'Oberwolfach/bone010',
-    'ldoor': 'GHS_psdef/ldoor',
-}
+MATRIX_INDICES = [
+    'McRae/ecology2',
+    'GHS_psdef/hood',
+    'GHS_psdef/bmwcra_1',
+    'Williams/consph',
+    'Botonakis/thermomech_dM',
+    'CEMW/tmt_sym',
+    'GHS_psdef/crankseg_1',
+    'GHS_psdef/crankseg_2',
+    'TKK/cbuckle',
+    'BenElechi/BenElechi1',
+    'MaxPlanck/shallow_water2',
+    'JGD_Trefethen/Trefethen_2000',
+    'Janna/Queen_4147',
+    'Janna/Bump_2911',
+    'AMD/G3_circuit',
+    'Janna/StocF-1465',
+    'Janna/Flan_1565',
+    'GHS_psdef/audikw_1',
+    'Janna/Serena',
+    'Janna/Geo_1438',
+    'Janna/Hook_1498',
+    'Oberwolfach/bone010',
+    'GHS_psdef/ldoor',
+]
 
 
 def download_matrices():
-    for matrix_name, matrix_index in MATRIX_NAME_TO_INDEX_MAP.items():
+    for matrix_index in MATRIX_INDICES:
+        matrix_name = matrix_index.split('/')[-1]
+
         mtx_filename = f'{matrix_name}.mtx'
         mtx_filepath = f'{SAVE_MATRICES_TO_FOLDER}/{mtx_filename}'
 
