@@ -23,6 +23,17 @@ MATRIX_NAME_TO_INDEX_MAP = {
     'BenElechi1': 'BenElechi/BenElechi1',
     'shallow_water': 'MaxPlanck/shallow_water2',
     'Trefethen_2000': 'JGD_Trefethen/Trefethen_2000',
+    'Queen_4147': 'Janna/Queen_4147',
+    'Bump_2911': 'Janna/Bump_2911',
+    'G3_circuit': 'AMD/G3_circuit',
+    'StocF-1465': 'Janna/StocF-1465',
+    'Flan_1565': 'Janna/Flan_1565',
+    'audikw_1': 'GHS_psdef/audikw_1',
+    'Serena': 'Janna/Serena',
+    'Geo_1438': 'Janna/Geo_1438',
+    'Hook_1498': 'Janna/Hook_1498',
+    'bone010': 'Oberwolfach/bone010',
+    'ldoor': 'GHS_psdef/ldoor',
 }
 
 
