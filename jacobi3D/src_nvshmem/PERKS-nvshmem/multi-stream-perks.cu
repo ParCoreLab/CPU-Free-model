@@ -770,20 +770,20 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     bool result_correct = 1;
     if (compare_to_single_gpu) {
 
-        //       CUDA_RT_CALL(cudaMemcpy(
-        //               a_h + iz_start_global * ny * nx, a + ny * nx,
-        //               std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
-        //               cudaMemcpyDeviceToHost));
-
         CUDA_RT_CALL(cudaMemcpy(
-                a_h, a_new,
-                nz * nx * ny * sizeof(real),
+                a_h + iz_start_global * ny * nx, a_new + ny * nx,
+                std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
                 cudaMemcpyDeviceToHost));
 
+//        CUDA_RT_CALL(cudaMemcpy(
+//                a_h, a_new,
+//                (chunk_size + 2) * nx * ny * sizeof(real),
+//                cudaMemcpyDeviceToHost));
+
         double err = 0;
-        for (int iz = 1; result_correct && (iz <= iz_end_global + 1); ++iz) {
-            for (int iy = 1; result_correct && (iy < (ny)); ++iy) {
-                for (int ix = 1; result_correct && (ix < (nx)); ++ix) {
+        for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz) {
+            for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy) {
+                for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix) {
                     if (std::fabs(a_h[iz * ny * nx + iy * nx + ix] -
                                   a_ref_h[iz * ny * nx + iy * nx + ix]) > tol &&
                         !isnan(a_h[iz * ny * nx + iy * nx + ix])) {

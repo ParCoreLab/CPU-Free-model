@@ -31,6 +31,7 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new,
                 a[iz * ny * nx + iy * nx + ix] = y0;
                 a_new[iz * ny * nx + iy * nx + ix] = y0;
 
+
 //                a[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix;
 //                a_new[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix; // + 0.5;
             }
