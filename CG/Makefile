@@ -44,10 +44,10 @@ NV_SRCS = $(call rwildcard,$(NV_SRCDIR),*.cu)
 NV_OBJS := $(patsubst $(NV_SRCDIR)/%.cu, $(NV_OBJDIR)/%.o, $(NV_SRCS))
 NV_DEPS := $(patsubst $(NV_SRCDIR)/%.cu, $(NV_DEPDIR)/%.d, $(NV_SRCS))
 
-obj_nvshmem/mmio.c.o: src/mmio.c
+obj_nvshmem/mmio.c.o: src_nvshmem/mmio.c
 	$(NVCC) -o $@ -c $<
 
-obj_nvshmem/mmio_wrapper.o: src/mmio_wrapper.cpp
+obj_nvshmem/mmio_wrapper.o: src_nvshmem/mmio_wrapper.cpp
 	$(NVCC) -o $@ -c $<
 
 $(NV_OBJS) : $(NV_OBJDIR)/%.o : $(NV_SRCDIR)/%.cu $(NV_DEPDIR)/%.d | $(NV_DEPDIR)
@@ -55,10 +55,8 @@ $(NV_OBJS) : $(NV_OBJDIR)/%.o : $(NV_SRCDIR)/%.cu $(NV_DEPDIR)/%.d | $(NV_DEPDIR
 	@mkdir -p $(@D)
 	$(NVCC) $(NVCC_NV_FLAGS) $(NV_DEPFLAGS) -o $@ $<
 
-cg_nvshmem: $(NV_OBJS) obj/mmio.c.o obj/mmio_wrapper.o
+cg_nvshmem: $(NV_OBJS) obj_nvshmem/mmio.c.o obj_nvshmem/mmio_wrapper.o
 	$(NVCC) $(GENCODE_FLAGS) -o $@ $^ $(NVCC_NV_LDFLAGS)
-
-all: cg_nvshmem
 
 run_nvshmem: cg_nvshmem
 	./cg_nvshmem
