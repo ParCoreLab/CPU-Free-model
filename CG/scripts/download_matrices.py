@@ -58,7 +58,7 @@ def download_matrices():
             # 1) matix_name/matrix_name.mtx
             # 2) or as matrix_name.mtx
             # In the second case, we don't need to create a temp folder
-            if os.path.exists(mtx_filepath):
+            if not os.path.exists(mtx_filepath):
                 for zip_file_member in zip_file.getmembers():
                     member_name = zip_file_member.name
 
