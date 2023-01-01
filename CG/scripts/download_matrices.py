@@ -39,6 +39,14 @@ MATRIX_NAME_TO_INDEX_MAP = {
 
 def download_matrices():
     for matrix_name, matrix_index in MATRIX_NAME_TO_INDEX_MAP.items():
+        mtx_filename = f'{matrix_name}.mtx'
+        mtx_filepath = f'{SAVE_MATRICES_TO_FOLDER}/{mtx_filename}'
+
+        if os.path.exists(mtx_filepath):
+            print(f'Matrix {matrix_name} is already downloaded')
+            continue
+
+        # Check here is matrix is already downloaded
         matrix_url = f'{SUITE_SPARSE_BASE_URL}/{matrix_index}.tar.gz'
 
         with urlopen(matrix_url) as zip_response:
@@ -46,19 +54,23 @@ def download_matrices():
 
             zip_file.extractall(SAVE_MATRICES_TO_FOLDER)
 
-            for zip_file_member in zip_file.getmembers():
-                member_name = zip_file_member.name
+            # It's possible that matrices are extracted as
+            # 1) matix_name/matrix_name.mtx
+            # 2) or as matrix_name.mtx
+            # In the second case, we don't need to create a temp folder
+            if os.path.exists(mtx_filepath):
+                for zip_file_member in zip_file.getmembers():
+                    member_name = zip_file_member.name
 
-                old_path = f'{SAVE_MATRICES_TO_FOLDER}/{member_name}'
+                    old_path = f'{SAVE_MATRICES_TO_FOLDER}/{member_name}'
 
-                tmp_folder_path = f'{SAVE_MATRICES_TO_FOLDER}/{os.path.dirname(member_name)}'
-                mtx_basename = basename(member_name)
+                    tmp_folder_path = f'{SAVE_MATRICES_TO_FOLDER}/{os.path.dirname(member_name)}'
 
-                new_path = f'{SAVE_MATRICES_TO_FOLDER}/{mtx_basename}'
+                    os.rename(old_path, mtx_filepath)
 
-                os.rename(old_path, new_path)
+                os.rmdir(tmp_folder_path)
 
-            os.rmdir(tmp_folder_path)
+            print(f'Downloaded matrix {matrix_name}')
 
 
 if __name__ == "__main__":
