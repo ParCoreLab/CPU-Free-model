@@ -60,7 +60,7 @@ MATRIX_NAMES = [
     'Serena',
     'Geo_1438',
     'Hook_1498',
-    'bone010',
+    #   'bone010', Multi-part matrix, don't handle those for now
     'ldoor'
 ]
 

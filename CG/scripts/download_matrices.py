@@ -32,7 +32,7 @@ MATRIX_INDICES = [
     'Janna/Serena',
     'Janna/Geo_1438',
     'Janna/Hook_1498',
-    'Oberwolfach/bone010',
+    #   'Oberwolfach/bone010', Multi-part matrix, don't handle those for now
     'GHS_psdef/ldoor',
 ]
 
