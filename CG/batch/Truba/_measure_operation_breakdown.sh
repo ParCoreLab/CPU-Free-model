@@ -21,6 +21,12 @@ GPU_MODEL=${GPU_MODEL:-A100}
 # (Example => 2,3,4,8)
 NUM_GPUS=${NUM_GPUS:-8}
 
+# This will be a comma delimited list of version indices
+# No spaces between numbers
+# Single numbers also work
+# (Example => 0,1,2,4)
+# Runs all versions by default
+VERSIONS_TO_RUN=${VERSIONS_TO_RUN:-RUN_ALL_VERSIONS}
 
 while [ $# -gt 0 ]; do
 
@@ -32,14 +38,14 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-cd ~/multi-perks/CG
+cd ~/ismayil/multi-perks/CG
 
 . ./batch/Truba/_load_truba_modules.sh > /dev/null
 
 echo "--- RUNNING ---"
 date
 
-python3 ./scripts/measure_operation_breakdown.py --num_iter $NUM_ITER --matrices_folder $MATRICES_FOLDER --num_gpus $NUM_GPUS --gpu_model $GPU_MODEL
+python3 ./scripts/measure_operation_breakdown.py --num_iter $NUM_ITER --matrices_folder $MATRICES_FOLDER --num_gpus $NUM_GPUS --versions_to_run $VERSIONS_TO_RUN --gpu_model $GPU_MODEL -use_nvshmem
 rm ./nsys_reports/*
 
 echo ""
