@@ -283,7 +283,7 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     const int tile_count_y = ny / (dim_block_y) + (ny % (dim_block_y) != 0);
     const int tile_count_z = chunk_size / (dim_block_z) + (chunk_size % (dim_block_z) != 0);
 
-    const int comm_layer_tile_count = tile_count_x * tile_count_y / (max(1, (int)(16 / sizeof(real))));
+    const int comm_layer_tile_count = tile_count_x * tile_count_y;
     const int comp_total_tile_count = tile_count_x * tile_count_y * tile_count_z;
 
     const int comm_sm_count_per_layer = comm_layer_tile_count < 1 ? comm_layer_tile_count : 1;
