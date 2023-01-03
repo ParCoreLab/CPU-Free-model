@@ -31,7 +31,7 @@ done
 
 cd ~/multi-perks/CG
 
-. ./batch/_load_simula_modules.sh > /dev/null
+. ./batch/Simula/_load_simula_modules.sh > /dev/null
 
 echo "--- RUNNING ---"
 date

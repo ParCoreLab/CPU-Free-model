@@ -1,17 +1,20 @@
 #!/bin/bash
 
-#SBATCH --job-name=cg-bench
-#SBATCH --ntasks=8
+#SBATCH -J cg-runtime_benchmark
+#SBATCH -N 1
+#SBATCH -n 8
+#SBATCH -c 16
+#SBATCH -A proj16
+#SBATCH -p palamut-cuda
 #SBATCH --gres=gpu:8
-#SBATCH --partition=dgx2q
-#SBATCH --time=06:00:00
-#SBATCH --output=sbatch_output_%j.log
+#SBATCH --time=24:00:00
+#SBATCH -o cg-runtime_benchmark_output_%j.log
 
 NUM_ITER=${NUM_ITER:-1000}
 NUM_RUNS=${NUM_RUNS:-5}
 FILENAME=${FILENAME:-USE_DEFAULT_FILENAME}
 MATRICES_FOLDER=${MATRICES_FOLDER:-USE_DEFAULT_MATRICES_FOLDER}
-GPU_MODEL=${GPU_MODEL:-V100}
+GPU_MODEL=${GPU_MODEL:-A100}
 
 # This will be a comma delimited list of number of GPUs to run on
 # No spaces between numbers
@@ -31,7 +34,7 @@ done
 
 cd ~/multi-perks/CG
 
-. ./batch/Simula/_load_simula_modules.sh > /dev/null
+. ./batch/Truba/_load_truba_modules.sh > /dev/null
 
 echo "--- RUNNING ---"
 date
