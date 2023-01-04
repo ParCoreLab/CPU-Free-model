@@ -9,7 +9,7 @@ namespace SSMultiThreadedMultiBlockComm
 {
 
     __global__ void __launch_bounds__(1024, 1)
-        jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,const int nx,
+        jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny, const int nx,
                       const int comm_sm_count_per_layer, const int comm_block_count_per_sm, const int comp_block_count_per_sm,
                       const int tile_count_y, const int tile_count_x, const int iter_max,
                       volatile real *local_halo_buffer_for_top_neighbor,
@@ -66,8 +66,7 @@ namespace SSMultiThreadedMultiBlockComm
                                                                           a[(iz_start + 1) * ny * nx + iy * nx + ix] +
                                                                           remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * ny * nx + iy * nx + ix]);
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
-                        local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy * nx + ix] =
-                            first_row_val;
+                        local_halo_buffer_for_top_neighbor[next_iter_mod * ny * nx + iy * nx + ix] = first_row_val;
                         block_count++;
                     }
                     block_count += (block_count < comp_block_count_per_sm) && !(ix < (nx - 1));
@@ -85,7 +84,7 @@ namespace SSMultiThreadedMultiBlockComm
                 if (!cta.thread_rank())
                 {
                     while (
-                        local_is_bottom_neighbor_done_writing_to_me[cur_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id-comm_sm_count_per_layer] !=
+                        local_is_bottom_neighbor_done_writing_to_me[cur_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id - comm_sm_count_per_layer] !=
                         iter)
                     {
                     }
@@ -118,7 +117,7 @@ namespace SSMultiThreadedMultiBlockComm
 
                 if (!cta.thread_rank())
                 {
-                    remote_am_done_writing_to_bottom_neighbor[next_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id-comm_sm_count_per_layer] =
+                    remote_am_done_writing_to_bottom_neighbor[next_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id - comm_sm_count_per_layer] =
                         iter + 1;
                 }
             }
@@ -214,7 +213,7 @@ int SSMultiThreadedMultiBlockComm::init(int argc, char *argv[])
             chunk_size = chunk_size_low;
         else
             chunk_size = chunk_size_high;
-        
+
         constexpr int num_threads_per_block = 1024;
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
@@ -318,8 +317,8 @@ int SSMultiThreadedMultiBlockComm::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], a[dev_id], nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
-        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], a[dev_id] + iz_end[dev_id] * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], a[dev_id] + iz_end[dev_id] * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], a[dev_id], nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
 
         dim3 dim_grid(comp_sm_count + comm_sm_count_per_layer * 2);
         dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);

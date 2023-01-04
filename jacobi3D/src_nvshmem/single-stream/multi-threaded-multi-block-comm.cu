@@ -39,7 +39,9 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
             {
                 if (!cta.thread_rank())
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer +
+                                                  comm_block_id,
+                                              NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
 
@@ -75,7 +77,9 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
             {
                 if (!cta.thread_rank())
                 {
-                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, NVSHMEM_CMP_EQ, iter);
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer +
+                                                  comm_sm_count_per_layer + comm_block_id - comm_sm_count_per_layer,
+                                              NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
 
@@ -104,7 +108,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                     halo_buffer_top + next_iter_mod * ny * nx + comm_start_block_y * nx + comm_start_block_x,
                     a_new + (iz_end - 1) * ny * nx + comm_start_block_y * nx + comm_start_block_x,
                     min(comm_block_count_per_sm * cta.num_threads(), ny * nx - comm_start_block_y * nx - comm_start_block_x) * sizeof(real),
-                    is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
+                    is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id - comm_sm_count_per_layer, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
             }
             else

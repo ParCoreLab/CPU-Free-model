@@ -333,8 +333,8 @@ int MultiGPUPeerTiling::init(int argc, char *argv[])
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], a[dev_id], nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
-        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], a[dev_id] + iz_end[dev_id] * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], a[dev_id] + iz_end[dev_id] * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], a[dev_id], nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
 
         dim3 comp_dim_grid(grid_dim_x, grid_dim_y, grid_dim_z);
         dim3 comp_dim_block(dim_block_x, dim_block_y, dim_block_z);

@@ -177,6 +177,7 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
 
         constexpr int grid_dim_x = 8;
         const int grid_dim_y = (numSms - 1) / grid_dim_x;
+
         constexpr int num_flags = 4;
 
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
@@ -260,8 +261,8 @@ int SSMultiThreadedOneBlockComm::init(int argc, char *argv[])
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], (void *)a[dev_id], nx * sizeof(real), cudaMemcpyDeviceToDevice));
-        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], (void *)a[dev_id] + iy_end[dev_id] * nx, nx * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], a[dev_id] + iy_end[dev_id] * nx, nx * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], a[dev_id] , nx * sizeof(real), cudaMemcpyDeviceToDevice));
 
         dim3 dim_grid(grid_dim_x * grid_dim_y + 1);
         dim3 dim_block(dim_block_x, dim_block_y);

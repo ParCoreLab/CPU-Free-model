@@ -23,12 +23,12 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new,
     for (unsigned int iz = blockIdx.x * blockDim.x + threadIdx.x; iz < my_nz;
          iz += blockDim.x * gridDim.x)
     {
-        for (unsigned int iy = 0; iy < ny; iy+=ny-1)
+        for (unsigned int iy = 0; iy < ny; iy++)
         {
-            for (unsigned int ix = 0; ix < nx; ix+=nx-1)
+            for (unsigned int ix = 0; ix < nx; ix++)
             {
-                a[iz * ny * nx + iy * nx + ix] = 1;
-                a_new[iz * ny * nx + iy * nx + ix] = 1;
+                a[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix;
+                a_new[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix;
             }
         }
     }
