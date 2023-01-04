@@ -66,15 +66,7 @@ namespace MultiStreamPERKSNvshmem {
                         real top = halo_buffer_top[cur_iter_mod * ny * nx + iy + ix];
                         real bottom = a[comm_start_iz + ny * nx + iy + ix];
 
-                        const real first_row_val = (
-                                                    north +
-                                                    south +
-                                                    west +
-                                                    east +
-                                                    top +
-                                                    bottom
-                                                    ) /
-                                                   6.0f;
+                        const real first_row_val = (north + south + west + east + top + bottom) / 6.0f;
 
                         a_new[comm_start_iz + iy + ix] = first_row_val;
                     }
@@ -105,14 +97,7 @@ namespace MultiStreamPERKSNvshmem {
                         real top = a[end_iz - ny * nx + iy + ix];
                         real bottom = halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix];
 
-                        const real last_row_val = (
-                            north +
-                            south +
-                            west +
-                            east +
-                            top +
-                            bottom
-                        ) / 6.0f;
+                        const real last_row_val = (north + south + west + east + top + bottom) / 6.0f;
 
                        a_new[end_iz + iy + ix] = last_row_val;
                     }
@@ -781,15 +766,9 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
                                 a_ref_h[iz * ny * nx + iy * nx + ix]);
                         // result_correct = 0;
                     }
-
-//                    break;
                 }
-
-//                break;
             }
         }
-
-        std::cout << "Average error: " << err / (nz * ny * nx) << std::endl;
     }
     int global_result_correct = 1;
     MPI_CALL(MPI_Allreduce(&result_correct, &global_result_correct, 1, MPI_INT, MPI_MIN,
@@ -812,8 +791,6 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
         }
     }
 
-//    nvshmem_free(a_new);
-//    nvshmem_free(a);
     CUDA_RT_CALL(cudaFree(a));
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(iteration_done_flags));

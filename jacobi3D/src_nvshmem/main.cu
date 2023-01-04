@@ -52,7 +52,5 @@ int main(int argc, char *argv[]) {
                   << std::endl;
     }
 
-    std::cout << "Running " << selected.first << std::endl;
-
     return selected.second(argc, argv);
 }
