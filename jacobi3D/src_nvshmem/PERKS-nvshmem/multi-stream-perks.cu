@@ -31,8 +31,8 @@ namespace MultiStreamPERKSNvshmem {
         int next_iter_mod = 1;
 
         const int end_iz = (iz_end - 1) * ny * nx;
-//        const int end_iy = (ny) * nx;
-        const int end_iy = (ny) * nx;
+        //        const int end_iy = (ny) * nx;
+        const int end_iy = (ny) *nx;
         const int end_ix = (nx);
 
         const int comm_size_iy = blockDim.y * nx;
@@ -73,7 +73,7 @@ namespace MultiStreamPERKSNvshmem {
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                        halo_buffer_bottom + (next_iter_mod) * ny * nx, a_new + ny * nx, ny * nx * sizeof(real),
+                        halo_buffer_bottom + (next_iter_mod) *ny * nx, a_new + ny * nx, ny * nx * sizeof(real),
                         is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                         top);
 
@@ -99,7 +99,7 @@ namespace MultiStreamPERKSNvshmem {
 
                         const real last_row_val = (north + south + west + east + top + bottom) / 6.0f;
 
-                       a_new[end_iz + iy + ix] = last_row_val;
+                        a_new[end_iz + iy + ix] = last_row_val;
                     }
                 }
 
@@ -107,7 +107,6 @@ namespace MultiStreamPERKSNvshmem {
                         halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * nx * ny, ny * nx * sizeof(real),
                         is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                         bottom);
-
             }
 
             real *temp_pointer_first = a_new;
@@ -314,12 +313,6 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     nvshmem_barrier_all();
 
     // Using chunk_size_high so that it is same across all PEs
-//    a = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
-//    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
-
-//    cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real));
-//    cudaMemset(a_new, 0, nx * (chunk_size + 2) * sizeof(real));
-
     CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
 
@@ -357,12 +350,11 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     nvshmem_barrier_all();
 
+    // Initialize boundary buffers
     CUDA_RT_CALL(cudaMemcpy(halo_buffer_top, a, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
     CUDA_RT_CALL(cudaMemcpy(halo_buffer_bottom, a + (chunk_size + 1) * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
 
     nvshmem_barrier_all();
-
-//    cudaMemcpy(halo_buffer_top)
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -644,30 +636,11 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     int l_iteration = iter_max;
 
-    const auto a_local = a; //        + ny * nx;
-    const auto a_new_local = a_new; // + ny * nx;
-
     // PERKS has no iz_start, so we include the halos
-//    const auto chunk_size_local = chunk_size + 5;
-//    const auto chunk_size_local = chunk_size + 4;
-//    const auto chunk_size_local = chunk_size + 2;
     const auto chunk_size_local = chunk_size - 2;
-//    const auto chunk_size_local = 258;
-//    int chunk_size_local = 125;
 
-//    switch (mype) {
-//        case 0: chunk_size_local = iz_end + 2; break;
-//        case 1: chunk_size_local = iz_end + 2; break;
-//        case 2: chunk_size_local = iz_end + 2; break;
-//        case 3: chunk_size_local = iz_end + 2; break;
-//    }
-
-//    const auto chunk_size_local = iz_end + 1;
-//    const auto chunk_size_local = nz - 1;
-
-
-    void *KernelArgs[] = {(void *) &a_local,
-                          (void *) &a_new_local,
+    void *KernelArgs[] = {(void *) &a,
+                          (void *) &a_new,
                           (void *) &chunk_size_local,
                           (void *) &ny,
                           (void *) &nx,
@@ -676,15 +649,6 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
                           (void *) &l_iteration,
                           (void *) &iteration_done_flags,
                           (void *) &max_sm_flder};
-
-    void *kernelArgsInner[] = {(void *) &a_new,
-                               (void *) &a,
-                               (void *) &iz_start,
-                               (void *) &iz_end,
-                               (void *) &ny,
-                               (void *) &nx,
-                               (void *) &iter_max,
-                               (void *) &iteration_done_flags};
 
     void *kernelArgsBoundary[] = {(void *) &a_new,
                                   (void *) &a,
@@ -711,10 +675,6 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
     CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-//       CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKSNvshmem::jacobi_kernel,
-//                                                comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
-//                                                inner_domain_stream));
-
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) execute_kernel, executeGridDim,
                                              executeBlockDim, KernelArgs, executeSM,
                                              inner_domain_stream));
@@ -725,9 +685,8 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaGetLastError());
+
     // Need to swap pointers on CPU if iteration count is odd
-    // Technically, we don't know the iteration number (since we'll be doing l2-norm)
-    // Could write iter to CPU when kernel is done
     if (iter_max % 2 != 1) {
         std::swap(a_new, a);
     }
@@ -742,11 +701,6 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
                 a_h + iz_start_global * ny * nx, a_new + ny * nx,
                 std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
                 cudaMemcpyDeviceToHost));
-
-//        CUDA_RT_CALL(cudaMemcpy(
-//                a_h, a_new,
-//                (chunk_size + 2) * nx * ny * sizeof(real),
-//                cudaMemcpyDeviceToHost));
 
         double err = 0;
         for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz) {
@@ -764,7 +718,7 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
                                 "(reference)\n",
                                 rank, iz, ny * nx, iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix],
                                 a_ref_h[iz * ny * nx + iy * nx + ix]);
-                        // result_correct = 0;
+                        result_correct = 0;
                     }
                 }
             }
