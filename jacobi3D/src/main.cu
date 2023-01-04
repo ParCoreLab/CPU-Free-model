@@ -3,7 +3,6 @@
 
 #include "../include/baseline/multi-threaded-copy.cuh"
 #include "../include/baseline/multi-threaded-copy-overlap.cuh"
-#include "../include/baseline/multi-threaded-copy.cuh"
 #include "../include/baseline/multi-threaded-p2p.cuh"
 #include "../include/baseline/single-threaded-copy.cuh"
 
