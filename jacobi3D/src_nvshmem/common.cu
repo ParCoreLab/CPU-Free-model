@@ -49,19 +49,11 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
     int iz = blockIdx.z * blockDim.z + threadIdx.z;
     int iy = blockIdx.y * blockDim.y + threadIdx.y;
     int ix = blockIdx.x * blockDim.x + threadIdx.x;
-    //    real local_l2_norm = 0.0;
 
     // WE COMPUTE 1 AND 244 YOU
     if (iz < iz_start || iz > (iz_end - 1)) {
-//    if (iz != iz_start && iz != (iz_end - 1)) {
-//                if (iz == iz_start || iz == iz_end) {
-//                    a_new[iz * ny * nx + iy * nx + ix] = -1.0f;
-//                }
-
         return;
     }
-
-//    const int chunk_size = iz_end - 2;
 
     real east = 1.0f * a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
     real north = 1.0f * a[iz * ny * nx + (iy + (iy < (ny - 1))) * nx + ix];
@@ -72,47 +64,16 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
     real top = 1.0f * a[(iz - 1) * ny * nx + iy * nx + ix];
     real bottom = 1.0f * a[(iz + 1) * ny * nx + iy * nx + ix];
 
-//    real top = 1.0f * a[(iz - (iz > 0)) * ny * nx + iy * nx + ix];
-//    real bottom = 1.0f * a[(iz + (iz < (iz_end))) * ny * nx + iy * nx + ix];
-
-//    real east = 1.0f * a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
-//    real east = 1.0f * a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
-//    real east = 1.0f * a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
-
-
-
     const real new_val = (
         north     // north
         + south     // south
         + west       // west
         + east         // east
-        + a[iz * ny * nx + iy * nx + ix]        // center
         + top     // top      // might be bottom
         + bottom     // bottom
-    ) / 7.0f;
-
-//        if (iz * ny * nx + iy * nx + ix == 16646401) {
-//            printf("\nBaseline\n");
-//            printf("%f\n", north);
-//            printf("%f\n", south);
-//            printf("%f\n", west);
-//            printf("%f\n", east);
-//            printf("%f\n", top);
-//            printf("%f\n", bottom);
-//            printf("%f\n", a[iz * ny * nx + iy * nx + ix]);
-//            printf("%f\n", new_val);
-//    }
+    ) / 6.0f;
 
     a_new[iz * ny * nx + iy * nx + ix] =  new_val;
-    //    a_new[iz * ny * nx + iy * nx + ix] = -1.0;
-
-        //        if (calculate_norm) {
-        //            real residue = new_val - a[iz * ny * nx + iy * nx + ix];
-        //            local_l2_norm += residue * residue;
-        //        }
-    //    if (calculate_norm) {
-    //        atomicAdd(l2_norm, local_l2_norm);
-    //    }
 }
 
 __global__ void jacobi_kernel_single_gpu_persistent(

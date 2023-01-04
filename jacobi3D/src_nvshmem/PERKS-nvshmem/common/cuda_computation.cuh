@@ -222,30 +222,16 @@ __device__ void __forceinline__ computation(REAL result[RESULT_SIZE],
   _Pragma("unroll")
   for(int l_y=0; l_y<RESULT_SIZE; l_y++)
   {
-      result[l_y] = REAL(
-            1.0f * sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind]       // north
-            + 1.0f * sm_ptr[0][sm_width*(l_y+sm_y_base-1) + sm_x_ind]       // south
-            + 1.0f * sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1]       // west
-            + 1.0f * sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1]       // east
-            + 1.0f * reg_ptr[REG_BASE][l_y]                                 // center
-            + 1.0f * reg_ptr[REG_BASE-1][l_y]    // top
-            + 1.0f * reg_ptr[REG_BASE+1][l_y]    // bottom?
-              );
+      result[l_y] = (
+            sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind]       // north
+            + sm_ptr[0][sm_width*(l_y+sm_y_base-1) + sm_x_ind]       // south
+            + sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1]       // west
+            + sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1]       // east
+            + reg_ptr[REG_BASE-1][l_y]    // top
+            + reg_ptr[REG_BASE+1][l_y]    // bottom?
+          ) / 6.0f;
 
-      result[l_y] = REAL(result[l_y] / 7.0f);
-//      result[l_y] = -10.0f;
-
-//      if (reg_ptr[REG_BASE][l_y] == 131329) {
-//      if (result[l_y] - 0.637227 < 0.000001) {
-//          printf("\n%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind]);
-//          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base-1) + sm_x_ind]);
-//          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1]);
-//          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1]);
-//          printf("%f\n", reg_ptr[REG_BASE-1][l_y]);
-//          printf("%f\n", reg_ptr[REG_BASE+1][l_y]);
-//          printf("%f\n", reg_ptr[REG_BASE][l_y]);
-//          printf("%f\n", result[l_y]);
-//      }
+      result[l_y] = result[l_y];
   }
   #else
     // register REAL reg_ptr[REGZ_SIZE][REGY_SIZE][REGX_SIZE];

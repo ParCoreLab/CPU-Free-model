@@ -26,15 +26,13 @@ namespace MultiStreamPERKSNvshmem {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
 
-        int mype = nvshmem_my_pe();
-
         int iter = 0;
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
         const int end_iz = (iz_end - 1) * ny * nx;
 //        const int end_iy = (ny) * nx;
-        const int end_iy = (ny);
+        const int end_iy = (ny) * nx;
         const int end_ix = (nx);
 
         const int comm_size_iy = blockDim.y * nx;
@@ -53,48 +51,30 @@ namespace MultiStreamPERKSNvshmem {
                 }
                 cg::sync(cta);
 
-                for (int i_iy = comm_start_iy; i_iy < end_iy; i_iy++) {
+                for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy) {
+                    int north_idx_y = comm_start_iz + (iy + (iy < (ny - 1) * nx));
+                    int south_idx_y = comm_start_iz + (iy - (iy > 0) * nx);
+
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix) {
-                        // i_iy is the logical index
-
                         // this is the real index
-                        const int iy = i_iy * nx;
-
                         real east = a[comm_start_iz + iy + ix + (ix < (nx - 1))];
                         real west = a[comm_start_iz + iy + ix - (ix > 0)];
 
-                        // no
-                        //                        real north = a[comm_start_iz + (iy + (iy < (iy * (ny - 1))) * ny) + ix];
-                        real north = a[comm_start_iz + (i_iy + (i_iy < (ny - 1))) * nx + ix];
+                        real north = a[north_idx_y + ix];
+                        real south = a[south_idx_y + ix];
 
-                        //                        real north = 1.0f * a[iz * ny * nx + (iy + (iy < (ny - 1))) * nx + ix];
+                        real top = halo_buffer_top[cur_iter_mod * ny * nx + iy + ix];
+                        real bottom = a[comm_start_iz + ny * nx + iy + ix];
 
-                        real south = a[comm_start_iz + (i_iy - (i_iy > 0)) * nx + ix];
-
-                        const real first_row_val = (north +
+                        const real first_row_val = (
+                                                    north +
                                                     south +
                                                     west +
                                                     east +
-                                                    a[comm_start_iz + iy + ix] +// center
-                                                    halo_buffer_top[cur_iter_mod * ny * nx + iy + ix] +
-                                                    a[comm_start_iz + ny * nx + iy + ix]// bottom
+                                                    top +
+                                                    bottom
                                                     ) /
-                                                   7.0f;
-
-//                        if (comm_start_iz + iy + ix == 65793 && mype == 1) {
-
-//                        if (comm_start_iz + iy + ix == 68097) {
-//                            printf("\nBoundary Kernel %d\n", mype);
-//                            printf("%f\n", north);
-//                            printf("%f\n", south);
-//                            printf("%f\n", east);
-//                            printf("%f\n", west);
-//                            printf("%f\n", a[iy + ix]);
-//                            printf("%f\n", a[comm_start_iz + ny * nx + iy + ix]);
-//                            printf("%f\n", a[comm_start_iz + iy + ix]);
-//                            printf("%f\n", 10.0f + first_row_val);
-//                        }
-                        //
+                                                   6.0f;
 
                         a_new[comm_start_iz + iy + ix] = first_row_val;
                     }
@@ -105,65 +85,34 @@ namespace MultiStreamPERKSNvshmem {
                         is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                         top);
 
-//                nvshmemx_putmem_nbi_block(
-//                        a_new + (iz_end) * ny * nx, a_new + ny * nx, ny * nx * sizeof(real), top);
-//                if (cta.thread_rank() == cta.num_threads() - 1) {
-//                    nvshmem_quiet();
-//                }
             } else if (blockIdx.x == gridDim.x - 2) {
                 if (cta.thread_rank() == cta.num_threads() - 1) {
                     nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
                 }
                 cg::sync(cta);
 
-                for (int i_iy = comm_start_iy; i_iy < end_iy; i_iy++) {
-                    for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix) {
-                        const int iy = i_iy * nx;
+                for (int iy = comm_start_iy; iy < end_iy; iy += comm_size_iy) {
+                    int north_idx_y = end_iz + (iy + (iy < (ny - 1) * nx));
+                    int south_idx_y = end_iz + (iy - (iy > 0) * nx);
 
+                    for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix) {
                         real east = a[end_iz + iy + ix + (ix < (nx - 1))];
                         real west = a[end_iz + iy + ix - (ix > 0)];
 
-//                        real north = a[end_iz + iy + ny + ix];
-//                        real south = a[end_iz + (iy - (iy > 0) * ny) + ix];
+                        real north = a[north_idx_y + ix];
+                        real south = a[south_idx_y + ix];
 
-                        //                        real north = a[comm_start_iz + (iy + (iy < (iy * (ny - 1))) * ny) + ix];
-                        real north = a[end_iz + (i_iy + (i_iy < (ny - 1))) * nx + ix];
-
-                        //                        real north = 1.0f * a[iz * ny * nx + (iy + (iy < (ny - 1))) * nx + ix];
-
-                        real south = a[end_iz + (i_iy - (i_iy > 0)) * nx + ix];
-
-//                        const real last_row_val = (real(1) / real(6)) * (a[end_iz + iy + ix + 1] +
-//                                                                         a[end_iz + iy + ix - 1] +
-//                                                                         a[end_iz + iy + nx + ix] +
-//                                                                         a[end_iz + iy - nx + ix] +
-//                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix] +
-//                                                                         a[end_iz - ny * nx + iy + ix]);
-
+                        real top = a[end_iz - ny * nx + iy + ix];
+                        real bottom = halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix];
 
                         const real last_row_val = (
                             north +
                             south +
                             west +
                             east +
-                            a[end_iz + iy + ix] +   // center
-                            a[end_iz - ny * nx + iy + ix] +   // top
-                            halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]    // bottom
-                        ) / 7.0f;
-
-//                        if (end_iz + iy + ix == 15991041) {
-//                        if (end_iz + iy + ix == 8323329 && (mype == 0 || mype == 1)) {
-//                        if (end_iz + iy + ix == 8323329) {
-//                            printf("\nBoundary Kernel %d\n", mype);
-//                            printf("%f\n", north);
-//                            printf("%f\n", south);
-//                            printf("%f\n", east);
-//                            printf("%f\n", west);
-//                            printf("%f\n", a[end_iz - ny * nx + iy + ix]);
-//                            printf("%f\n", a[end_iz + ny * nx + iy + ix]);
-//                            printf("%f\n", a[end_iz + iy + ix]);
-//                            printf("%f\n", last_row_val);
-//                        }
+                            top +
+                            bottom
+                        ) / 6.0f;
 
                        a_new[end_iz + iy + ix] = last_row_val;
                     }
@@ -174,11 +123,6 @@ namespace MultiStreamPERKSNvshmem {
                         is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                         bottom);
 
-//                nvshmemx_putmem_nbi_block(
-//                        a_new, a_new + (iz_end - 1) * nx * ny, ny * nx * sizeof(real), bottom);
-//                if (cta.thread_rank() == cta.num_threads() - 1) {
-//                    nvshmem_quiet();
-//                }
             }
 
             real *temp_pointer_first = a_new;
