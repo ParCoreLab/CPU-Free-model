@@ -18,16 +18,16 @@ int main(int argc, char *argv[])
     const std::array versions{
         make_pair("NVSHMEM Baseline Multi Threaded", BaselineMultiThreadedNvshmem::init),
         make_pair("NVSHMEM Baseline Multi Threaded Optimized", BaselineMultiThreadedNvshmemOpt::init),
-        make_pair("NVSHMEM Single stream multi threaded Layer Put (one thread block communicates)", SSMultiThreadedOneBlockCommNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded (one thread block communicates)", SSMultiThreadedOneBlockCommNvshmem::init),
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate)", SSMultiThreadedTwoBlockCommNvshmem::init),
         make_pair("NVSHMEM Double stream multi threaded", MultiGPUPeerTilingNvshmem::init),
-        make_pair("NVSHMEM Single stream multi threaded Partitioned,All SM Comm", SSMultiThreadedMultiBlockCommNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded Partitioned,2 SM Comm", SSMultiThreadedMultiBlockCommNvshmem::init),
         make_pair("NVSHMEM Baseline Multi Threaded (No Computation)", BaselineMultiThreadedNvshmemNoCompute::init),
         make_pair("NVSHMEM Baseline Multi Threaded Optimized (No Computation)", BaselineMultiThreadedNvshmemOptNoCompute::init),
-        make_pair("NVSHMEM Single stream multi threaded Layer Put (one thread block communicates; no computation)", SSMultiThreadedOneBlockCommNvshmemNoCompute::init),
+        make_pair("NVSHMEM Single stream multi threaded (one thread block communicates; no computation)", SSMultiThreadedOneBlockCommNvshmemNoCompute::init),
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate; no computation)", SSMultiThreadedTwoBlockCommNvshmemNoCompute::init),
         make_pair("NVSHMEM Double stream multi threaded with Tiling (No Computation)", MultiGPUPeerTilingNvshmemNoCompute::init),
-        make_pair("NVSHMEM Single stream multi threaded Partitioned,All SM Comm (No Computation)", SSMultiThreadedMultiBlockCommNvshmemNoCompute::init),
+        make_pair("NVSHMEM Single stream multi threaded Partitioned,2 SM Comm (No Computation)", SSMultiThreadedMultiBlockCommNvshmemNoCompute::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);

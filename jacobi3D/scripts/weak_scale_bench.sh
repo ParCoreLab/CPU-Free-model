@@ -22,10 +22,11 @@ version_name_to_idx_map["Baseline P2P"]=2
 #version_name_to_idx_map["Single Stream 1TB"]=4
 #version_name_to_idx_map["Single Stream 2TB"]=5
 #version_name_to_idx_map["Double Stream"]=6
+#version_name_to_idx_map["PERKS"]=7
 
-#version_name_to_idx_map["Baseline Copy (No compute)"]=7
-version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=8
-version_name_to_idx_map["Baseline P2P (No Compute)"]=9
+#version_name_to_idx_map["Baseline Copy (No compute)"]=8
+version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=9
+version_name_to_idx_map["Baseline P2P (No Compute)"]=10
 
 #version_name_to_idx_map["Single Stream 1TB (No Compute)"]=10
 #version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
@@ -51,14 +52,6 @@ version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB Partitoned (No Comput
 
 BIN="./jacobi -s 1"
 NV_BIN="./jacobi_nvshmem -s 1"
-
-MAX_NX=${MAX_NX:-512}
-MAX_NY=${MAX_NY:-512}
-MAX_NZ=${MAX_NZ:-512}
-
-STARTING_NX=${1:-256}
-STARTING_NY=${2:-256}
-STARTING_NZ=${3:-256}
 
 NUM_ITER=${4:-100000}
 NUM_RUNS=${5:-5}
