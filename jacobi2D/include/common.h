@@ -2,9 +2,17 @@
 #define INC_2D_STENCIL_COMMON_H
 
 #include <omp.h>
+
 #include <algorithm>
 #include <sstream>
 #include <string>
+#include <array>
+
+#include <cooperative_groups.h>
+
+#include <cmath>
+#include <cstdio>
+#include <iostream>
 
 typedef float real;
 
@@ -17,10 +25,12 @@ constexpr int MAX_NUM_ELEM_PER_GPU = 256 * 256;
 constexpr int TILE_SIZE = 256;
 
 template <typename T>
-T get_argval(char **begin, char **end, const std::string &arg, const T default_val) {
+T get_argval(char **begin, char **end, const std::string &arg, const T default_val)
+{
     T argval = default_val;
     char **itr = std::find(begin, end, arg);
-    if (itr != end && ++itr != end) {
+    if (itr != end && ++itr != end)
+    {
         std::istringstream inbuf(*itr);
         inbuf >> argval;
     }
@@ -88,6 +98,29 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
 #define POP_RANGE
 #endif
 
+#define MPI_CALL(call)                                                                \
+    {                                                                                 \
+        int mpi_status = call;                                                        \
+        if (MPI_SUCCESS != mpi_status)                                                \
+        {                                                                             \
+            char mpi_error_string[MPI_MAX_ERROR_STRING];                              \
+            int mpi_error_string_length = 0;                                          \
+            MPI_Error_string(mpi_status, mpi_error_string, &mpi_error_string_length); \
+            if (NULL != mpi_error_string)                                             \
+                fprintf(stderr,                                                       \
+                        "ERROR: MPI call \"%s\" in line %d of file %s failed "        \
+                        "with %s "                                                    \
+                        "(%d).\n",                                                    \
+                        #call, __LINE__, __FILE__, mpi_error_string, mpi_status);     \
+            else                                                                      \
+                fprintf(stderr,                                                       \
+                        "ERROR: MPI call \"%s\" in line %d of file %s failed "        \
+                        "with %d.\n",                                                 \
+                        #call, __LINE__, __FILE__, mpi_status);                       \
+            exit(mpi_status);                                                         \
+        }                                                                             \
+    }
+
 #define CUDA_RT_CALL(call)                                                                  \
     {                                                                                       \
         cudaError_t cudaStatus = call;                                                      \
@@ -100,4 +133,4 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
     }                                                                                       \
     noop
 
-#endif  // INC_2D_STENCIL_COMMON_H
+#endif // INC_2D_STENCIL_COMMON_H

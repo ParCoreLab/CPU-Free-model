@@ -28,15 +28,7 @@
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/multi_threaded_p2p/jacobi.cu
 
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
-#include <sstream>
-
 #include "../../include/baseline/multi-threaded-p2p.cuh"
-#include "../../include/common.h"
 
 namespace BaselineMultiThreadedP2P {
 __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
@@ -49,11 +41,10 @@ __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__rest
     // real local_l2_norm = 0.0;
 
     if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
-        const real new_val =
+        const real new_val =(real(1) / real(6)) *
             (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
              a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
-             a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]) /
-            real(6.0);
+             a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
 
         a_new[iz * ny * nx + iy * nx + ix] = new_val;
 
@@ -208,8 +199,8 @@ int BaselineMultiThreadedP2P::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaDeviceSynchronize());
 
             constexpr int dim_block_x = 32;
-            constexpr int dim_block_y = 32;
-            constexpr int dim_block_z = 1;
+            constexpr int dim_block_y = 8;
+            constexpr int dim_block_z = 4;
 
             dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
                           (ny + dim_block_y - 1) / dim_block_y,

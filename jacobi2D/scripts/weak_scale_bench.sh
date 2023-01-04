@@ -14,24 +14,48 @@ CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2
 
 declare -A version_name_to_idx_map
 
-version_name_to_idx_map["Single Stream 1TB"]=0
-version_name_to_idx_map["Single Stream 2TB"]=1
+version_name_to_idx_map["Baseline Copy"]=0
+version_name_to_idx_map["Baseline Copy Overlap"]=1
+version_name_to_idx_map["Baseline P2P"]=2
+#version_name_to_idx_map["Baseline Single Copy"]=3
 
-version_name_to_idx_map["Baseline Copy"]=3
-version_name_to_idx_map["Baseline Copy Overlap"]=4
-version_name_to_idx_map["Baseline P2P"]=5
+version_name_to_idx_map["Single Stream 1TB"]=4
+version_name_to_idx_map["Single Stream 2TB"]=5
+version_name_to_idx_map["Double Stream"]=6
 
-version_name_to_idx_map["Single Stream 1TB (No Compute)"]=9
-version_name_to_idx_map["Single Stream 2TB (No Compute)"]=10
-version_name_to_idx_map["Baseline Copy (No compute)"]=12
-version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=13
-version_name_to_idx_map["Baseline P2P (No Compute)"]=14
+version_name_to_idx_map["Baseline Copy (No compute)"]=7
+version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=8
+version_name_to_idx_map["Baseline P2P (No Compute)"]=9
 
+version_name_to_idx_map["Single Stream 1TB (No Compute)"]=10
+version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
+version_name_to_idx_map["Double Stream (No Compute)"]=12
+
+declare -A version_name_to_idx_map_nvshmem
+
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline"]=0
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized"]=1
+
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB"]=2
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB"]=3
+version_name_to_idx_map_nvshmem["NVSHMEM Double Stream"]=4
+
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Compute)"]=5
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=6
+
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB (No Compute)"]=7
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=8
+version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=9
 
 BIN="./jacobi -s 1"
+NV_BIN="./jacobi_nvshmem -s 1"
 
-STARTING_NX=${STARTING_NX:-256}
-STARTING_NY=${STARTING_NY:-256}
+MAX_NX=${MAX_NX:-16384}
+MAX_NY=${MAX_NY:-16384}
+
+STARTING_NX=${STARTING_NX:-4096}
+STARTING_NY=${STARTING_NY:-4096}
+
 NUM_ITER=${NUM_ITER:-1000000}
 NUM_RUNS=${NUM_RUNS:-5}
 
@@ -45,33 +69,59 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-for version_name in "${!version_name_to_idx_map[@]}"; do
-    echo "Running ${version_name}"; echo ""
+for (( STARTING_NX=16384; STARTING_NX<=16384; STARTING_NX*=2 )); do
+    
+    for version_name in "${!version_name_to_idx_map[@]}"; do
+        echo "Running ${version_name}"; echo ""
+        NX=${STARTING_NX}
+        NY=${NX}
 
-    version_idx=${version_name_to_idx_map[$version_name]}
+        version_idx=${version_name_to_idx_map[$version_name]}
 
-    NX=${STARTING_NX}
-    NY=${STARTING_NY}
+        for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS*=2 )); do
+            export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_SETTING[${NUM_GPUS}]}
 
-    for (( NUM_GPUS=1; NUM_GPUS <= ${MAX_NUM_GPUS}; NUM_GPUS*=2 )); do
-        export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_SETTING[${NUM_GPUS}]}
+            echo "Num GPUS: ${NUM_GPUS}"
+            echo "${NUM_ITER} iterations on grid ${NX}x${NY}"
 
-        echo "Num GPUS: ${NUM_GPUS}"
-        echo "${NUM_ITER} iterations on grid ${NY}x${NX}"
+            for (( i=1; i <= ${NUM_RUNS}; i++ )); do
+                execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
+                echo "${execution_time} on run ${i}"
+            done
 
-        for (( i=1; i <= ${NUM_RUNS}; i++ )); do
-            execution_time=$(${BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
-            echo "${execution_time} on run ${i}"
+            printf "\n"
+
+            NY=$((2*NY))
+        
         done
 
-        printf "\n"
-
-        if [[ $NX -le $NY ]]; then
-            NX=$((2*NX))
-        else
-            NY=$((2*NY))
-        fi
+        echo "-------------------------------------"
     done
 
-    echo "-------------------------------------"
+    for version_name in "${!version_name_to_idx_map_nvshmem[@]}"; do
+        echo "Running ${version_name}"; echo ""
+        NX=${STARTING_NX}
+        NY=${NX}
+
+        version_idx=${version_name_to_idx_map_nvshmem[$version_name]}
+
+        for (( NP=1; NP <= ${MAX_NUM_GPUS}; NP*=2 )); do
+
+            echo "Num GPUS: ${NP}"
+            echo "${NUM_ITER} iterations on grid ${NX}x${NY}"
+
+            for (( i=1; i <= ${NUM_RUNS}; i++ )); do
+                execution_time=$(mpirun -np ${NP} ${NV_BIN} -v ${version_idx} -nx ${NX} -ny ${NY} -niter ${NUM_ITER})
+                echo "${execution_time} on run ${i}"
+            done
+
+            printf "\n"
+
+            NY=$((2*NY))
+        done
+
+        echo "-------------------------------------"
+    done
+    
+    echo "#####################################" 
 done
