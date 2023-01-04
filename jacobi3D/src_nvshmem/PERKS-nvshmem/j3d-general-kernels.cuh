@@ -298,8 +298,9 @@ kernel3d_general_inner(REAL * __restrict__ input,
   int blocksize_z=(width_z/gridDim.z);
   int z_quotient = width_z%gridDim.z;
 
-  const int p_z =  blockIdx.z * (blocksize_z) + 2; // + (blockIdx.z<=z_quotient?blockIdx.z:z_quotient) + 1;
-//  blocksize_z += (blockIdx.z<z_quotient?1:0);
+//  const int p_z =  blockIdx.z * (blocksize_z) + 2; // + (blockIdx.z<=z_quotient?blockIdx.z:z_quotient) + 1;
+  const int p_z =  blockIdx.z * (blocksize_z) + (blockIdx.z<=z_quotient?blockIdx.z:z_quotient) + 2;
+  blocksize_z += (blockIdx.z<z_quotient?1:0);
   const int p_z_reg_start=p_z+NOCACHE_Z;
   const int p_z_sm_start=p_z+NOCACHE_Z + reg_folder_z;
   const int p_z_sm_end=p_z_sm_start+max_sm_flder;
@@ -967,7 +968,6 @@ kernel3d_general_inner(REAL * __restrict__ input,
 
     gg.sync();
 
-    /* a
     if (gg.thread_rank() == 0) {
         int iter_next = iter + 1;
 
@@ -975,7 +975,6 @@ kernel3d_general_inner(REAL * __restrict__ input,
 
         iteration_done[1] = iter_next;
     }
-     */
 
     gg.sync();
 

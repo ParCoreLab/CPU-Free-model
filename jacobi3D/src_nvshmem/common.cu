@@ -31,7 +31,6 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new,
                 a[iz * ny * nx + iy * nx + ix] = y0;
                 a_new[iz * ny * nx + iy * nx + ix] = y0;
 
-
 //                a[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix;
 //                a_new[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix; // + 0.5;
             }
@@ -55,9 +54,9 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
     // WE COMPUTE 1 AND 244 YOU
     if (iz < iz_start || iz > (iz_end - 1)) {
 //    if (iz != iz_start && iz != (iz_end - 1)) {
-        //        if (iz == iz_start || iz == iz_end) {
-        //            a_new[iz * ny * nx + iy * nx + ix] = -1.0f;
-        //        }
+//                if (iz == iz_start || iz == iz_end) {
+//                    a_new[iz * ny * nx + iy * nx + ix] = -1.0f;
+//                }
 
         return;
     }
@@ -92,7 +91,7 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
         + bottom     // bottom
     ) / 7.0f;
 
-//        if (iz * ny * nx + iy * nx + ix == 15991041) {
+//        if (iz * ny * nx + iy * nx + ix == 16646401) {
 //            printf("\nBaseline\n");
 //            printf("%f\n", north);
 //            printf("%f\n", south);
@@ -104,19 +103,8 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
 //            printf("%f\n", new_val);
 //    }
 
-    a_new[iz * ny * nx + iy * nx + ix] = new_val;
-//    a_new[iz * ny * nx + iy * nx + ix] = -1.0;
-
-//        if (iz * ny * nx + iy * nx + ix == 16711937) {
-//            printf("%f\n", a[iz * ny * nx + (iy + 1) * nx + ix]);
-//            printf("%f\n", a[iz * ny * nx + (iy - 1) * nx + ix]);
-//            printf("%f\n", a[iz * ny * nx + iy * nx + ix - 1]);
-//            printf("%f\n", a[iz * ny * nx + iy * nx + ix + 1]);
-//            printf("%f\n", a[iz * ny * nx + iy * nx + ix]);
-//            printf("%f\n", a[(iz - 1) * ny * nx + iy * nx + ix]);
-//            printf("%f\n", a[(iz + 1) * ny * nx + iy * nx + ix]);
-//            printf("%f\n\n", new_val);
-//        }
+    a_new[iz * ny * nx + iy * nx + ix] =  new_val;
+    //    a_new[iz * ny * nx + iy * nx + ix] = -1.0;
 
         //        if (calculate_norm) {
         //            real residue = new_val - a[iz * ny * nx + iy * nx + ix];
@@ -276,17 +264,17 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
 
         // Apply periodic boundary conditions
 
-//        CUDA_RT_CALL(cudaStreamWaitEvent(push_top_stream, compute_done, 0));
-//        CUDA_RT_CALL(cudaMemcpyAsync(a_new + iz_start * ny, a_new + (iz_end - 1) * ny * nx,
-//                                     nx * ny * sizeof(real),
-//                                     cudaMemcpyDeviceToDevice, push_top_stream));
-//        CUDA_RT_CALL(cudaEventRecord(push_top_done, push_top_stream));
-//
-//        CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream, compute_done, 0));
-//        CUDA_RT_CALL(cudaMemcpyAsync(
-//                a_new + (iz_end - 1) * ny * nx, a_new + iz_start * ny * nx,
-//                nx * ny * sizeof(real), cudaMemcpyDeviceToDevice, compute_stream));
-//        CUDA_RT_CALL(cudaEventRecord(push_bottom_done, push_bottom_stream));
+        CUDA_RT_CALL(cudaStreamWaitEvent(push_top_stream, compute_done, 0));
+        CUDA_RT_CALL(cudaMemcpyAsync(a_new, a_new + (iz_end - 1) * ny * nx,
+                                     nx * ny * sizeof(real),
+                                     cudaMemcpyDeviceToDevice, push_top_stream));
+        CUDA_RT_CALL(cudaEventRecord(push_top_done, push_top_stream));
+
+        CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream, compute_done, 0));
+        CUDA_RT_CALL(cudaMemcpyAsync(
+                a_new + iz_end * ny * nx, a_new + iz_start * ny * nx,
+                nx * ny * sizeof(real), cudaMemcpyDeviceToDevice, compute_stream));
+        CUDA_RT_CALL(cudaEventRecord(push_bottom_done, push_bottom_stream));
 
         //        if (calculate_norm) {
         //            CUDA_RT_CALL(cudaStreamSynchronize(compute_stream));

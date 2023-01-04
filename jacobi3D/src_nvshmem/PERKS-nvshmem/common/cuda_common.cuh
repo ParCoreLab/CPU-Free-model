@@ -110,7 +110,7 @@ __device__ void __forceinline__ global2regs3d(
     _Pragma("unroll")
     for(int l_z=0; l_z<SIZE_Z ; l_z++)
     {
-      int l_global_z = (MIN(global_z+l_z+BASE_Z,width_z-1));
+      int l_global_z = global_z+l_z+BASE_Z;
         l_global_z = (MAX(l_global_z,0));
       reg_array[l_z+BASE_Z][l_y+BASE_Y] = src[l_global_z*width_x*width_y+l_global_y*width_x+
             ((global_x+tid_x))];
@@ -276,7 +276,7 @@ __device__ void __forceinline__ global2sm(REAL *src, REAL* smbuffer_buffer_ptr[S
     int l_global_z = (MAX(gbase_z+l_z+BASE_Z,0));
     if(!isInit||halo>=2)
     {
-        l_global_z = (MIN(l_global_z,width_z-1));
+        l_global_z = l_global_z;
     }
     // _Pragma("unroll")
     for(int l_y=y_start; l_y<y_end; l_y+=y_step)
@@ -314,7 +314,7 @@ __device__ void __forceinline__ global2sm(REAL *src, REAL* smbuffer_buffer_ptr[S
     int l_global_z;
     if(!isInit)
     {
-        l_global_z = (MIN(gbase_z+l_z+BASE_Z,width_z-1));
+        l_global_z = gbase_z+l_z+BASE_Z;
     }
     else
     {

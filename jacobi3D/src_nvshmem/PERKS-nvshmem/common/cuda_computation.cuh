@@ -233,9 +233,10 @@ __device__ void __forceinline__ computation(REAL result[RESULT_SIZE],
               );
 
       result[l_y] = REAL(result[l_y] / 7.0f);
+//      result[l_y] = -10.0f;
 
 //      if (reg_ptr[REG_BASE][l_y] == 131329) {
-//      if (result[l_y] == 0.063290) {
+//      if (result[l_y] - 0.637227 < 0.000001) {
 //          printf("\n%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind]);
 //          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base-1) + sm_x_ind]);
 //          printf("%f\n", sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1]);

@@ -22,9 +22,11 @@ namespace MultiStreamPERKSNvshmem {
             boundary_sync_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
                                  const int nx, const int iter_max, real *halo_buffer_top,
                                  real *halo_buffer_bottom, uint64_t *is_done_computing_flags, const int top,
-                                 const int bottom, volatile int *iteration_done) {
+                                 const int bottom, const int top_iz, const int bottom_iz, volatile int *iteration_done) {
         cg::thread_block cta = cg::this_thread_block();
         cg::grid_group grid = cg::this_grid();
+
+        int mype = nvshmem_my_pe();
 
         int iter = 0;
         int cur_iter_mod = 0;
@@ -46,9 +48,9 @@ namespace MultiStreamPERKSNvshmem {
             while (iteration_done[1] != iter) {}
 
             if (blockIdx.x == gridDim.x - 1) {
-//                if (cta.thread_rank() == cta.num_threads() - 1) {
-//                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
-//                }
+                if (cta.thread_rank() == cta.num_threads() - 1) {
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2, NVSHMEM_CMP_EQ, iter);
+                }
                 cg::sync(cta);
 
                 for (int i_iy = comm_start_iy; i_iy < end_iy; i_iy++) {
@@ -79,34 +81,40 @@ namespace MultiStreamPERKSNvshmem {
                                                     ) /
                                                    7.0f;
 
-//                        if (comm_start_iz + iy + ix == 65793) {
-//                            printf("\nBoundary Kernel\n");
+//                        if (comm_start_iz + iy + ix == 65793 && mype == 1) {
+
+//                        if (comm_start_iz + iy + ix == 68097) {
+//                            printf("\nBoundary Kernel %d\n", mype);
 //                            printf("%f\n", north);
 //                            printf("%f\n", south);
-//                            printf("%f\n", west);
 //                            printf("%f\n", east);
-//                            printf("%f\n", halo_buffer_top[cur_iter_mod * ny * nx + iy + ix]);// top
-//                            printf("%f\n", a[comm_start_iz + ny * nx + iy + ix]);             // bottom
-//                            printf("%f\n", a[comm_start_iz + iy + ix]);                       // center
-//                            printf("%f\n", first_row_val);
+//                            printf("%f\n", west);
+//                            printf("%f\n", a[iy + ix]);
+//                            printf("%f\n", a[comm_start_iz + ny * nx + iy + ix]);
+//                            printf("%f\n", a[comm_start_iz + iy + ix]);
+//                            printf("%f\n", 10.0f + first_row_val);
 //                        }
+                        //
 
                         a_new[comm_start_iz + iy + ix] = first_row_val;
                     }
                 }
 
-//                nvshmemx_putmem_signal_nbi_block(
-//                        halo_buffer_bottom + next_iter_mod * ny * nx, a_new + comm_start_iz, ny * nx * sizeof(real),
-//                        is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
-//                        top);
+                nvshmemx_putmem_signal_nbi_block(
+                        halo_buffer_bottom + (next_iter_mod) * ny * nx, a_new + ny * nx, ny * nx * sizeof(real),
+                        is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
+                        top);
+
+//                nvshmemx_putmem_nbi_block(
+//                        a_new + (iz_end) * ny * nx, a_new + ny * nx, ny * nx * sizeof(real), top);
 //                if (cta.thread_rank() == cta.num_threads() - 1) {
 //                    nvshmem_quiet();
 //                }
             } else if (blockIdx.x == gridDim.x - 2) {
-//                if (cta.thread_rank() == cta.num_threads() - 1) {
-//                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
-//                }
-//                cg::sync(cta);
+                if (cta.thread_rank() == cta.num_threads() - 1) {
+                    nvshmem_signal_wait_until(is_done_computing_flags + cur_iter_mod * 2 + 1, NVSHMEM_CMP_EQ, iter);
+                }
+                cg::sync(cta);
 
                 for (int i_iy = comm_start_iy; i_iy < end_iy; i_iy++) {
                     for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix) {
@@ -143,27 +151,31 @@ namespace MultiStreamPERKSNvshmem {
                             halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]    // bottom
                         ) / 7.0f;
 
-                        if (end_iz + iy + ix == 15991041) {
 //                        if (end_iz + iy + ix == 15991041) {
-                            printf("\nBoundary Kernel\n");
-                            printf("%f\n", north);
-                            printf("%f\n", south);
-                            printf("%f\n", east);
-                            printf("%f\n", west);
-                            printf("%f\n", a[end_iz - ny * nx + iy + ix]);
-                            printf("%f\n", halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix]);
-                            printf("%f\n", a[end_iz + iy + ix]);
-                            printf("%f\n", last_row_val);
-                        }
+//                        if (end_iz + iy + ix == 8323329 && (mype == 0 || mype == 1)) {
+//                        if (end_iz + iy + ix == 8323329) {
+//                            printf("\nBoundary Kernel %d\n", mype);
+//                            printf("%f\n", north);
+//                            printf("%f\n", south);
+//                            printf("%f\n", east);
+//                            printf("%f\n", west);
+//                            printf("%f\n", a[end_iz - ny * nx + iy + ix]);
+//                            printf("%f\n", a[end_iz + ny * nx + iy + ix]);
+//                            printf("%f\n", a[end_iz + iy + ix]);
+//                            printf("%f\n", last_row_val);
+//                        }
 
                        a_new[end_iz + iy + ix] = last_row_val;
                     }
                 }
 
-//                nvshmemx_putmem_signal_nbi_block(
-//                        halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
-//                        is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
-//                        bottom);
+                nvshmemx_putmem_signal_nbi_block(
+                        halo_buffer_top + next_iter_mod * ny * nx, a_new + (iz_end - 1) * nx * ny, ny * nx * sizeof(real),
+                        is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
+                        bottom);
+
+//                nvshmemx_putmem_nbi_block(
+//                        a_new, a_new + (iz_end - 1) * nx * ny, ny * nx * sizeof(real), bottom);
 //                if (cta.thread_rank() == cta.num_threads() - 1) {
 //                    nvshmem_quiet();
 //                }
@@ -348,6 +360,9 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     const int top = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom = (mype + 1) % npes;
 
+    int iz_end_top = (top < num_ranks_low) ? chunk_size_low + 1 : chunk_size_high + 1;
+    int iz_start_bottom = 0;
+
     if (top != mype) {
         int canAccessPeer = 0;
         CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, mype, top));
@@ -370,17 +385,17 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     nvshmem_barrier_all();
 
     // Using chunk_size_high so that it is same across all PEs
-    a = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
-    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size + 2) * sizeof(real));
+//    a = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
+//    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
 
-    cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real));
-    cudaMemset(a_new, 0, nx * (chunk_size + 2) * sizeof(real));
+//    cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real));
+//    cudaMemset(a_new, 0, nx * (chunk_size + 2) * sizeof(real));
 
-//    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
-//    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
 
-//    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
-//    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
 
     halo_buffer_top = (real *) nvshmem_malloc(2 * nx * ny * sizeof(real));
     halo_buffer_bottom = (real *) nvshmem_malloc(2 * nx * ny * sizeof(real));
@@ -410,6 +425,15 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(
             a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
+
+    nvshmem_barrier_all();
+
+    CUDA_RT_CALL(cudaMemcpy(halo_buffer_top, a, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+    CUDA_RT_CALL(cudaMemcpy(halo_buffer_bottom, a + (chunk_size + 1) * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+
+    nvshmem_barrier_all();
+
+//    cudaMemcpy(halo_buffer_top)
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -696,7 +720,20 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     // PERKS has no iz_start, so we include the halos
 //    const auto chunk_size_local = chunk_size + 5;
-    const auto chunk_size_local = chunk_size + 1;
+//    const auto chunk_size_local = chunk_size + 4;
+//    const auto chunk_size_local = chunk_size + 2;
+    const auto chunk_size_local = chunk_size - 2;
+//    const auto chunk_size_local = 258;
+//    int chunk_size_local = 125;
+
+//    switch (mype) {
+//        case 0: chunk_size_local = iz_end + 2; break;
+//        case 1: chunk_size_local = iz_end + 2; break;
+//        case 2: chunk_size_local = iz_end + 2; break;
+//        case 3: chunk_size_local = iz_end + 2; break;
+//    }
+
+//    const auto chunk_size_local = iz_end + 1;
 //    const auto chunk_size_local = nz - 1;
 
 
@@ -732,6 +769,8 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
                                   (void *) &is_done_computing_flags,
                                   (void *) &top,
                                   (void *) &bottom,
+                                  (void *) &iz_end_top,
+                                  (void *) &iz_start_bottom,
                                   (void *) &iteration_done_flags};
 
     nvshmem_barrier_all();
@@ -798,7 +837,11 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
                                 a_ref_h[iz * ny * nx + iy * nx + ix]);
                         // result_correct = 0;
                     }
+
+//                    break;
                 }
+
+//                break;
             }
         }
 
@@ -825,8 +868,10 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
         }
     }
 
-    nvshmem_free(a_new);
-    nvshmem_free(a);
+//    nvshmem_free(a_new);
+//    nvshmem_free(a);
+    CUDA_RT_CALL(cudaFree(a));
+    CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(iteration_done_flags));
     nvshmem_free((void *) halo_buffer_top);
     nvshmem_free((void *) halo_buffer_bottom);
