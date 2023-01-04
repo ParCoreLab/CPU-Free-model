@@ -293,8 +293,8 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], a[top] + iz_end[top] * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
-        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], a[bottom], nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], a[dev_id] + iz_end[dev_id] * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], a[dev_id], nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
 
         dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 2);
         dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
