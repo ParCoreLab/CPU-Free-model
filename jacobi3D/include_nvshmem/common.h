@@ -51,12 +51,18 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
                                          const int iz_end, const int ny, const int nx,
                                          const bool calculate_norm);
 
+__global__ void jacobi_kernel_single_gpu_mirror(real *__restrict__ const a_new,
+                                         const real *__restrict__ const a,
+                                         real *__restrict__ const l2_norm, const int iz_start,
+                                         const int iz_end, const int ny, const int nx,
+                                         const bool calculate_norm);
+
 __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const int iz_start,
                                                     const int iz_end, const int ny, const int nx,
                                                     const bool calculate_norm, const int iter_max);
 
 double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
-                  real *const a_ref_h, const int nccheck, const bool print);
+                  real *const a_ref_h, const int nccheck, const bool print, decltype(jacobi_kernel_single_gpu) kernel = jacobi_kernel_single_gpu);
 
 double single_gpu_persistent(const int nx, const int ny, const int iter_max, real *const a_ref_h,
                              const int nccheck, const bool print);

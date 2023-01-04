@@ -257,7 +257,7 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
         CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));
 
-        runtime_serial_non_persistent = single_gpu(nz, ny, nx, iter_max, a_ref_h, 0, true);
+        runtime_serial_non_persistent = single_gpu(nz, ny, nx, iter_max, a_ref_h, 0, true, jacobi_kernel_single_gpu_mirror);
     }
 
     nvshmem_barrier_all();
