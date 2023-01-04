@@ -27,8 +27,8 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new,
         {
             for (unsigned int ix = 0; ix < nx; ix++)
             {
-                a[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix;
-                a_new[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix;
+                a[iz * ny * nx + iy * nx + ix] = (iz+offset) * ny * nx + iy * nx + ix;
+                a_new[iz * ny * nx + iy * nx + ix] = (iz+offset) * ny * nx + iy * nx + ix;
             }
         }
     }
