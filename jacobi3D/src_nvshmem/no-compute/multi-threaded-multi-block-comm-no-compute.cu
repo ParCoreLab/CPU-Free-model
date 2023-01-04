@@ -23,9 +23,9 @@ namespace SSMultiThreadedMultiBlockCommNvshmemNoCompute
         int cur_iter_mod = 0;
         int next_iter_mod = 1;
 
-        const int comp_start_iz = ((blockIdx.x * comp_block_count_per_sm / (tile_count_x * tile_count_y)) * blockDim.z + threadIdx.z + iz_start + 1);
-        const int comp_start_iy = ((((blockIdx.x * comp_block_count_per_sm) / tile_count_x) % tile_count_y) * blockDim.y + threadIdx.y + 1);
-        const int comp_start_ix = ((blockIdx.x * comp_block_count_per_sm) % tile_count_x) * blockDim.x + threadIdx.x + 1;
+        //const int comp_start_iz = ((blockIdx.x * comp_block_count_per_sm / (tile_count_x * tile_count_y)) * blockDim.z + threadIdx.z + iz_start + 1);
+        //const int comp_start_iy = ((((blockIdx.x * comp_block_count_per_sm) / tile_count_x) % tile_count_y) * blockDim.y + threadIdx.y + 1);
+        //const int comp_start_ix = ((blockIdx.x * comp_block_count_per_sm) % tile_count_x) * blockDim.x + threadIdx.x + 1;
 
         const int comm_block_id = (gridDim.x - 1) - blockIdx.x;
         const int comm_start_block_y = (((comm_block_id * comm_block_count_per_sm) / tile_count_x) * blockDim.y);
