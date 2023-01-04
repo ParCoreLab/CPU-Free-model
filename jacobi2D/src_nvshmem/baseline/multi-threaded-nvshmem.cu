@@ -26,9 +26,7 @@
  */
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/nvshmem/jacobi.cu
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
+
 
 #include "../../include_nvshmem/baseline/multi-threaded-nvshmem.cuh"
 #include <nvshmem.h>

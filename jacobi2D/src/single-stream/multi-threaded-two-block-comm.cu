@@ -1,14 +1,6 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-#include <cmath>
-#include <cstdio>
-#include <iostream>
 
-#include <omp.h>
-
-#include <cooperative_groups.h>
-
-#include "../../include/common.h"
 #include "../../include/single-stream/multi-threaded-two-block-comm.cuh"
 
 namespace cg = cooperative_groups;
@@ -181,7 +173,7 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[])
         int chunk_size_low = (ny - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
-        //int height_per_gpu = ny / num_devices;
+        // int height_per_gpu = ny / num_devices;
 
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
@@ -274,6 +266,9 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], (void *)a[dev_id], nx * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], (void *)a[dev_id] + iy_end[dev_id] * nx, nx * sizeof(real), cudaMemcpyDeviceToDevice));
 
         dim3 dim_grid(grid_dim_x * grid_dim_y + 1);
         dim3 dim_block(dim_block_x, dim_block_y);

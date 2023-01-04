@@ -26,13 +26,9 @@
  */
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/multi_threaded_copy_overlap/jacobi.cu
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
 
-#include <omp.h>
 
-#include "../../include/common.h"
+
 #include "../../include/no-compute/multi-threaded-copy-overlap-no-compute.cuh"
 
 namespace BaselineMultiThreadedCopyOverlapNoCompute

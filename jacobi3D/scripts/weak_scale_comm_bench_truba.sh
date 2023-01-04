@@ -24,15 +24,17 @@ version_name_to_idx_map["Baseline P2P"]=2
 
 #version_name_to_idx_map["Single Stream 1TB"]=4
 #version_name_to_idx_map["Single Stream 2TB"]=5
-#version_name_to_idx_map["Double Stream"]=6
+#version_name_to_idx_map["Single Stream 2TB Partitioned"]=6
+#version_name_to_idx_map["Double Stream"]=7
 
-#version_name_to_idx_map["Baseline Copy (No compute)"]=7
-version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=8
-version_name_to_idx_map["Baseline P2P (No Compute)"]=9
+#version_name_to_idx_map["Baseline Copy (No compute)"]=8
+version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=9
+version_name_to_idx_map["Baseline P2P (No Compute)"]=10
 
-#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=10
-#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
-#version_name_to_idx_map["Double Stream (No Compute)"]=12
+#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=11
+#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=12
+#version_name_to_idx_map["Single Stream 2TB Partitioned (No Compute)"]=13
+#version_name_to_idx_map["Double Stream (No Compute)"]=14
 
 declare -A version_name_to_idx_map_nvshmem
 
@@ -42,7 +44,7 @@ version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized"]=1
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB"]=2
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB"]=3
 version_name_to_idx_map_nvshmem["NVSHMEM Double Stream"]=4
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream All TB Partitoned"]=5
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB Partitoned"]=5
 
 version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Compute)"]=6
 version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=7
@@ -50,7 +52,7 @@ version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=7
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB (No Compute)"]=8
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=9
 version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=10
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream All TB Partitoned (No Compute)"]=11
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB Partitoned (No Compute)"]=11
 
 
 BIN="./jacobi -s 1"

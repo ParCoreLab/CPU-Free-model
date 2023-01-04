@@ -1,12 +1,6 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-#include <cmath>
-#include <cstdio>
-#include <iostream>
 
-#include <omp.h>
-
-#include <cooperative_groups.h>
 
 #include "../../include/single-stream/multi-threaded-one-block-comm.cuh"
 

@@ -22,7 +22,7 @@
 #include "config.cuh"
 
 #include "../../include/PERKS/multi-stream-perks.cuh"
-#include "../../include/common.h"
+
 
 namespace cg = cooperative_groups;
 

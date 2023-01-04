@@ -121,7 +121,6 @@ namespace MultiGPUPeerTilingNvshmem
                     halo_buffer_bottom + next_iter_mod * ny * nx, a_new + comm_start_iz, ny * nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 + 1, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
-               
             }
             else if (blockIdx.x == gridDim.x - 2)
             {
@@ -150,7 +149,6 @@ namespace MultiGPUPeerTilingNvshmem
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
-               
             }
 
             real *temp_pointer_first = a_new;
@@ -354,6 +352,9 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetLastError());
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
+
+    CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_top, a, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+    CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_bottom, a + iz_end * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
 
     dim3 comp_dim_grid(grid_dim_x, grid_dim_y, grid_dim_z);
     dim3 comp_dim_block(dim_block_x, dim_block_y, dim_block_z);

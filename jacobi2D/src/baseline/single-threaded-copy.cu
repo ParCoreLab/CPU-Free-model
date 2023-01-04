@@ -28,15 +28,8 @@
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/single_threaded_copy/jacobi.cu
 
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
-#include <sstream>
-
 #include "../../include/baseline/single-threaded-copy.cuh"
-#include "../../include/common.h"
+
 
 namespace BaselineSingleThreadedCopy {
     __global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,

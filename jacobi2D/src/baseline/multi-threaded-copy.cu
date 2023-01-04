@@ -27,12 +27,10 @@
 
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/multi_threaded_copy/jacobi.cu
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
+
 
 #include "../../include/baseline/multi-threaded-copy.cuh"
-#include "../../include/common.h"
+
 
 namespace BaselineMultiThreadedCopy {
 __global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,

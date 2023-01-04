@@ -27,12 +27,8 @@
 
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/multi_threaded_copy/jacobi.cu
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
 
 #include "../../include/baseline/multi-threaded-copy.cuh"
-#include "../../include/common.h"
 
 namespace BaselineMultiThreadedCopy
 {

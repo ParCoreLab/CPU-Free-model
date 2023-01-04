@@ -4,15 +4,15 @@ MPIRUN ?= mpirun
 MPICCX = mpic++
 CXX ?= g++
 
-ifndef NVSHMEM_HOME
-$(error NVSHMEM_HOME is not set)
-endif
-ifndef MPI_HOME
-$(error MPI_HOME is not set)
-endif
-ifndef UCX_HOME
-$(error UCX_HOME is not set)
-endif
+#ifndef NVSHMEM_HOME
+#$(error NVSHMEM_HOME is not set)
+#endif
+#ifndef MPI_HOME
+#$(error MPI_HOME is not set)
+#endif
+#ifndef UCX_HOME
+#$(error UCX_HOME is not set)
+#endif
 
 SRCDIR := src
 OBJDIR := obj

@@ -28,15 +28,7 @@
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/multi_threaded_p2p/jacobi.cu
 
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
-#include <sstream>
-
 #include "../../include/baseline/multi-threaded-p2p.cuh"
-#include "../../include/common.h"
 
 namespace BaselineMultiThreadedP2P {
 __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,

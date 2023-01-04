@@ -93,8 +93,7 @@ namespace SSMultiThreadedOneBlockCommNvshmem
                     halo_buffer_top + next_iter_mod * ny * nx, a_new + end_iz, ny * nx * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
-              
-            }
+                        }
             else
             {
                 for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
@@ -302,6 +301,9 @@ int SSMultiThreadedOneBlockCommNvshmem::init(int argc, char *argv[])
         a_new, a, PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
+    
+    CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_top, a, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+    CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_bottom, a + iz_end * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
 
     dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 1);
     dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);

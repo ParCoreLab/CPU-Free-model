@@ -8,6 +8,8 @@
 #include <string>
 #include <array>
 
+#include <cooperative_groups.h>
+
 #include <cmath>
 #include <cstdio>
 #include <iostream>

@@ -8,7 +8,7 @@
 
 // #include <cooperative_groups.h>
 
-// #include "../../include/common.h"
+// 
 // #include "../../include/multi-stream/multi-gpu-peer-tiling-half.cuh"
 
 // namespace cg = cooperative_groups;

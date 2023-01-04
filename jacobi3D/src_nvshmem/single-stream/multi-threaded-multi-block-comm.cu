@@ -335,6 +335,9 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
+    CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_top, a, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+    CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_bottom, a + iz_end * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+
     dim3 dim_grid(comp_sm_count + comm_sm_count_per_layer * 2);
     dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 

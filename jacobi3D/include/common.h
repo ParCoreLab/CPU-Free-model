@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <iostream>
 
+#include <cooperative_groups.h>
+
 #include <omp.h>
 
 #include <algorithm>

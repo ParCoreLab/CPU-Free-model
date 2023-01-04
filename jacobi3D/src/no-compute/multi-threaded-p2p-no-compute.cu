@@ -28,15 +28,8 @@
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/multi_threaded_p2p/jacobi.cu
 
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
-#include <sstream>
-
 #include "../../include/no-compute/multi-threaded-p2p-no-compute.cuh"
-#include "../../include/common.h"
+
 
 namespace BaselineMultiThreadedP2PNoCompute
 {

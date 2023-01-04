@@ -348,6 +348,9 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
+    CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_top, a, nx * sizeof(real), cudaMemcpyDeviceToDevice));
+    CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_bottom, a + iy_end * nx, nx * sizeof(real), cudaMemcpyDeviceToDevice));
+
     dim3 comp_dim_grid(grid_dim_x, grid_dim_y);
     dim3 comp_dim_block(dim_block_x, dim_block_y);
 

@@ -26,14 +26,8 @@
  */
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/multi_threaded_copy_overlap/jacobi.cu
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-
-#include <omp.h>
 
 #include "../../include/baseline/multi-threaded-copy-overlap.cuh"
-#include "../../include/common.h"
 
 namespace BaselineMultiThreadedCopyOverlap {
 __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,

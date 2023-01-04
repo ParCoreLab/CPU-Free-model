@@ -1,14 +1,6 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-#include <cmath>
-#include <cstdio>
-#include <iostream>
 
-#include <omp.h>
-
-#include <cooperative_groups.h>
-
-#include "../../include/common.h"
 #include "../../include/single-stream/multi-threaded-two-block-comm.cuh"
 
 namespace cg = cooperative_groups;
@@ -200,7 +192,7 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[])
         int chunk_size_low = (nz - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
-        //int nz_per_gpu = nz / num_devices;
+        // int nz_per_gpu = nz / num_devices;
 
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
@@ -212,7 +204,7 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[])
 
         constexpr int grid_dim_x = 2;
         constexpr int grid_dim_y = 4;
-        const int grid_dim_z = (numSms - 1) / (grid_dim_x * grid_dim_y);
+        const int grid_dim_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
         int total_num_flags = 4;
 
@@ -300,6 +292,9 @@ int SSMultiThreadedTwoBlockComm::init(int argc, char *argv[])
             a_new[dev_id], a[dev_id], PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], a[dev_id], nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], a[dev_id] + iz_end[dev_id] * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
 
         dim3 dim_grid(grid_dim_x * grid_dim_y * grid_dim_z + 2);
         dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);

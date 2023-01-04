@@ -1,14 +1,6 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-#include <cmath>
-#include <cstdio>
-#include <iostream>
 
-#include <omp.h>
-
-#include <cooperative_groups.h>
-
-#include "../../include/common.h"
 #include "../../include/multi-stream/multi-gpu-peer-tiling.cuh"
 
 namespace cg = cooperative_groups;
@@ -102,7 +94,7 @@ namespace MultiGPUPeerTiling
 
         while (iter < iter_max)
         {
-            
+
             if (!grid.thread_rank())
             {
                 while (iteration_done[1] != iter)
@@ -329,6 +321,9 @@ int MultiGPUPeerTiling::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
+
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[dev_id], (void *)a[dev_id], nx * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], (void *)a[dev_id] + iy_end[dev_id] * nx, nx * sizeof(real), cudaMemcpyDeviceToDevice));
 
         dim3 comp_dim_grid(grid_dim_x, grid_dim_y);
         dim3 comp_dim_block(dim_block_x, dim_block_y);

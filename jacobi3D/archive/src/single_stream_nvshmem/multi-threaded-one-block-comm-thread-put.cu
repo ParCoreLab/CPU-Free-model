@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <iostream>
 
-#include "../../include/common.h"
+
 #include "../../include/single-stream_nvshmem/multi-threaded-one-block-comm-thread-put.cuh"
 #include <cooperative_groups.h>
 

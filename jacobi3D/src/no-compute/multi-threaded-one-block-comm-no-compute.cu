@@ -1,13 +1,5 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-#include <cmath>
-#include <cstdio>
-#include <iostream>
-
-#include <omp.h>
-
-#include <cooperative_groups.h>
-#include <cooperative_groups/memcpy_async.h>
 
 #include "../../include/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
 
