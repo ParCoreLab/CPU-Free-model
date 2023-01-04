@@ -124,7 +124,8 @@ namespace MultiStreamPERKSNvshmem {
                 iteration_done[0] = iter;
             }
 
-            cg::sync(grid);
+            // Might not be necessary
+            //            cg::sync(grid);
         }
     }
 }// namespace MultiStreamPERKSNvshmem
