@@ -317,7 +317,7 @@ int SSMultiThreadedMultiBlockComm::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
-        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[top], a[dev_id] nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+        CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_top_neighbor[top], a[dev_id], nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
         CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[bottom], a[dev_id] + iz_end[dev_id] * ny * nx , nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
 
         dim3 dim_grid(comp_sm_count + comm_sm_count_per_layer * 2);
