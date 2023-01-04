@@ -1,61 +1,33 @@
-#include <iostream>
-
-#include "../include/baseline/multi-threaded-copy-overlap.cuh"
-#include "../include/baseline/multi-threaded-copy.cuh"
-#include "../include/baseline/multi-threaded-p2p.cuh"
-#include "../include/baseline/single-threaded-copy.cuh"
-
-#include "../include/common.h"
-#include "../include/multi-stream/multi-gpu-peer-tiling-half.cuh"
-#include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
-
-#include "../include/single-stream/multi-threaded-one-block-comm.cuh"
-#include "../include/single-stream/multi-threaded-two-block-comm.cuh"
-
-#include "../include/single-stream_nvshmem/multi-threaded-all-block-comm.cuh"
-#include "../include/single-stream_nvshmem/multi-threaded-one-block-warp-comm.cuh"
-#include "../include/single-stream_nvshmem/multi-threaded-one-block-comm.cuh"
-
-#include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
-#include "../include/no-compute/multi-threaded-copy-no-compute.cuh"
-#include "../include/no-compute/multi-threaded-copy-overlap-no-compute.cuh"
-#include "../include/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
-#include "../include/no-compute/multi-threaded-p2p-no-compute.cuh"
-#include "../include/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
+#include "../include_nvshmem/baseline/multi-threaded-nvshmem.cuh"
+#include "../include_nvshmem/baseline/multi-threaded-nvshmem-opt.cuh"
+#include "../include_nvshmem/single-stream/multi-threaded-one-block-comm.cuh"
+#include "../include_nvshmem/single-stream/multi-threaded-two-block-comm.cuh"
+#include "../include_nvshmem/single-stream/multi-threaded-multi-block-comm.cuh"
+#include "../include_nvshmem/multi-stream/multi-gpu-peer-tiling.cuh"
+#include "../include_nvshmem/no-compute/multi-threaded-nvshmem-no-compute.cuh"
+#include "../include_nvshmem/no-compute/multi-threaded-nvshmem-opt-no-compute.cuh"
+#include "../include_nvshmem/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
+#include "../include_nvshmem/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
+#include "../include_nvshmem/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
+#include "../include_nvshmem/no-compute/multi-threaded-multi-block-comm-no-compute.cuh"
 
 using std::make_pair;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     const std::array versions{
-        make_pair("Baseline Multi Threaded Copy", BaselineMultiThreadedCopy::init),
-        make_pair("Baseline Multi Threaded Copy Overlap", BaselineMultiThreadedCopyOverlap::init),
-        make_pair("Baseline Multi Threaded P2P", BaselineMultiThreadedP2P::init),
-        make_pair("Baseline Single Threaded Copy", BaselineSingleThreadedCopy::init),
-        make_pair("Naive Single stream multi threaded (one thread block communicates)",
-                  SSMultiThreadedOneBlockComm::init),
-        make_pair("Naive Single stream multi threaded (two thread blocks communicate)",
-                  SSMultiThreadedTwoBlockComm::init),
-        make_pair("Naive Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
-        make_pair("NVSHMEM Single stream multi threaded (ALL thread blocks communicate)",
-                  SSMultiThreadedAllBlockCommNvshmem::init),
-        make_pair("NVSHMEM Single stream multi threaded (one thread block communicate, warp-based)",
-                  SSMultiThreadedOneBlockWarpCommNvshmem::init),
-        make_pair("NVSHMEM Single stream multi threaded (one thread block communicate, block-based)",
-                  SSMultiThreadedOneBlockCommNvshmem::init),
-
-        make_pair("Baseline Multi Threaded Copy (No computation)",
-                  BaselineMultiThreadedCopyNoCompute::init),
-        make_pair("Baseline Multi Threaded Copy Overlap (No Computation)",
-                  BaselineMultiThreadedCopyOverlapNoCompute::init),
-        make_pair("Baseline Multi Threaded P2P (No Computation)",
-                  BaselineMultiThreadedP2PNoCompute::init),
-        make_pair("Single stream multi threaded (one thread block communicates; no computation)",
-                  SSMultiThreadedOneBlockCommNoCompute::init),
-        make_pair("Single stream multi threaded (two thread blocks communicate; no computation)",
-                  SSMultiThreadedTwoBlockCommNoCompute::init),
-        make_pair("Double stream multi threaded with Tiling (no computation)",
-                  MultiGPUPeerTilingNoCompute::init),
-
+        make_pair("NVSHMEM Baseline Multi Threaded", BaselineMultiThreadedNvshmem::init),
+        make_pair("NVSHMEM Baseline Multi Threaded Optimized", BaselineMultiThreadedNvshmemOpt::init),
+        make_pair("NVSHMEM Single stream multi threaded Layer Put (one thread block communicates)", SSMultiThreadedOneBlockCommNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate)", SSMultiThreadedTwoBlockCommNvshmem::init),
+        make_pair("NVSHMEM Double stream multi threaded", MultiGPUPeerTilingNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded Partitioned,All SM Comm", SSMultiThreadedMultiBlockCommNvshmem::init),
+        make_pair("NVSHMEM Baseline Multi Threaded (No Computation)", BaselineMultiThreadedNvshmemNoCompute::init),
+        make_pair("NVSHMEM Baseline Multi Threaded Optimized (No Computation)", BaselineMultiThreadedNvshmemOptNoCompute::init),
+        make_pair("NVSHMEM Single stream multi threaded Layer Put (one thread block communicates; no computation)", SSMultiThreadedOneBlockCommNvshmemNoCompute::init),
+        make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate; no computation)", SSMultiThreadedTwoBlockCommNvshmemNoCompute::init),
+        make_pair("NVSHMEM Double stream multi threaded with Tiling (No Computation)", MultiGPUPeerTilingNvshmemNoCompute::init),
+        make_pair("NVSHMEM Single stream multi threaded Partitioned,All SM Comm (No Computation)", SSMultiThreadedMultiBlockCommNvshmemNoCompute::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
@@ -63,16 +35,19 @@ int main(int argc, char *argv[]) {
 
     auto &selected = versions[selection];
 
-    if (!silent) {
+    if (!silent)
+    {
         std::cout << "Versions (select with -v):"
                   << "\n";
-        for (int i = 0; i < versions.size(); ++i) {
+        for (int i = 0; i < versions.size(); ++i)
+        {
             auto &v = versions[i];
             std::cout << i << ":\t" << v.first << "\n";
         }
         std::cout << std::endl;
 
-        std::cout << "Running " << selected.first << "\n" << std::endl;
+        std::cout << "Running " << selected.first << "\n"
+                  << std::endl;
     }
 
     return selected.second(argc, argv);

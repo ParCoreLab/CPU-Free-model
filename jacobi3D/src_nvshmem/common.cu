@@ -1,6 +1,5 @@
-#include <cooperative_groups.h>
 
-#include "../include/common.h"
+#include "../include_nvshmem/common.h"
 
 namespace cg = cooperative_groups;
 
@@ -23,15 +22,12 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new,
     for (unsigned int iz = blockIdx.x * blockDim.x + threadIdx.x; iz < my_nz;
          iz += blockDim.x * gridDim.x)
     {
-        for (unsigned int iy = 0; iy < ny; iy++)
+        for (unsigned int iy = 0; iy < ny; iy+=ny-1)
         {
-            for (unsigned int ix = 0; ix < nx; ix++)
+            for (unsigned int ix = 0; ix < nx; ix+=nx-1)
             {
-
-                const real y0 = real(offset + iz) - real(iy) - real(ix);
-                a[iz * nx * ny + iy * nx + 0] = y0;
-
-                a_new[iz * nx * ny + iy * nx + 0] = y0;
+                a[iz * ny * nx + iy * nx + ix] = 1;
+                a_new[iz * ny * nx + iy * nx + ix] = 1;
             }
         }
     }
@@ -52,13 +48,12 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
 
     if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
     {
-        const real new_val = (a[iz * ny * nx + iy * nx + ix + 1] +
-                              a[iz * ny * nx + iy * nx + ix - 1] +
-                              a[iz * ny * nx + (iy + 1) * nx + ix] +
-                              a[iz * ny * nx + (iy - 1) * nx + ix] +
-                              a[(iz + 1) * ny * nx + iy * nx + ix] +
-                              a[(iz - 1) * ny * nx + iy * nx + ix]) /
-                             real(6.0);
+        const real new_val = (real(1) / real(6)) * (a[iz * ny * nx + iy * nx + ix + 1] +
+                                                    a[iz * ny * nx + iy * nx + ix - 1] +
+                                                    a[iz * ny * nx + (iy + 1) * nx + ix] +
+                                                    a[iz * ny * nx + (iy - 1) * nx + ix] +
+                                                    a[(iz + 1) * ny * nx + iy * nx + ix] +
+                                                    a[(iz - 1) * ny * nx + iy * nx + ix]);
         a_new[iz * ny * nx + iy * nx + ix] = new_val;
 
         //        if (calculate_norm) {
@@ -182,9 +177,9 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
                "check every %d iterations\n",
                iter_max, nx, ny, nz, nccheck);
     fflush(stdout);
-    constexpr int dim_block_x = 8;
+    constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 8;
-    constexpr int dim_block_z = 16;
+    constexpr int dim_block_z = 4;
 
     dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
                   (ny + dim_block_y - 1) / dim_block_y,
@@ -385,7 +380,7 @@ void report_results(const int nz, const int ny, const int nx, real *a_ref_h,
                    "s, speedup: "
                    "%8.2f, "
                    "efficiency: %8.2f \n",
-                   nz, ny, nx, runtime_serial_non_persistent, num_devices,
+                   nx, ny, nz, runtime_serial_non_persistent, num_devices,
                    (stop - start), runtime_serial_non_persistent / (stop - start),
                    runtime_serial_non_persistent / (num_devices * (stop - start)) *
                        100);
@@ -394,23 +389,29 @@ void report_results(const int nz, const int ny, const int nx, real *a_ref_h,
 }
 
 // convert NVSHMEM_SYMMETRIC_SIZE string to long long unsigned int
-long long unsigned int parse_nvshmem_symmetric_size(char *value) {
+long long unsigned int parse_nvshmem_symmetric_size(char *value)
+{
     long long unsigned int units, size;
 
-    assert(value != NULL);
-
-    if (strchr(value, 'G') != NULL) {
-        units=1e9;
-    } else if (strchr(value, 'M') != NULL) {
-        units=1e6;
-    } else if (strchr(value, 'K') != NULL) {
-        units=1e3;
-    } else {
-        units=1;
+    if (strchr(value, 'G') != NULL)
+    {
+        units = 1e9;
+    }
+    else if (strchr(value, 'M') != NULL)
+    {
+        units = 1e6;
+    }
+    else if (strchr(value, 'K') != NULL)
+    {
+        units = 1e3;
+    }
+    else
+    {
+        units = 1;
     }
 
     assert(atof(value) >= 0);
-    size = (long long unsigned int) atof(value) * units;
+    size = (long long unsigned int)atof(value) * units;
 
     return size;
 }

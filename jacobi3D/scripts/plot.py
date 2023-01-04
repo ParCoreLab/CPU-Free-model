@@ -12,7 +12,6 @@ results_path = sys.argv[1]
 def print_data_tabular(version_to_result_map, column_labels):
     row_labels = version_to_result_map.keys()
     full_perf_data = version_to_result_map.values()
-    transposed_perf_data = list(zip(*full_perf_data))
 
     df = pd.DataFrame(full_perf_data, columns=column_labels,
                       index=row_labels)
@@ -40,15 +39,16 @@ for version_result in results_per_version:
                                 chunk_lines[0]).group('num_gpus'))
 
         run_parameters_match = re.match(
-            "(?P<num_iter>\d+) iterations on grid (?P<nx>\d+)x(?P<ny>\d+)", chunk_lines[1])
+            "(?P<num_iter>\d+) iterations on grid (?P<nx>\d+)x(?P<ny>\d+)x(?P<nz>\d+)", chunk_lines[1])
 
         num_iterations = int(run_parameters_match.group('num_iter'))
         grid_nx = int(run_parameters_match.group('nx'))
         grid_ny = int(run_parameters_match.group('ny'))
+        grid_nz = int(run_parameters_match.group('nz'))
 
         if not num_gpus_grid_size_label:
             label = f"{num_gpus} GPU" + \
-                ("s" if num_gpus > 1 else "") + f" ({grid_nx}x{grid_ny})"
+                ("s" if num_gpus > 1 else "") + f" ({grid_nx}x{grid_ny}x{grid_nz})"
             x_axis_label.append(label)
 
         perf_data_pattern = re.compile(

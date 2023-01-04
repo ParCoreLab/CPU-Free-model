@@ -27,12 +27,8 @@
 
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/multi_threaded_copy/jacobi.cu
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
 
 #include "../../include/no-compute/multi-threaded-copy-no-compute.cuh"
-#include "../../include/common.h"
 
 namespace BaselineMultiThreadedCopyNoCompute
 {
@@ -187,8 +183,8 @@ int BaselineMultiThreadedCopyNoCompute::init(int argc, char *argv[])
         }
 
         constexpr int dim_block_x = 32;
-        constexpr int dim_block_y = 32;
-        constexpr int dim_block_z = 1;
+        constexpr int dim_block_y = 8;
+        constexpr int dim_block_z = 4;
 
         dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x, (ny + dim_block_y - 1) / dim_block_y,
                       (nz + (num_devices * dim_block_z) - 1) / (num_devices * dim_block_z));
