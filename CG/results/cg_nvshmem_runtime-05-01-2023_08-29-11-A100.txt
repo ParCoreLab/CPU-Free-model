@@ -1,0 +1,291 @@
+Results per matrix; rows are versions
+
+Results for matrix (generated)_tridiagonal =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,19.8124,20.6508,4.0122,3.2032
+Baseline Discrete Pipelined NVSHMEM,26.0768,26.3637,5.0426,3.943
+Baseline Persistent Standard NVSHMEM,10.6852,5.5471,3.9941,3.0127
+(Ours) Persistent Pipelined NVSHMEM,14.8316,7.4794,5.1206,3.7913
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,14.8434,7.4883,5.1516,3.8081
+
+
+Results for matrix ecology2 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,1.8754,3.5924,0.8694,0.8278
+Baseline Discrete Pipelined NVSHMEM,2.2584,2.8606,0.7381,0.651
+Baseline Persistent Standard NVSHMEM,0.6772,0.5113,0.5124,0.4513
+(Ours) Persistent Pipelined NVSHMEM,0.8187,0.4244,0.3257,0.2669
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,0.8584,0.4886,0.5077,0.4818
+
+
+Results for matrix hood =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,6.8635,5.2753,1.4046,1.2376
+Baseline Discrete Pipelined NVSHMEM,6.8485,4.9459,1.0608,0.9796
+Baseline Persistent Standard NVSHMEM,1.4392,0.9495,0.9889,0.94
+(Ours) Persistent Pipelined NVSHMEM,1.683,1.2576,0.7487,0.7037
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,1.7283,1.3527,0.9013,0.8642
+
+
+Results for matrix bmwcra_1 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,6.2265,8.6773,2.2037,1.9817
+Baseline Discrete Pipelined NVSHMEM,6.1887,7.4132,1.8534,1.7888
+Baseline Persistent Standard NVSHMEM,2.6205,1.9763,1.9558,1.7325
+(Ours) Persistent Pipelined NVSHMEM,2.5475,1.8255,1.7024,1.6407
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,2.5601,1.9061,1.8246,1.8138
+
+
+Results for matrix consph =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,2.2812,4.392,1.1233,1.1127
+Baseline Discrete Pipelined NVSHMEM,2.1119,3.7684,0.7786,0.7624
+Baseline Persistent Standard NVSHMEM,0.8499,0.9133,0.972,0.9668
+(Ours) Persistent Pipelined NVSHMEM,0.7723,0.7632,0.7246,0.7286
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,0.8371,0.8689,0.8675,0.8757
+
+
+Results for matrix thermomech_dM =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,1.2979,3.0123,0.9326,0.9088
+Baseline Discrete Pipelined NVSHMEM,1.2014,2.6997,0.7014,0.6943
+Baseline Persistent Standard NVSHMEM,0.2729,0.4,0.5181,0.5181
+(Ours) Persistent Pipelined NVSHMEM,0.2536,0.2513,0.2541,0.2558
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,0.2683,0.3546,0.4426,0.4642
+
+
+Results for matrix tmt_sym =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,1.9479,3.6511,0.8856,0.8308
+Baseline Discrete Pipelined NVSHMEM,2.1182,3.2646,0.6983,0.6277
+Baseline Persistent Standard NVSHMEM,0.6615,0.5158,0.5014,0.4412
+(Ours) Persistent Pipelined NVSHMEM,0.7102,0.4342,0.3261,0.2321
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,0.7388,0.497,0.485,0.4585
+
+
+Results for matrix crankseg_1 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,16.2928,38.5689,11.805,11.5784
+Baseline Discrete Pipelined NVSHMEM,16.2907,34.6325,11.3397,11.2736
+Baseline Persistent Standard NVSHMEM,9.1494,12.1193,12.366,11.8761
+(Ours) Persistent Pipelined NVSHMEM,8.9842,11.7954,11.8662,11.5303
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,8.9022,11.9048,11.8634,11.5351
+
+
+Results for matrix crankseg_2 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,18.8969,45.6344,14.5091,14.5991
+Baseline Discrete Pipelined NVSHMEM,18.7911,41.1183,14.0899,14.2176
+Baseline Persistent Standard NVSHMEM,11.0612,14.4599,15.0719,15.0439
+(Ours) Persistent Pipelined NVSHMEM,10.8332,14.2573,14.4169,14.5194
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,10.8893,14.5022,14.6536,14.675
+
+
+Results for matrix Queen_4147 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,133.3396,126.9265,42.6912,31.8559
+Baseline Discrete Pipelined NVSHMEM,133.6937,130.8336,42.5688,31.697
+Baseline Persistent Standard NVSHMEM,35.4039,17.8768,12.1777,9.3531
+(Ours) Persistent Pipelined NVSHMEM,35.9917,17.9726,12.1186,9.2916
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,35.9719,18.0002,12.1493,9.297
+
+
+Results for matrix Bump_2911 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,64.9266,64.0319,14.6396,11.0428
+Baseline Discrete Pipelined NVSHMEM,65.0649,64.3586,14.4551,10.7967
+Baseline Persistent Standard NVSHMEM,14.3822,8.0014,5.6046,4.4023
+(Ours) Persistent Pipelined NVSHMEM,14.641,7.7872,5.4741,4.1744
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,14.6605,7.8248,5.4954,4.2632
+
+
+Results for matrix G3_circuit =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,2.523,3.8717,1.0432,0.9738
+Baseline Discrete Pipelined NVSHMEM,3.1626,3.8709,0.8914,0.8168
+Baseline Persistent Standard NVSHMEM,1.0395,0.6756,0.6447,0.5649
+(Ours) Persistent Pipelined NVSHMEM,1.3147,0.6774,0.4626,0.3862
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,1.3564,0.7052,0.5641,0.5344
+
+
+Results for matrix StocF-1465 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,5.8165,8.6757,2.1075,1.8087
+Baseline Discrete Pipelined NVSHMEM,6.1883,7.8921,1.84,1.5424
+Baseline Persistent Standard NVSHMEM,2.5642,1.6233,1.3959,1.272
+(Ours) Persistent Pipelined NVSHMEM,2.7244,1.5648,1.2074,1.0729
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,2.7354,1.6308,1.3069,1.1784
+
+
+Results for matrix Flan_1565 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,64.6497,67.0822,14.6941,10.412
+Baseline Discrete Pipelined NVSHMEM,64.9322,66.4669,14.3944,10.1675
+Baseline Persistent Standard NVSHMEM,12.5754,6.9483,4.6464,3.7184
+(Ours) Persistent Pipelined NVSHMEM,12.7004,6.8755,4.4154,3.5077
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,12.7198,6.9301,4.5127,3.6392
+
+
+Results for matrix audikw_1 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,42.9102,46.4194,13.4316,11.0191
+Baseline Discrete Pipelined NVSHMEM,42.6939,46.0375,13.1156,10.7032
+Baseline Persistent Standard NVSHMEM,10.2044,7.8015,6.6783,6.7832
+(Ours) Persistent Pipelined NVSHMEM,10.0714,7.6053,6.1935,6.3289
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,10.0734,7.6132,6.3053,6.4192
+
+
+Results for matrix Serena =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,26.3606,32.444,7.0927,5.4006
+Baseline Discrete Pipelined NVSHMEM,26.1609,32.4894,6.8033,5.0743
+Baseline Persistent Standard NVSHMEM,7.871,4.7225,3.8635,3.209
+(Ours) Persistent Pipelined NVSHMEM,7.8859,4.6162,3.5101,2.9891
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,7.8929,4.6471,3.5938,3.0949
+
+
+Results for matrix Geo_1438 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,33.1599,36.4244,7.3371,5.4022
+Baseline Discrete Pipelined NVSHMEM,33.0595,36.6038,7.0278,5.1144
+Baseline Persistent Standard NVSHMEM,7.2604,3.9953,3.0632,2.4584
+(Ours) Persistent Pipelined NVSHMEM,7.5166,3.9243,2.8394,2.2864
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,7.5629,3.9622,2.9654,2.3915
+
+
+Results for matrix Hook_1498 =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,25.6668,27.2072,5.8118,4.2911
+Baseline Discrete Pipelined NVSHMEM,25.9386,28.4263,5.5276,3.9923
+Baseline Persistent Standard NVSHMEM,7.2676,3.9908,3.09,2.5213
+(Ours) Persistent Pipelined NVSHMEM,7.3739,3.9704,2.8377,2.3129
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,7.3872,3.9804,2.9534,2.4515
+
+
+Results for matrix ldoor =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+Baseline Discrete Standard NVSHMEM,25.9766,25.5483,5.4643,4.5703
+Baseline Discrete Pipelined NVSHMEM,25.9685,26.7474,5.1274,4.2136
+Baseline Persistent Standard NVSHMEM,5.3255,3.3735,2.3997,2.2275
+(Ours) Persistent Pipelined NVSHMEM,5.4064,3.2543,2.136,2.0139
+(Ours) Persistent Pipelined Multi-Overlap NVSHMEM,5.4194,3.3293,2.2544,2.1423
+
+
+
+Results per version; rows are matrices
+
+Results for version Baseline Discrete Standard NVSHMEM =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+(generated)_tridiagonal,19.8124,20.6508,4.0122,3.2032
+ecology2,1.8754,3.5924,0.8694,0.8278
+hood,6.8635,5.2753,1.4046,1.2376
+bmwcra_1,6.2265,8.6773,2.2037,1.9817
+consph,2.2812,4.392,1.1233,1.1127
+thermomech_dM,1.2979,3.0123,0.9326,0.9088
+tmt_sym,1.9479,3.6511,0.8856,0.8308
+crankseg_1,16.2928,38.5689,11.805,11.5784
+crankseg_2,18.8969,45.6344,14.5091,14.5991
+Queen_4147,133.3396,126.9265,42.6912,31.8559
+Bump_2911,64.9266,64.0319,14.6396,11.0428
+G3_circuit,2.523,3.8717,1.0432,0.9738
+StocF-1465,5.8165,8.6757,2.1075,1.8087
+Flan_1565,64.6497,67.0822,14.6941,10.412
+audikw_1,42.9102,46.4194,13.4316,11.0191
+Serena,26.3606,32.444,7.0927,5.4006
+Geo_1438,33.1599,36.4244,7.3371,5.4022
+Hook_1498,25.6668,27.2072,5.8118,4.2911
+ldoor,25.9766,25.5483,5.4643,4.5703
+
+
+Results for version Baseline Discrete Pipelined NVSHMEM =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+(generated)_tridiagonal,26.0768,26.3637,5.0426,3.943
+ecology2,2.2584,2.8606,0.7381,0.651
+hood,6.8485,4.9459,1.0608,0.9796
+bmwcra_1,6.1887,7.4132,1.8534,1.7888
+consph,2.1119,3.7684,0.7786,0.7624
+thermomech_dM,1.2014,2.6997,0.7014,0.6943
+tmt_sym,2.1182,3.2646,0.6983,0.6277
+crankseg_1,16.2907,34.6325,11.3397,11.2736
+crankseg_2,18.7911,41.1183,14.0899,14.2176
+Queen_4147,133.6937,130.8336,42.5688,31.697
+Bump_2911,65.0649,64.3586,14.4551,10.7967
+G3_circuit,3.1626,3.8709,0.8914,0.8168
+StocF-1465,6.1883,7.8921,1.84,1.5424
+Flan_1565,64.9322,66.4669,14.3944,10.1675
+audikw_1,42.6939,46.0375,13.1156,10.7032
+Serena,26.1609,32.4894,6.8033,5.0743
+Geo_1438,33.0595,36.6038,7.0278,5.1144
+Hook_1498,25.9386,28.4263,5.5276,3.9923
+ldoor,25.9685,26.7474,5.1274,4.2136
+
+
+Results for version Baseline Persistent Standard NVSHMEM =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+(generated)_tridiagonal,10.6852,5.5471,3.9941,3.0127
+ecology2,0.6772,0.5113,0.5124,0.4513
+hood,1.4392,0.9495,0.9889,0.94
+bmwcra_1,2.6205,1.9763,1.9558,1.7325
+consph,0.8499,0.9133,0.972,0.9668
+thermomech_dM,0.2729,0.4,0.5181,0.5181
+tmt_sym,0.6615,0.5158,0.5014,0.4412
+crankseg_1,9.1494,12.1193,12.366,11.8761
+crankseg_2,11.0612,14.4599,15.0719,15.0439
+Queen_4147,35.4039,17.8768,12.1777,9.3531
+Bump_2911,14.3822,8.0014,5.6046,4.4023
+G3_circuit,1.0395,0.6756,0.6447,0.5649
+StocF-1465,2.5642,1.6233,1.3959,1.272
+Flan_1565,12.5754,6.9483,4.6464,3.7184
+audikw_1,10.2044,7.8015,6.6783,6.7832
+Serena,7.871,4.7225,3.8635,3.209
+Geo_1438,7.2604,3.9953,3.0632,2.4584
+Hook_1498,7.2676,3.9908,3.09,2.5213
+ldoor,5.3255,3.3735,2.3997,2.2275
+
+
+Results for version (Ours) Persistent Pipelined NVSHMEM =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+(generated)_tridiagonal,14.8316,7.4794,5.1206,3.7913
+ecology2,0.8187,0.4244,0.3257,0.2669
+hood,1.683,1.2576,0.7487,0.7037
+bmwcra_1,2.5475,1.8255,1.7024,1.6407
+consph,0.7723,0.7632,0.7246,0.7286
+thermomech_dM,0.2536,0.2513,0.2541,0.2558
+tmt_sym,0.7102,0.4342,0.3261,0.2321
+crankseg_1,8.9842,11.7954,11.8662,11.5303
+crankseg_2,10.8332,14.2573,14.4169,14.5194
+Queen_4147,35.9917,17.9726,12.1186,9.2916
+Bump_2911,14.641,7.7872,5.4741,4.1744
+G3_circuit,1.3147,0.6774,0.4626,0.3862
+StocF-1465,2.7244,1.5648,1.2074,1.0729
+Flan_1565,12.7004,6.8755,4.4154,3.5077
+audikw_1,10.0714,7.6053,6.1935,6.3289
+Serena,7.8859,4.6162,3.5101,2.9891
+Geo_1438,7.5166,3.9243,2.8394,2.2864
+Hook_1498,7.3739,3.9704,2.8377,2.3129
+ldoor,5.4064,3.2543,2.136,2.0139
+
+
+Results for version (Ours) Persistent Pipelined Multi-Overlap NVSHMEM =>
+,1 GPU,2 GPUs,3 GPUs,4 GPUs
+(generated)_tridiagonal,14.8434,7.4883,5.1516,3.8081
+ecology2,0.8584,0.4886,0.5077,0.4818
+hood,1.7283,1.3527,0.9013,0.8642
+bmwcra_1,2.5601,1.9061,1.8246,1.8138
+consph,0.8371,0.8689,0.8675,0.8757
+thermomech_dM,0.2683,0.3546,0.4426,0.4642
+tmt_sym,0.7388,0.497,0.485,0.4585
+crankseg_1,8.9022,11.9048,11.8634,11.5351
+crankseg_2,10.8893,14.5022,14.6536,14.675
+Queen_4147,35.9719,18.0002,12.1493,9.297
+Bump_2911,14.6605,7.8248,5.4954,4.2632
+G3_circuit,1.3564,0.7052,0.5641,0.5344
+StocF-1465,2.7354,1.6308,1.3069,1.1784
+Flan_1565,12.7198,6.9301,4.5127,3.6392
+audikw_1,10.0734,7.6132,6.3053,6.4192
+Serena,7.8929,4.6471,3.5938,3.0949
+Geo_1438,7.5629,3.9622,2.9654,2.3915
+Hook_1498,7.3872,3.9804,2.9534,2.4515
+ldoor,5.4194,3.3293,2.2544,2.1423
+
+
