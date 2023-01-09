@@ -171,6 +171,8 @@ __global__ void __launch_bounds__(1024, 1)
 
     real tmp_dot_gamma0 = 0.0;
 
+    real real_tmp_dot_gamma1;
+
     real beta;
     real alpha;
     real negative_alpha;
@@ -281,13 +283,13 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
-        real tmp_dot_gamma1 = (real)*dot_gamma1;
+        real_tmp_dot_gamma1 = (real)*dot_gamma1;
 
-        beta = tmp_dot_gamma1 / tmp_dot_gamma0;
+        beta = real_tmp_dot_gamma1 / tmp_dot_gamma0;
 
         gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, chunk_size, grid);
 
-        tmp_dot_gamma0 = tmp_dot_gamma1;
+        tmp_dot_gamma0 = real_tmp_dot_gamma1;
 
         if (grid.thread_rank() == last_thread_idx) {
             nvshmem_barrier_all();
