@@ -10,6 +10,7 @@
 #include "../include/PERKS/multi-stream-perks.cuh"
 
 #include "../include/single-stream/multi-threaded-one-block-comm.cuh"
+
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
 
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
@@ -19,7 +20,9 @@
 #include "../include/no-compute/multi-threaded-p2p-no-compute.cuh"
 
 #include "../include/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
+
 #include "../include/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
+#include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 
 
 #include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"

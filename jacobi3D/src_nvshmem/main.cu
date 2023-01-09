@@ -10,6 +10,7 @@
 #include "../include_nvshmem/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
 #include "../include_nvshmem/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 #include "../include_nvshmem/no-compute/multi-threaded-multi-block-comm-no-compute.cuh"
+#include "../include_nvshmem/PERKS-nvshmem/multi-stream-perks-nvshmem.h"
 
 using std::make_pair;
 
@@ -28,6 +29,7 @@ int main(int argc, char *argv[])
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate; no computation)", SSMultiThreadedTwoBlockCommNvshmemNoCompute::init),
         make_pair("NVSHMEM Double stream multi threaded with Tiling (No Computation)", MultiGPUPeerTilingNvshmemNoCompute::init),
         make_pair("NVSHMEM Single stream multi threaded Partitioned,2 SM Comm (No Computation)", SSMultiThreadedMultiBlockCommNvshmemNoCompute::init),
+        make_pair("PERKS NVSHMEM", MultiStreamPERKSNvshmem::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);

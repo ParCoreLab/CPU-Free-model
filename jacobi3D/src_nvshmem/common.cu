@@ -1,4 +1,4 @@
-
+#include <assert.h>
 #include "../include_nvshmem/common.h"
 
 namespace cg = cooperative_groups;
@@ -22,12 +22,13 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new,
     for (unsigned int iz = blockIdx.x * blockDim.x + threadIdx.x; iz < my_nz;
          iz += blockDim.x * gridDim.x)
     {
-        for (unsigned int iy = 0; iy < ny; iy+=ny-1)
-        {
-            for (unsigned int ix = 0; ix < nx; ix+=nx-1)
+        for (unsigned int iy = 0; iy < ny; iy+=ny-1) {
+            const real y0 = sin(2.0 * pi * (offset + iz) / (nz - 1));
             {
-                a[iz * ny * nx + iy * nx + ix] = 1;
-                a_new[iz * ny * nx + iy * nx + ix] = 1;
+                for (unsigned int ix = 0; ix < nx; ix += nx - 1) {
+                    a[iz * ny * nx + iy * nx + ix] = y0;
+                    a_new[iz * ny * nx + iy * nx + ix] = y0;
+                }
             }
         }
     }
@@ -38,38 +39,57 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
                                          real *__restrict__ const l2_norm,
                                          const int iz_start, const int iz_end,
                                          const int ny, const int nx,
-                                         const bool calculate_norm)
-{
-
+                                         const bool calculate_norm) {
     int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
     int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    //    real local_l2_norm = 0.0;
 
-    if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
-    {
-        const real new_val = (real(1) / real(6)) * (a[iz * ny * nx + iy * nx + ix + 1] +
-                                                    a[iz * ny * nx + iy * nx + ix - 1] +
-                                                    a[iz * ny * nx + (iy + 1) * nx + ix] +
-                                                    a[iz * ny * nx + (iy - 1) * nx + ix] +
-                                                    a[(iz + 1) * ny * nx + iy * nx + ix] +
-                                                    a[(iz - 1) * ny * nx + iy * nx + ix]);
+    if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
+        const real new_val = (a[iz * ny * nx + iy * nx + ix + 1] +
+                              a[iz * ny * nx + iy * nx + ix - 1] +
+                              a[iz * ny * nx + (iy + 1) * nx + ix] +
+                              a[iz * ny * nx + (iy - 1) * nx + ix] +
+                              a[(iz + 1) * ny * nx + iy * nx + ix] +
+                              a[(iz - 1) * ny * nx + iy * nx + ix]) /
+                             real(6.0);
+
         a_new[iz * ny * nx + iy * nx + ix] = new_val;
-
-        //        if (calculate_norm) {
-        //            real residue = new_val - a[iz * ny * nx + iy * nx + ix];
-        //            local_l2_norm += residue * residue;
-        //        }
     }
-    //    if (calculate_norm) {
-    //        atomicAdd(l2_norm, local_l2_norm);
-    //    }
+}
+
+__global__ void jacobi_kernel_single_gpu_mirror(real *__restrict__ const a_new,
+                                         const real *__restrict__ const a,
+                                         real *__restrict__ const l2_norm,
+                                         const int iz_start, const int iz_end,
+                                         const int ny, const int nx,
+                                         const bool calculate_norm) {
+
+    int iz = blockIdx.z * blockDim.z + threadIdx.z;
+    int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    int ix = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // WE COMPUTE 1 AND 244 YOU
+    if (iz < iz_start || iz > (iz_end - 1)) {
+        return;
+    }
+
+    real east = a[iz * ny * nx + iy * nx + ix + (ix < (nx - 1))];
+    real north = a[iz * ny * nx + (iy + (iy < (ny - 1))) * nx + ix];
+
+    real west = a[iz * ny * nx + iy * nx + ix - (ix > 0)];
+    real south = a[iz * ny * nx + (iy - (iy > 0)) * nx + ix];
+
+    real top = a[(iz - 1) * ny * nx + iy * nx + ix];
+    real bottom = a[(iz + 1) * ny * nx + iy * nx + ix];
+
+    const real new_val = (north + south + west + east + top + bottom) / 6.0f;
+
+    a_new[iz * ny * nx + iy * nx + ix] = new_val;
 }
 
 __global__ void jacobi_kernel_single_gpu_persistent(
     real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-    const int nx, const bool calculate_norm, const int iter_max)
-{
+    const int nx, const bool calculate_norm, const int iter_max) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
 
@@ -81,26 +101,22 @@ __global__ void jacobi_kernel_single_gpu_persistent(
 
     int iter = 0;
 
-    while (iter < iter_max)
-    {
-        if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
-        {
+    while (iter < iter_max) {
+        if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
             const real new_val =
-                (real(1) / real(6)) * (a[iz * ny * nx + iy * nx + ix + 1] +
-                                       a[iz * ny * nx + iy * nx + ix - 1] +
-                                       a[iz * ny * nx + (iy + 1) * nx + ix] +
-                                       a[iz * ny * nx + (iy - 1) * nx + ix] +
-                                       a[(iz + 1) * ny * nx + iy * nx + ix] +
-                                       a[(iz - 1) * ny * nx + iy * nx + ix]);
+                    (real(1) / real(6)) * (a[iz * ny * nx + iy * nx + ix + 1] +
+                                           a[iz * ny * nx + iy * nx + ix - 1] +
+                                           a[iz * ny * nx + (iy + 1) * nx + ix] +
+                                           a[iz * ny * nx + (iy - 1) * nx + ix] +
+                                           a[(iz + 1) * ny * nx + iy * nx + ix] +
+                                           a[(iz - 1) * ny * nx + iy * nx + ix]);
             a_new[iz * ny * nx + iy * nx + ix] = new_val;
 
-            if (iz_start == iz)
-            {
+            if (iz_start == iz) {
                 a_new[iz_end * ny * nx + iy * nx + ix] = new_val;
             }
 
-            if ((iz_end - 1) == iz)
-            {
+            if ((iz_end - 1) == iz) {
                 a_new[(iz_start - 1) * ny * nx + iy * nx + ix] = new_val;
             }
 
@@ -125,7 +141,7 @@ __global__ void jacobi_kernel_single_gpu_persistent(
 }
 
 double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
-                  real *const a_ref_h, const int nccheck, const bool print)
+                  real *const a_ref_h, const int nccheck, const bool print, decltype(jacobi_kernel_single_gpu) kernel)
 {
     real *a;
     real *a_new;
@@ -191,8 +207,8 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
 
     double start = omp_get_wtime();
     PUSH_RANGE("Jacobi solve", 0)
-    while (iter < iter_max)
-    {
+
+    while (iter < iter_max) {
         //        CUDA_RT_CALL(cudaMemsetAsync(l2_norm_d, 0, sizeof(real),
         //        compute_stream));
 
@@ -202,8 +218,8 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
         //        calculate_norm = (iter % nccheck) == 0 || (print && ((iter %
         //        100)
         //        == 0));
-        jacobi_kernel_single_gpu<<<dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0, compute_stream>>>(
-            a_new, a, nullptr, iz_start, iz_end, ny, nx, calculate_norm);
+        kernel<<<dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0, compute_stream>>>(
+                a_new, a, nullptr, iz_start, iz_end, ny, nx, calculate_norm);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));
 
@@ -223,8 +239,8 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
 
         CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream, compute_done, 0));
         CUDA_RT_CALL(cudaMemcpyAsync(
-            a_new + iz_end * ny * nx, a_new + iz_start * ny * nx,
-            nx * ny * sizeof(real), cudaMemcpyDeviceToDevice, compute_stream));
+                a_new + iz_end * ny * nx, a_new + iz_start * ny * nx,
+                nx * ny * sizeof(real), cudaMemcpyDeviceToDevice, compute_stream));
         CUDA_RT_CALL(cudaEventRecord(push_bottom_done, push_bottom_stream));
 
         //        if (calculate_norm) {
@@ -238,6 +254,9 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max,
         std::swap(a_new, a);
         iter++;
     }
+
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+
     POP_RANGE
     double stop = omp_get_wtime();
 
@@ -393,6 +412,7 @@ long long unsigned int parse_nvshmem_symmetric_size(char *value)
 {
     long long unsigned int units, size;
 
+    assert(value != NULL);
     if (strchr(value, 'G') != NULL)
     {
         units = 1e9;
