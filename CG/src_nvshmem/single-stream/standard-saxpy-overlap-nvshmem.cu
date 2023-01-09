@@ -260,9 +260,11 @@ __global__ void __launch_bounds__(1024, 1)
 
     alpha = tmp_dot_gamma0 / (real)*dot_delta1;
 
+    // NOTE!: Here k = 1 because iteration 0 is already computed
+    // NOTE!: k = 0 in other versions
     int k = 1;
 
-    while (k <= iter_max) {
+    while (k < iter_max) {
         negative_alpha = -alpha;
 
         // r_k = r_(k-1) - alpha_(k-1) * s_(k-1)

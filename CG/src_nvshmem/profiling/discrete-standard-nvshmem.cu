@@ -388,9 +388,9 @@ int ProfilingDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
     tmp_dot_gamma0 = (real)host_dot_gamma1;
 
-    int k = 1;
+    int k = 0;
 
-    while (k <= iter_max) {
+    while (k < iter_max) {
         PUSH_RANGE("SpMV", 0);
 
         // SpMV

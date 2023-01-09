@@ -477,9 +477,9 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
 
     tmp_dot_gamma0 = host_dot_gamma1;
 
-    int k = 1;
+    int k = 0;
 
-    while (k <= iter_max) {
+    while (k < iter_max) {
         // SpMV
         SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
             device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows,
@@ -697,9 +697,9 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
 
     CUDA_RT_CALL(cudaStreamSynchronize(streamOtherOps));
 
-    int k = 1;
+    int k = 0;
 
-    while (k <= iter_max) {
+    while (k < iter_max) {
         // Two dot products => <r, r> and <r, w>
         resetLocalDotProducts<<<1, 1, 0, streamDot>>>(device_dot_delta1, device_dot_gamma1);
 
@@ -847,9 +847,9 @@ void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csr
 
     real r1 = dotProduct(r, r, num_rows);
 
-    int k = 1;
+    int k = 0;
 
-    while (k <= max_iter) {
+    while (k < max_iter) {
         if (k > 1) {
             b = r1 / r0;
             scaleVector(p, b, num_rows);

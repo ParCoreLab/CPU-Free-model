@@ -403,9 +403,9 @@ int BaselineDiscretePipelinedNVSHMEM::init(int argc, char *argv[]) {
 
     nvshmemx_barrier_all_on_stream(mainStream);
 
-    int k = 1;
+    int k = 0;
 
-    while (k <= iter_max) {
+    while (k < iter_max) {
         resetLocalDotProducts<<<1, 1, 0, mainStream>>>(&device_merged_dots[0],
                                                        &device_merged_dots[1]);
 

@@ -388,9 +388,9 @@ int BaselineDiscreteStandardNVSHMEM::init(int argc, char *argv[]) {
 
     tmp_dot_gamma0 = (real)host_dot_gamma1;
 
-    int k = 1;
+    int k = 0;
 
-    while (k <= iter_max) {
+    while (k < iter_max) {
         // SpMV
         NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
             device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, device_p,

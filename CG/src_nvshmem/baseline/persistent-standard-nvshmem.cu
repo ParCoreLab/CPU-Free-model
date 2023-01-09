@@ -225,9 +225,9 @@ __global__ void __launch_bounds__(1024, 1)
 
     tmp_dot_gamma0 = (real)*dot_gamma1;
 
-    int k = 1;
+    int k = 0;
 
-    while (k <= iter_max) {
+    while (k < iter_max) {
         gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, p, s,
                 row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 

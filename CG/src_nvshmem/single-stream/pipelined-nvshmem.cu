@@ -241,9 +241,9 @@ __global__ void __launch_bounds__(1024, 1)
 
     cg::sync(grid);
 
-    int k = 1;
+    int k = 0;
 
-    while (k <= iter_max) {
+    while (k < iter_max) {
         if (grid.thread_rank() == last_thread_idx) {
             device_merged_dots[0] = 0.0;
             device_merged_dots[1] = 0.0;

@@ -237,9 +237,9 @@ __global__ void __launch_bounds__(1024, 1)
 
     cg::sync(grid);
 
-    int k = 1;
+    int k = 0;
 
-    while (k <= iter_max) {
+    while (k < iter_max) {
         if (grid.thread_rank() == last_thread_idx) {
             *dot_delta1 = 0.0;
             *dot_gamma1 = 0.0;
