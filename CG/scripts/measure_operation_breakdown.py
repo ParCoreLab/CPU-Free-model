@@ -32,8 +32,8 @@ GPU_MODEL = None
 USING_NVSHMEM = True
 
 VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
-    'Profiling Discrete Standard NVSHMEM': 5,
-    'Profiling Discrete Pipelined NVSHMEM (No Overlap)': 6,
+    'Profiling Discrete Standard NVSHMEM': 6,
+    'Profiling Discrete Pipelined NVSHMEM (No Overlap)': 7,
 }
 
 VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()

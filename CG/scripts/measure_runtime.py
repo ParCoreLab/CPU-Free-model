@@ -36,7 +36,8 @@ VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
     'Baseline Discrete Pipelined NVSHMEM': 1,
     'Baseline Persistent Standard NVSHMEM': 2,
     '(Ours) Persistent Pipelined NVSHMEM': 3,
-    '(Ours) Persistent Pipelined Multi-Overlap NVSHMEM': 4
+    '(Ours) Persistent Pipelined Multi-Overlap NVSHMEM': 4,
+    '(Ours) Persistent Standard Saxpy Overlap NVSHMEM': 5
 }
 
 VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()

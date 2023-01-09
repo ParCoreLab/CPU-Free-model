@@ -7,6 +7,7 @@
 #include "../include_nvshmem/profiling/discrete-standard-nvshmem.cuh"
 #include "../include_nvshmem/single-stream/pipelined-multi-overlap.cuh"
 #include "../include_nvshmem/single-stream/pipelined-nvshmem.cuh"
+#include "../include_nvshmem/single-stream/standard-saxpy-overlap-nvshmem.cuh"
 
 #include "../include_nvshmem/common.h"
 
@@ -20,6 +21,8 @@ int main(int argc, char *argv[]) {
         make_pair("Single Stream Pipelined NVSHMEM", SingleStreamPipelinedNVSHMEM::init),
         make_pair("Single Stream Pipelined Multi Overlap NVSHMEM",
                   SingleStreamPipelinedMultiOverlapNVSHMEM::init),
+        make_pair("Single Stream Standard Saxpy Overlap NVSHMEM",
+                  SingleStreamStandardSaxpyOverlapNVSHMEM::init),
         make_pair("Profiling Discrete Standard NVSHMEM", ProfilingDiscreteStandardNVSHMEM::init),
         make_pair("Profiling Discrete Pipelined NVSHMEM", ProfilingDiscretePipelinedNVSHMEM::init),
     };
