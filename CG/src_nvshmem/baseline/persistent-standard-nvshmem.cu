@@ -199,10 +199,6 @@ __global__ void __launch_bounds__(1024, 1)
     // NOTE: b is a unit vector.
     gpuSaxpy(ax0, r, real_negative_one, chunk_size, grid);
 
-    if (grid.thread_rank() == last_thread_idx) {
-        nvshmem_barrier_all();
-    }
-
     cg::sync(grid);
 
     // p0 = r0
