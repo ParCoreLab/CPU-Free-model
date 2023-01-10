@@ -124,7 +124,7 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
 
 namespace CPU {
 void cpuSpMV(int *rowInd, int *colInd, real *val, int nnz, int num_rows, real alpha,
-             real *inputVecX, real *outputVecY);
+             real *inputVecX, real *outputVecY, bool matrix_is_zero_indexed);
 
 real dotProduct(real *vecA, real *vecB, int size);
 
@@ -134,7 +134,7 @@ void saxpy(real *x, real *y, real a, int size);
 
 void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csrColIndices,
                       real *host_csrVal, real *x, real *Ax, real *p, real *r, int nnz, int num_rows,
-                      real tol);
+                      real tol, bool matrix_is_zero_indexed);
 }  // namespace CPU
 
 bool get_arg(char **begin, char **end, const std::string &arg);

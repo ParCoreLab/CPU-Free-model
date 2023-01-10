@@ -794,18 +794,19 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
 
 namespace CPU {
 void cpuSpMV(int *rowInd, int *colInd, real *val, int nnz, int num_rows, real alpha,
-             real *inputVecX, real *outputVecY) {
+             real *inputVecX, real *outputVecY, bool matrix_is_zero_indexed) {
     for (int i = 0; i < num_rows; i++) {
-        int num_elems_this_row = rowInd[i + 1] - rowInd[i];
+        int row_elem = rowInd[i] - int(!matrix_is_zero_indexed);
+        int next_row_elem = rowInd[i + 1] - int(!matrix_is_zero_indexed);
+        int num_elems_this_row = next_row_elem - row_elem;
 
         real output = 0.0;
         for (int j = 0; j < num_elems_this_row; j++) {
-            output += alpha * val[rowInd[i] + j] * inputVecX[colInd[rowInd[i] + j]];
-        }
-        outputVecY[i] = output;
-    }
+            int input_vec_elem_idx = colInd[row_elem + j] - int(!matrix_is_zero_indexed);
 
-    return;
+            output += alpha * val[row_elem + j] * inputVecX[input_vec_elem_idx];
+        }
+    }
 }
 
 real dotProduct(real *vecA, real *vecB, int size) {
@@ -832,7 +833,7 @@ void saxpy(real *x, real *y, real a, int size) {
 
 void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csrColIndices,
                       real *host_csrVal, real *x, real *Ax, real *p, real *r, int nnz, int num_rows,
-                      real tol) {
+                      real tol, bool matrix_is_zero_indexed) {
     int max_iter = iter_max;
 
     real alpha = 1.0;
@@ -842,7 +843,8 @@ void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csr
     real a;
     real na;
 
-    cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, nnz, num_rows, alpha, x, Ax);
+    cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, nnz, num_rows, alpha, x, Ax,
+            matrix_is_zero_indexed);
     saxpy(Ax, r, alpham1, num_rows);
 
     real r1 = dotProduct(r, r, num_rows);
@@ -859,7 +861,8 @@ void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csr
             for (int i = 0; i < num_rows; i++) p[i] = r[i];
         }
 
-        cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, nnz, num_rows, alpha, p, Ax);
+        cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, nnz, num_rows, alpha, p, Ax,
+                matrix_is_zero_indexed);
 
         real dot = dotProduct(p, Ax, num_rows);
         a = r1 / dot;

@@ -164,7 +164,8 @@ int main(int argc, char *argv[]) {
         }
 
         CPU::cpuConjugateGrad(iter_max, host_csrRowIndices, host_csrColIndices, host_csrVal,
-                              x_ref_cpu, s_cpu, p_cpu, r_cpu, nnz, num_rows, tol);
+                              x_ref_cpu, s_cpu, p_cpu, r_cpu, nnz, num_rows, tol,
+                              matrix_is_zero_indexed);
     }
 
     auto &selected = versions[selection];
