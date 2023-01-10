@@ -281,11 +281,11 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
 
     const int dim_block_x = nx >= num_threads_per_block ? num_threads_per_block : (int)pow(2, ceil(log2(nx)));
     const int dim_block_y = ny >= (num_threads_per_block / dim_block_x) ? (num_threads_per_block / dim_block_x) : (int)pow(2, ceil(log2(ny)));
-    const int dim_block_z = chunk_size >= (num_threads_per_block / (dim_block_x * dim_block_y)) ? (num_threads_per_block / (dim_block_x * dim_block_y)) : (int)pow(2, ceil(log2(ny)));
+    const int dim_block_z = chunk_size_high >= (num_threads_per_block / (dim_block_x * dim_block_y)) ? (num_threads_per_block / (dim_block_x * dim_block_y)) : (int)pow(2, ceil(log2(ny)));
 
     const int tile_count_x = nx / (dim_block_x) + (nx % (dim_block_x) != 0);
     const int tile_count_y = ny / (dim_block_y) + (ny % (dim_block_y) != 0);
-    const int tile_count_z = chunk_size / (dim_block_z) + (chunk_size % (dim_block_z) != 0);
+    const int tile_count_z = chunk_size_high / (dim_block_z) + (chunk_size_high % (dim_block_z) != 0);
 
     const int comm_layer_tile_count = tile_count_x * tile_count_y;
     const int comp_total_tile_count = tile_count_x * tile_count_y * tile_count_z;
