@@ -12,8 +12,8 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                       const int comm_sm_count_per_layer, const int comm_block_count_per_sm, const int comp_block_count_per_sm,
                       const int tile_count_y, const int tile_count_x,
                       const int iter_max,
-                      real *halo_buffer_top, real *halo_buffer_bottom,
-                      uint64_t *is_done_computing_flags, const int top,
+                     // real *halo_buffer_top, real *halo_buffer_bottom,
+                      uint64_t *is_done_computing_flags,const int top_iz,const int bottom_iz, const int top,
                       const int bottom)
     {
         cg::thread_block cta = cg::this_thread_block();
@@ -58,7 +58,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                                                                           a[iz_start * ny * nx + (iy + 1) * nx + ix] +
                                                                           a[iz_start * ny * nx + (iy - 1) * nx + ix] +
                                                                           a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                                                                          halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
+                                                                          a[(iz_start - 1) * ny * nx + iy * nx + ix]); //halo_buffer_top[cur_iter_mod * ny * nx + iy * nx + ix]);
                         a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                         block_count++;
                     }
@@ -67,9 +67,9 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_bottom + next_iter_mod * ny * nx + comm_start_block_y * nx + comm_start_block_x,
+                    a_new +top_iz *ny*nx+ comm_start_block_y * nx + comm_start_block_x,
                     a_new + iz_start * ny * nx + comm_start_block_y * nx + comm_start_block_x,
-                    min(comm_block_count_per_sm * cta.num_threads(), ny * nx - comm_start_block_y * nx - comm_start_block_x) * sizeof(real),
+                    min(comm_block_count_per_sm * cta.num_threads(), max(0,ny * nx - comm_start_block_y * nx - comm_start_block_x)) * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_sm_count_per_layer + comm_block_id, iter + 1, NVSHMEM_SIGNAL_SET,
                     top);
             }
@@ -95,7 +95,7 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                                                                          a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
                                                                          a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
                                                                          a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                                                                         halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix] +
+                                                                         a[iz_end * ny * nx + iy * nx + ix]+//halo_buffer_bottom[cur_iter_mod * ny * nx + iy * nx + ix] +
                                                                          a[(iz_end - 2) * ny * nx + iy * nx + ix]);
                         a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                         block_count++;
@@ -105,9 +105,9 @@ namespace SSMultiThreadedMultiBlockCommNvshmem
                 }
 
                 nvshmemx_putmem_signal_nbi_block(
-                    halo_buffer_top + next_iter_mod * ny * nx + comm_start_block_y * nx + comm_start_block_x,
+                    a_new + bottom_iz * ny * nx + comm_start_block_y * nx + comm_start_block_x,
                     a_new + (iz_end - 1) * ny * nx + comm_start_block_y * nx + comm_start_block_x,
-                    min(comm_block_count_per_sm * cta.num_threads(), ny * nx - comm_start_block_y * nx - comm_start_block_x) * sizeof(real),
+                    min(comm_block_count_per_sm * cta.num_threads(),max(0, ny * nx - comm_start_block_y * nx - comm_start_block_x)) * sizeof(real),
                     is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer + comm_block_id - comm_sm_count_per_layer, iter + 1, NVSHMEM_SIGNAL_SET,
                     bottom);
             }
@@ -162,8 +162,8 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     real *a;
     real *a_new;
 
-    real *halo_buffer_top;
-    real *halo_buffer_bottom;
+    //real *halo_buffer_top;
+    //real *halo_buffer_bottom;
 
     uint64_t *is_done_computing_flags;
 
@@ -300,20 +300,29 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
 
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
+    int iz_end_top = (top_pe < num_ranks_low) ? chunk_size_low + 1 : chunk_size_high + 1;
+    int iz_start_bottom = 0;
 
     nvshmem_barrier_all();
 
-    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
+    //CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size_high + 2) * sizeof(real)));
+    //CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size_high + 2) * sizeof(real)));
 
-    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+    //CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size_high + 2) * sizeof(real)));
+    //CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size_high + 2) * sizeof(real)));
 
-    halo_buffer_top = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
-    halo_buffer_bottom = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
+    a = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
+    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
 
-    CUDA_RT_CALL(cudaMemset((void *)halo_buffer_top, 0, 2 * nx * ny * sizeof(real)));
-    CUDA_RT_CALL(cudaMemset((void *)halo_buffer_bottom, 0, 2 * nx * ny * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset((void *)a, 0, nx * ny * (chunk_size_high + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset((void *)a_new, 0, nx * ny * (chunk_size_high + 2) * sizeof(real)));
+
+
+    //halo_buffer_top = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
+    //halo_buffer_bottom = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
+
+    //CUDA_RT_CALL(cudaMemset((void *)halo_buffer_top, 0, 2 * nx * ny * sizeof(real)));
+    //CUDA_RT_CALL(cudaMemset((void *)halo_buffer_bottom, 0, 2 * nx * ny * sizeof(real)));
 
     is_done_computing_flags = (uint64_t *)nvshmem_malloc(total_num_flags * sizeof(uint64_t));
     CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));
@@ -339,8 +348,8 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_top, a, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
-    CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_bottom, a + iz_end * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+    //CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_top, a, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
+    //CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_bottom, a + iz_end * ny * nx, nx * ny * sizeof(real), cudaMemcpyDeviceToDevice));
 
     dim3 dim_grid(comp_sm_count + comm_sm_count_per_layer * 2);
     dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
@@ -357,9 +366,11 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
                           (void *)&tile_count_y,
                           (void *)&tile_count_x,
                           (void *)&iter_max,
-                          (void *)&halo_buffer_top,
-                          (void *)&halo_buffer_bottom,
+                          //(void *)&halo_buffer_top,
+                          //(void *)&halo_buffer_bottom,
                           (void *)&is_done_computing_flags,
+			  (void *)&iz_end_top,
+                          (void *)&iz_start_bottom,
                           (void *)&top_pe,
                           (void *)&bottom_pe};
 
@@ -438,11 +449,12 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[])
                 runtime_serial_non_persistent / (npes * (stop - start)) * 100);
         }
     }
-
-    CUDA_RT_CALL(cudaFree(a_new));
-    CUDA_RT_CALL(cudaFree(a));
-    nvshmem_free((void *)halo_buffer_top);
-    nvshmem_free((void *)halo_buffer_bottom);
+    nvshmem_free((void *)a);
+    nvshmem_free((void *)a_new);
+    //CUDA_RT_CALL(cudaFree(a_new));
+    //CUDA_RT_CALL(cudaFree(a));
+    //nvshmem_free((void *)halo_buffer_top);
+    //nvshmem_free((void *)halo_buffer_bottom);
     nvshmem_free(is_done_computing_flags);
 
     if (compare_to_single_gpu)
