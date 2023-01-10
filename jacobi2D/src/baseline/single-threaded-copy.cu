@@ -30,28 +30,27 @@
 
 #include "../../include/baseline/single-threaded-copy.cuh"
 
-
 namespace BaselineSingleThreadedCopy {
-    __global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
-    const int iy_start, const int iy_end, const int nx) {
+__global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
+                              const int iy_start, const int iy_end, const int nx) {
     int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
     // real local_l2_norm = 0.0;
 
     if (iy < iy_end && ix < (nx - 1)) {
-    const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-    a_new[iy * nx + ix] = new_val;
+        const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                     a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+        a_new[iy * nx + ix] = new_val;
+
+        // if (calculate_norm) {
+        //     real residue = new_val - a[iy * nx + ix];
+        //     local_l2_norm += residue * residue;
+        // }
+    }
 
     // if (calculate_norm) {
-    //     real residue = new_val - a[iy * nx + ix];
-    //     local_l2_norm += residue * residue;
+    //     atomicAdd(l2_norm, local_l2_norm);
     // }
-}
-
-// if (calculate_norm) {
-//     atomicAdd(l2_norm, local_l2_norm);
-// }
 }
 }  // namespace BaselineSingleThreadedCopy
 
@@ -121,7 +120,7 @@ int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
             iy_start_global = dev_id * chunk_size_low + 1;
         } else {
             iy_start_global =
-                    num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
+                num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
         }
 
         iy_start[dev_id] = 1;
@@ -129,7 +128,7 @@ int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
 
         // Set diriclet boundary conditions on left and right boarder
         initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-                a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size[dev_id] + 2), ny);
+            a[dev_id], a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size[dev_id] + 2), ny);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -139,10 +138,10 @@ int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
         CUDA_RT_CALL(cudaEventCreateWithFlags(compute_done + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(cudaEventCreateWithFlags(push_top_done[0] + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(
-                cudaEventCreateWithFlags(push_bottom_done[0] + dev_id, cudaEventDisableTiming));
+            cudaEventCreateWithFlags(push_bottom_done[0] + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(cudaEventCreateWithFlags(push_top_done[1] + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(
-                cudaEventCreateWithFlags(push_bottom_done[1] + dev_id, cudaEventDisableTiming));
+            cudaEventCreateWithFlags(push_bottom_done[1] + dev_id, cudaEventDisableTiming));
 
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         int canAccessPeer = 0;
@@ -181,15 +180,15 @@ int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
             CUDA_RT_CALL(cudaSetDevice(dev_id));
 
             CUDA_RT_CALL(
-                    cudaStreamWaitEvent(compute_stream[dev_id], push_top_done[(iter % 2)][bottom], 0));
+                cudaStreamWaitEvent(compute_stream[dev_id], push_top_done[(iter % 2)][bottom], 0));
             CUDA_RT_CALL(
-                    cudaStreamWaitEvent(compute_stream[dev_id], push_bottom_done[(iter % 2)][top], 0));
+                cudaStreamWaitEvent(compute_stream[dev_id], push_bottom_done[(iter % 2)][top], 0));
 
             dim3 dim_grid((nx + dim_block_x - 1) / dim_block_x,
                           (chunk_size[dev_id] + dim_block_y - 1) / dim_block_y, 1);
 
             jacobi_kernel<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream[dev_id]>>>(
-                    a_new[dev_id], a[dev_id], iy_start[dev_id], iy_end[dev_id], nx);
+                a_new[dev_id], a[dev_id], iy_start[dev_id], iy_end[dev_id], nx);
             CUDA_RT_CALL(cudaGetLastError());
             CUDA_RT_CALL(cudaEventRecord(compute_done[dev_id], compute_stream[dev_id]));
 
@@ -199,7 +198,7 @@ int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
                                          a_new[dev_id] + iy_start[dev_id] * nx, nx * sizeof(real),
                                          cudaMemcpyDeviceToDevice, push_top_stream[dev_id]));
             CUDA_RT_CALL(
-                    cudaEventRecord(push_top_done[((iter + 1) % 2)][dev_id], push_top_stream[dev_id]));
+                cudaEventRecord(push_top_done[((iter + 1) % 2)][dev_id], push_top_stream[dev_id]));
 
             CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream[dev_id], compute_done[dev_id], 0));
             CUDA_RT_CALL(cudaMemcpyAsync(a_new[bottom], a_new[dev_id] + (iy_end[dev_id] - 1) * nx,
@@ -227,9 +226,9 @@ int BaselineSingleThreadedCopy::init(int argc, char* argv[]) {
         int offset = nx;
         for (int dev_id = 0; dev_id < num_devices; ++dev_id) {
             CUDA_RT_CALL(
-                    cudaMemcpy(a_h + offset, a[dev_id] + nx,
-                               std::min((nx * ny) - offset, nx * chunk_size[dev_id]) * sizeof(real),
-                               cudaMemcpyDeviceToHost));
+                cudaMemcpy(a_h + offset, a[dev_id] + nx,
+                           std::min((nx * ny) - offset, nx * chunk_size[dev_id]) * sizeof(real),
+                           cudaMemcpyDeviceToHost));
             offset += std::min(chunk_size[dev_id] * nx, (nx * ny) - offset);
         }
     }

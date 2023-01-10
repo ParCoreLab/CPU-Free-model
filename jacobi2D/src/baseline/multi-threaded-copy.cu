@@ -28,9 +28,7 @@
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/multi_threaded_copy/jacobi.cu
 
-
 #include "../../include/baseline/multi-threaded-copy.cuh"
-
 
 namespace BaselineMultiThreadedCopy {
 __global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
@@ -169,7 +167,7 @@ int BaselineMultiThreadedCopy::init(int argc, char* argv[]) {
                       (ny + (num_devices * dim_block_y) - 1) / (num_devices * dim_block_y), 1);
 
         int iter = 0;
-//        bool calculate_norm = true;
+        //        bool calculate_norm = true;
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 #pragma omp barrier

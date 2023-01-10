@@ -29,63 +29,57 @@
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/nvshmem_opt/jacobi.cu
 #include "../../include_nvshmem/no-compute/multi-threaded-nvshmem-opt-no-compute.cuh"
 
-namespace BaselineMultiThreadedNvshmemOptNoCompute
-{
+namespace BaselineMultiThreadedNvshmemOptNoCompute {
 
-    /* This kernel implements neighborhood synchronization for Jacobi. It updates
-       the neighbor PEs about its arrival and waits for notification from them. */
-    __global__ void syncneighborhood_kernel(int my_pe, int num_pes, uint64_t *sync_arr,
-                                            long counter)
-    {
-        int next_rank = (my_pe + 1) % num_pes;
-        int prev_rank = (my_pe == 0) ? num_pes - 1 : my_pe - 1;
-        nvshmem_quiet(); /* To ensure all prior nvshmem operations have been completed */
+/* This kernel implements neighborhood synchronization for Jacobi. It updates
+   the neighbor PEs about its arrival and waits for notification from them. */
+__global__ void syncneighborhood_kernel(int my_pe, int num_pes, uint64_t *sync_arr, long counter) {
+    int next_rank = (my_pe + 1) % num_pes;
+    int prev_rank = (my_pe == 0) ? num_pes - 1 : my_pe - 1;
+    nvshmem_quiet(); /* To ensure all prior nvshmem operations have been completed */
 
-        /* Notify neighbors about arrival */
-        nvshmemx_signal_op(sync_arr, counter, NVSHMEM_SIGNAL_SET, next_rank);
-        nvshmemx_signal_op(sync_arr + 1, counter, NVSHMEM_SIGNAL_SET, prev_rank);
+    /* Notify neighbors about arrival */
+    nvshmemx_signal_op(sync_arr, counter, NVSHMEM_SIGNAL_SET, next_rank);
+    nvshmemx_signal_op(sync_arr + 1, counter, NVSHMEM_SIGNAL_SET, prev_rank);
 
-        /* Wait for neighbors notification */
-        nvshmem_uint64_wait_until_all(sync_arr, 2, NULL, NVSHMEM_CMP_GE, counter);
-    }
-    template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
-    __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
-                                  const int iy_start, const int iy_end, const int nx,
-                                  const int top_pe, const int top_iy, const int bottom_pe, const int bottom_iy)
-    {
-        int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
-        int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+    /* Wait for neighbors notification */
+    nvshmem_uint64_wait_until_all(sync_arr, 2, NULL, NVSHMEM_CMP_GE, counter);
+}
+template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
+__global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
+                              const int iy_start, const int iy_end, const int nx, const int top_pe,
+                              const int top_iy, const int bottom_pe, const int bottom_iy) {
+    int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
+    int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
-        if (iy < iy_end && ix < (nx - 1))
-        {
-            /*
-            const real new_val = 0.25 *
-                                 (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                  a[(iy + 1) * nx + ix] + a[+(iy - 1) * nx + ix]);
+    if (iy < iy_end && ix < (nx - 1)) {
+        /*
+        const real new_val = 0.25 *
+                             (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                              a[(iy + 1) * nx + ix] + a[+(iy - 1) * nx + ix]);
 
-            a_new[iy * nx + ix] = new_val;
-            */
-        }
-
-        int block_iy = iy - threadIdx.y; /* Alternatively, block_iy = blockIdx.y * blockDim.y + 1 */
-        int block_ix = ix - threadIdx.x; /* Alternatively, block_ix = blockIdx.x * blockDim.x + 1 */
-
-        if ((block_iy <= iy_start) && (iy_start < block_iy + blockDim.y))
-        {
-            nvshmemx_float_put_nbi_block(a_new + top_iy * nx + block_ix, a_new + iy_start * nx + block_ix,
-                                         min(blockDim.x, nx - 1 - block_ix), top_pe);
-        }
-        if ((block_iy < iy_end) && (iy_end <= block_iy + blockDim.y))
-        {
-            nvshmemx_float_put_nbi_block(a_new + bottom_iy * nx + block_ix, a_new + (iy_end - 1) * nx + block_ix,
-                                         min(blockDim.x, nx - 1 - block_ix), bottom_pe);
-        }
+        a_new[iy * nx + ix] = new_val;
+        */
     }
 
-} // namespace BaselineMultiThreadedNvshmemOptNoCompute
+    int block_iy = iy - threadIdx.y; /* Alternatively, block_iy = blockIdx.y * blockDim.y + 1 */
+    int block_ix = ix - threadIdx.x; /* Alternatively, block_ix = blockIdx.x * blockDim.x + 1 */
 
-int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
-{
+    if ((block_iy <= iy_start) && (iy_start < block_iy + blockDim.y)) {
+        nvshmemx_float_put_nbi_block(a_new + top_iy * nx + block_ix,
+                                     a_new + iy_start * nx + block_ix,
+                                     min(blockDim.x, nx - 1 - block_ix), top_pe);
+    }
+    if ((block_iy < iy_end) && (iy_end <= block_iy + blockDim.y)) {
+        nvshmemx_float_put_nbi_block(a_new + bottom_iy * nx + block_ix,
+                                     a_new + (iy_end - 1) * nx + block_ix,
+                                     min(blockDim.x, nx - 1 - block_ix), bottom_pe);
+    }
+}
+
+}  // namespace BaselineMultiThreadedNvshmemOptNoCompute
+
+int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
@@ -117,19 +111,18 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
 
         MPI_CALL(MPI_Comm_free(&local_comm));
     }
-    if (1 < num_devices && num_devices < local_size)
-    {
-        fprintf(stderr, "ERROR Number of visible devices (%d) is less than number of ranks on the node (%d)!\n", num_devices, local_size);
+    if (1 < num_devices && num_devices < local_size) {
+        fprintf(
+            stderr,
+            "ERROR Number of visible devices (%d) is less than number of ranks on the node (%d)!\n",
+            num_devices, local_size);
         MPI_CALL(MPI_Finalize());
         return 1;
     }
-    if (1 == num_devices)
-    {
+    if (1 == num_devices) {
         // Only 1 device visible, assuming GPU affinity is handled via CUDA_VISIBLE_DEVICES
         CUDA_RT_CALL(cudaSetDevice(0));
-    }
-    else
-    {
+    } else {
         CUDA_RT_CALL(cudaSetDevice(local_rank));
     }
     CUDA_RT_CALL(cudaFree(0));
@@ -145,22 +138,21 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
     long long unsigned int mesh_size_per_rank = nx * (((ny - 2) + size - 1) / size + 2);
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
-        1.1; // Factor 2 is because 2 arrays are allocated - a and a_new
-             // 1.1 factor is just for alignment or other usage
+        1.1;  // Factor 2 is because 2 arrays are allocated - a and a_new
+              // 1.1 factor is just for alignment or other usage
 
     char *value = getenv("NVSHMEM_SYMMETRIC_SIZE");
-    if (value)
-    { /* env variable is set */
+    if (value) { /* env variable is set */
         long long unsigned int size_env = parse_nvshmem_symmetric_size(value);
-        if (size_env < required_symmetric_heap_size)
-        {
-            fprintf(stderr, "ERROR: Minimum NVSHMEM_SYMMETRIC_SIZE = %lluB, Current NVSHMEM_SYMMETRIC_SIZE = %s\n", required_symmetric_heap_size, value);
+        if (size_env < required_symmetric_heap_size) {
+            fprintf(stderr,
+                    "ERROR: Minimum NVSHMEM_SYMMETRIC_SIZE = %lluB, Current NVSHMEM_SYMMETRIC_SIZE "
+                    "= %s\n",
+                    required_symmetric_heap_size, value);
             MPI_CALL(MPI_Finalize());
             return -1;
         }
-    }
-    else
-    {
+    } else {
         char symmetric_heap_size_str[100];
         sprintf(symmetric_heap_size_str, "%llu", required_symmetric_heap_size);
         setenv("NVSHMEM_SYMMETRIC_SIZE", symmetric_heap_size_str, 1);
@@ -176,8 +168,7 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
     cudaEvent_t compute_done[2];
 
     double runtime_serial_non_persistent = 0.0;
-    if (compare_to_single_gpu)
-    {
+    if (compare_to_single_gpu) {
         CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
         CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
@@ -195,7 +186,7 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
     // the following formula is derived from this equation:
     // num_ranks_low * chunk_size_low + (size - num_ranks_low) * (chunk_size_low + 1) = ny - 2
     int num_ranks_low = npes * chunk_size_low + npes -
-                        (ny - 2); // Number of ranks with chunk_size = chunk_size_low
+                        (ny - 2);  // Number of ranks with chunk_size = chunk_size_low
     if (mype < num_ranks_low)
         chunk_size = chunk_size_low;
     else
@@ -203,24 +194,21 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
 
     a = (real *)nvshmem_malloc(
         nx * (chunk_size_high + 2) *
-        sizeof(real)); // Using chunk_size_high so that it is same across all PEs
+        sizeof(real));  // Using chunk_size_high so that it is same across all PEs
     a_new = (real *)nvshmem_malloc(nx * (chunk_size_high + 2) * sizeof(real));
 
     cudaMemset(a, 0, nx * (chunk_size + 2) * sizeof(real));
     cudaMemset(a_new, 0, nx * (chunk_size + 2) * sizeof(real));
 
     // Calculate local domain boundaries
-    int iy_start_global; // My start index in the global array
-    if (mype < num_ranks_low)
-    {
+    int iy_start_global;  // My start index in the global array
+    if (mype < num_ranks_low) {
         iy_start_global = mype * chunk_size_low + 1;
-    }
-    else
-    {
+    } else {
         iy_start_global =
             num_ranks_low * chunk_size_low + (mype - num_ranks_low) * chunk_size_high + 1;
     }
-    int iy_end_global = iy_start_global + chunk_size - 1; // My last index in the global array
+    int iy_end_global = iy_start_global + chunk_size - 1;  // My last index in the global array
     // do not process boundaries
     iy_end_global = std::min(iy_end_global, ny - 4);
 
@@ -235,8 +223,8 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
     int iy_start_bottom = 0;
 
     // Set diriclet boundary conditions on left and right boundary
-    initialize_boundaries<<<(ny / npes) / 128 + 1, 128>>>(
-        a_new, a, PI, iy_start_global - 1, nx, chunk_size + 2, ny);
+    initialize_boundaries<<<(ny / npes) / 128 + 1, 128>>>(a_new, a, PI, iy_start_global - 1, nx,
+                                                          chunk_size + 2, ny);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -267,8 +255,7 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
     cudaStreamSynchronize(compute_stream);
     long synccounter = 1;
 
-    while (iter < iter_max)
-    {
+    while (iter < iter_max) {
         // on new iteration: old current vars are now previous vars, old
         // previous vars are no longer needed
         // int prev = iter % 2;
@@ -276,8 +263,7 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
 
         jacobi_kernel<dim_block_x, dim_block_y>
             <<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
-                a_new, a, iy_start, iy_end, nx, top_pe, iy_end_top, bottom_pe,
-                iy_start_bottom);
+                a_new, a, iy_start, iy_end, nx, top_pe, iy_end_top, bottom_pe, iy_start_bottom);
         CUDA_RT_CALL(cudaGetLastError());
 
         /* Instead of using nvshmemx_barrier_all_on_stream, we are using a custom implementation
@@ -298,27 +284,19 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
     nvshmem_barrier_all();
 
     bool result_correct = true;
-    if (compare_to_single_gpu)
-    {
+    if (compare_to_single_gpu) {
+        CUDA_RT_CALL(cudaMemcpy(a_h + iy_start_global * nx, a + nx,
+                                std::min(ny - iy_start_global, chunk_size) * nx * sizeof(real),
+                                cudaMemcpyDeviceToHost));
 
-        CUDA_RT_CALL(cudaMemcpy(
-            a_h + iy_start_global * nx, a + nx,
-            std::min(ny - iy_start_global, chunk_size) * nx * sizeof(real),
-            cudaMemcpyDeviceToHost));
-
-        for (int iy = iy_start_global; result_correct && (iy <= iy_end_global); ++iy)
-        {
-            for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix)
-            {
-                if (std::fabs(a_h[iy * nx + ix] -
-                              a_ref_h[iy * nx + ix]) > tol)
-                {
+        for (int iy = iy_start_global; result_correct && (iy <= iy_end_global); ++iy) {
+            for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix) {
+                if (std::fabs(a_h[iy * nx + ix] - a_ref_h[iy * nx + ix]) > tol) {
                     fprintf(stderr,
                             "ERROR on rank %d: a[%d * %d + %d] = %f does "
                             "not match %f "
                             "(reference)\n",
-                            rank, iy, nx, ix, a_h[iy * nx + ix],
-                            a_ref_h[iy * nx + ix]);
+                            rank, iy, nx, ix, a_h[iy * nx + ix], a_ref_h[iy * nx + ix]);
                     result_correct = 0;
                 }
             }
@@ -328,13 +306,11 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
     MPI_CALL(MPI_Allreduce(&result_correct, &global_result_correct, 1, MPI_INT, MPI_MIN,
                            MPI_COMM_WORLD));
 
-    if (!mype && global_result_correct)
-    {
+    if (!mype && global_result_correct) {
         // printf("Num GPUs: %d.\n", num_devices);
         printf("Execution time: %8.4f s\n", (stop - start));
 
-        if (compare_to_single_gpu)
-        {
+        if (compare_to_single_gpu) {
             printf(
                 "Non-persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: "
                 "%8.4f "
@@ -355,8 +331,7 @@ int BaselineMultiThreadedNvshmemOptNoCompute::init(int argc, char *argv[])
     CUDA_RT_CALL(cudaEventDestroy(compute_done[0]));
     CUDA_RT_CALL(cudaStreamDestroy(compute_stream));
 
-    if (compare_to_single_gpu)
-    {
+    if (compare_to_single_gpu) {
         CUDA_RT_CALL(cudaFreeHost(a_h));
         CUDA_RT_CALL(cudaFreeHost(a_ref_h));
     }

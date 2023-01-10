@@ -12,13 +12,13 @@
 // perks stuff
 // DON'T CHANGE THE ORDER
 // #include "./common/common.hpp"
-#include "config.cuh"
-#include "perksconfig.cuh"
 #include "./common/cuda_common.cuh"
 #include "./common/cuda_computation.cuh"
 #include "./common/jacobi_cuda.cuh"
 #include "./common/jacobi_reference.hpp"
 #include "./common/types.hpp"
+#include "config.cuh"
+#include "perksconfig.cuh"
 
 #include "../../include_nvshmem/PERKS-nvshmem/multi-stream-perks-nvshmem.h"
 #include "../../include_nvshmem/common.h"
@@ -65,7 +65,8 @@ __global__ void __launch_bounds__(1024, 1)
     int ix = 0;
 
     while (iter < iter_max) {
-        while (iteration_done[1] != iter) {}
+        while (iteration_done[1] != iter) {
+        }
 
         if (blockIdx.x == gridDim.x - 1) {
             for (comm_tile_idx_y = 0; comm_tile_idx_y < num_comm_tiles_y; comm_tile_idx_y++) {
@@ -753,16 +754,11 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
         const auto a_local = a[dev_id] + ny * nx;
         const auto a_new_local = a_new[dev_id] + ny * nx;
 
-        void *KernelArgs[] = {(void *)&a_local,
-                              (void *)&a_new_local,
-                              (void *)&chunk_size,
-                              (void *)&ny,
-                              (void *)&nx,
-                              (void *)&l2_cache1,
-                              (void *)&l2_cache2,
-                              (void *)&l_iteration,
-                              (void *)&iteration_done_flags[0],
-                              (void *)&max_sm_flder};
+        void *KernelArgs[] = {
+            (void *)&a_local,     (void *)&a_new_local, (void *)&chunk_size,
+            (void *)&ny,          (void *)&nx,          (void *)&l2_cache1,
+            (void *)&l2_cache2,   (void *)&l_iteration, (void *)&iteration_done_flags[0],
+            (void *)&max_sm_flder};
 
         double start = omp_get_wtime();
 

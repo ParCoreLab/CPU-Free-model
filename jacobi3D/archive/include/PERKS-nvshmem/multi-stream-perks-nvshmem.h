@@ -7,4 +7,4 @@ namespace MultiStreamPERKSNvshmem {
 int init(int argc, char **argv);
 }
 
-#endif // JACOBI3D_MULTI_STREAM_PERKS_NVSHMEM_H
+#endif  // JACOBI3D_MULTI_STREAM_PERKS_NVSHMEM_H

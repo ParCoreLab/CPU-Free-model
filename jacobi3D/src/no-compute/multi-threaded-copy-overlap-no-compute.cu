@@ -27,50 +27,45 @@
 // Adapted from
 // https://github.com/NVIDIA/multi-gpu-programming-models/blob/master/multi_threaded_copy_overlap/jacobi.cu
 
-
 #include "../../include/no-compute/multi-threaded-copy-overlap-no-compute.cuh"
 
+namespace BaselineMultiThreadedCopyOverlapNoCompute {
+__global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
+                              const int iz_start, const int iz_end, const int ny, const int nx) {
+    /*
+    int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
+    int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
+    int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
-namespace BaselineMultiThreadedCopyOverlapNoCompute
-{
-    __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
-                                  const int iz_start, const int iz_end, const int ny, const int nx)
+    // real local_l2_norm = 0.0;
+
+    if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
     {
-        /*
-        int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
-        int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
-        int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+        const real new_val = (a[iz * ny * nx + iy* nx + ix + 1] +
+                              a[iz * ny * nx + iy * nx+ ix - 1] +
+                              a[iz * ny * nx + (iy + 1) * nx + ix] +
+                              a[iz * ny * nx + (iy - 1) * nx + ix] +
+                              a[(iz + 1) * ny * nx + iy * nx+ ix] +
+                              a[(iz - 1) * ny * nx + iy * nx+ ix]) /
+                             real(6.0);
 
-        // real local_l2_norm = 0.0;
-
-        if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1))
-        {
-            const real new_val = (a[iz * ny * nx + iy* nx + ix + 1] +
-                                  a[iz * ny * nx + iy * nx+ ix - 1] +
-                                  a[iz * ny * nx + (iy + 1) * nx + ix] +
-                                  a[iz * ny * nx + (iy - 1) * nx + ix] +
-                                  a[(iz + 1) * ny * nx + iy * nx+ ix] +
-                                  a[(iz - 1) * ny * nx + iy * nx+ ix]) /
-                                 real(6.0);
-
-            a_new[iz * ny * nx + iy + ix] = new_val;
-
-            // if (calculate_norm) {
-            //     real residue = new_val - a[iy * nx + ix];
-            //     local_l2_norm += residue * residue;
-            // }
-        }
-        */
+        a_new[iz * ny * nx + iy + ix] = new_val;
 
         // if (calculate_norm) {
-        //     atomicAdd(l2_norm, local_l2_norm);
+        //     real residue = new_val - a[iy * nx + ix];
+        //     local_l2_norm += residue * residue;
         // }
     }
+    */
 
-} // namespace BaselineMultiThreadedCopyOverlapNoCompute
+    // if (calculate_norm) {
+    //     atomicAdd(l2_norm, local_l2_norm);
+    // }
+}
 
-int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
-{
+}  // namespace BaselineMultiThreadedCopyOverlapNoCompute
+
+int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
@@ -105,8 +100,7 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaSetDevice(dev_id));
         CUDA_RT_CALL(cudaFree(0));
 
-        if (compare_to_single_gpu && 0 == dev_id)
-        {
+        if (compare_to_single_gpu && 0 == dev_id) {
             CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
             CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));
 
@@ -123,7 +117,7 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
         // the following formula is derived from this equation:
         // num_ranks_low * chunk_size_low + (size - num_ranks_low) * (chunk_size_low + 1) = nz - 2
         int num_ranks_low = num_devices * chunk_size_low + num_devices -
-                            (nz - 2); // Number of ranks with chunk_size = chunk_size_low
+                            (nz - 2);  // Number of ranks with chunk_size = chunk_size_low
         if (dev_id < num_ranks_low)
             chunk_size = chunk_size_low;
         else
@@ -136,13 +130,10 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
 
         // Calculate local domain boundaries
-        int iz_start_global; // My start index in the global array
-        if (dev_id < num_ranks_low)
-        {
+        int iz_start_global;  // My start index in the global array
+        if (dev_id < num_ranks_low) {
             iz_start_global = dev_id * chunk_size_low + 1;
-        }
-        else
-        {
+        } else {
             iz_start_global =
                 num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
         }
@@ -178,17 +169,14 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         int canAccessPeer = 0;
         CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, top));
-        if (canAccessPeer)
-        {
+        if (canAccessPeer) {
             CUDA_RT_CALL(cudaDeviceEnablePeerAccess(top, 0));
         }
         const int bottom = (dev_id + 1) % num_devices;
-        if (top != bottom)
-        {
+        if (top != bottom) {
             canAccessPeer = 0;
             CUDA_RT_CALL(cudaDeviceCanAccessPeer(&canAccessPeer, dev_id, bottom));
-            if (canAccessPeer)
-            {
+            if (canAccessPeer) {
                 CUDA_RT_CALL(cudaDeviceEnablePeerAccess(bottom, 0));
             }
         }
@@ -208,8 +196,7 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
 #pragma omp barrier
         double start = omp_get_wtime();
 
-        while (iter < iter_max)
-        {
+        while (iter < iter_max) {
             // CUDA_RT_CALL(cudaEventRecord(reset_l2norm_done, compute_stream));
 // need to wait for other threads due to std::swap(a_new[dev_id],a); and event
 // sharing
@@ -218,7 +205,8 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
             CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, push_top_done[(iter % 2)][dev_id], 0));
             CUDA_RT_CALL(
                 cudaStreamWaitEvent(compute_stream, push_bottom_done[(iter % 2)][dev_id], 0));
-            BaselineMultiThreadedCopyOverlapNoCompute::jacobi_kernel<<<dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0, compute_stream>>>(
+            BaselineMultiThreadedCopyOverlapNoCompute::jacobi_kernel<<<
+                dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0, compute_stream>>>(
                 a_new[dev_id], a, (iz_start + 1), (iz_end[dev_id] - 1), ny, nx);
             CUDA_RT_CALL(cudaGetLastError());
 
@@ -226,15 +214,17 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
             // CUDA_RT_CALL(cudaStreamWaitEvent(push_top_stream, reset_l2norm_done, 0));
             CUDA_RT_CALL(
                 cudaStreamWaitEvent(push_top_stream, push_bottom_done[(iter % 2)][top], 0));
-            BaselineMultiThreadedCopyOverlapNoCompute::jacobi_kernel<<<nx / 128 + 1, 128, 0, push_top_stream>>>(a_new[dev_id], a, iz_start,
-                                                                                                                (iz_start + 1), ny, nx);
+            BaselineMultiThreadedCopyOverlapNoCompute::
+                jacobi_kernel<<<nx / 128 + 1, 128, 0, push_top_stream>>>(a_new[dev_id], a, iz_start,
+                                                                         (iz_start + 1), ny, nx);
             CUDA_RT_CALL(cudaGetLastError());
 
             // CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream, reset_l2norm_done, 0));
             CUDA_RT_CALL(
                 cudaStreamWaitEvent(push_bottom_stream, push_top_done[(iter % 2)][bottom], 0));
-            BaselineMultiThreadedCopyOverlapNoCompute::jacobi_kernel<<<nx / 128 + 1, 128, 0, push_bottom_stream>>>(
-                a_new[dev_id], a, (iz_end[dev_id] - 1), iz_end[dev_id], ny, nx);
+            BaselineMultiThreadedCopyOverlapNoCompute::
+                jacobi_kernel<<<nx / 128 + 1, 128, 0, push_bottom_stream>>>(
+                    a_new[dev_id], a, (iz_end[dev_id] - 1), iz_end[dev_id], ny, nx);
             CUDA_RT_CALL(cudaGetLastError());
 
             // Apply periodic boundary conditions and exchange halo
@@ -243,9 +233,9 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
                                          cudaMemcpyDeviceToDevice, push_top_stream));
             CUDA_RT_CALL(cudaEventRecord(push_top_done[((iter + 1) % 2)][dev_id], push_top_stream));
 
-            CUDA_RT_CALL(cudaMemcpyAsync(a_new[bottom], a_new[dev_id] + (iz_end[dev_id] - 1) * ny * nx,
-                                         nx * ny * sizeof(real), cudaMemcpyDeviceToDevice,
-                                         push_bottom_stream));
+            CUDA_RT_CALL(cudaMemcpyAsync(
+                a_new[bottom], a_new[dev_id] + (iz_end[dev_id] - 1) * ny * nx,
+                nx * ny * sizeof(real), cudaMemcpyDeviceToDevice, push_bottom_stream));
             CUDA_RT_CALL(
                 cudaEventRecord(push_bottom_done[((iter + 1) % 2)][dev_id], push_bottom_stream));
 
@@ -258,20 +248,19 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
 #pragma omp barrier
         double stop = omp_get_wtime();
 
-        if (compare_to_single_gpu)
-        {
-            CUDA_RT_CALL(
-                cudaMemcpy(a_h + iz_start_global * ny * nx, a + ny * nx,
-                           std::min((nz - iz_start_global) * ny * nx, chunk_size * ny * nx) * sizeof(real),
-                           cudaMemcpyDeviceToHost));
+        if (compare_to_single_gpu) {
+            CUDA_RT_CALL(cudaMemcpy(
+                a_h + iz_start_global * ny * nx, a + ny * nx,
+                std::min((nz - iz_start_global) * ny * nx, chunk_size * ny * nx) * sizeof(real),
+                cudaMemcpyDeviceToHost));
         }
 
 #pragma omp barrier
 
 #pragma omp master
         {
-            report_results(nz, ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start,
-                           stop, compare_to_single_gpu);
+            report_results(nz, ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
+                           start, stop, compare_to_single_gpu);
         }
 
         // CUDA_RT_CALL(cudaEventDestroy(reset_l2norm_done));
@@ -286,8 +275,7 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[])
         CUDA_RT_CALL(cudaFree(a_new[dev_id]));
         CUDA_RT_CALL(cudaFree(a));
 
-        if (compare_to_single_gpu && 0 == dev_id)
-        {
+        if (compare_to_single_gpu && 0 == dev_id) {
             CUDA_RT_CALL(cudaFreeHost(a_h));
             CUDA_RT_CALL(cudaFreeHost(a_ref_h));
         }

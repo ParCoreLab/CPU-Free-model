@@ -8,22 +8,22 @@
 
 // #include <cooperative_groups.h>
 
-// 
+//
 // #include "../../include/multi-stream/multi-gpu-peer-tiling-half.cuh"
 
 // namespace cg = cooperative_groups;
 
 // namespace MultiGPUPeerTilingHalf {
 // __global__ void __launch_bounds__(1024, 1) jacobi_kernel(
-//     real *a_new, real *a, const int iy_start, const int iy_end, const int nx, const int tile_size,
-//     const int num_tiles_x, const int num_tiles_y, const int top_iy, const int bottom_iy,
-//     const int iter_max, real *local_halo_buffer_for_top_neighbor,
-//     real *local_halo_buffer_for_bottom_neighbor, real *remote_my_halo_buffer_on_top_neighbor,
-//     real *remote_my_halo_buffer_on_bottom_neighbor,
-//     volatile int *local_is_top_neighbor_done_writing_to_me,
-//     volatile int *local_is_bottom_neighbor_done_writing_to_me,
-//     volatile int *remote_am_done_writing_to_top_neighbor,
-//     volatile int *remote_am_done_writing_to_bottom_neighbor, volatile int iteration_done[2]) {
+//     real *a_new, real *a, const int iy_start, const int iy_end, const int nx, const int
+//     tile_size, const int num_tiles_x, const int num_tiles_y, const int top_iy, const int
+//     bottom_iy, const int iter_max, real *local_halo_buffer_for_top_neighbor, real
+//     *local_halo_buffer_for_bottom_neighbor, real *remote_my_halo_buffer_on_top_neighbor, real
+//     *remote_my_halo_buffer_on_bottom_neighbor, volatile int
+//     *local_is_top_neighbor_done_writing_to_me, volatile int
+//     *local_is_bottom_neighbor_done_writing_to_me, volatile int
+//     *remote_am_done_writing_to_top_neighbor, volatile int
+//     *remote_am_done_writing_to_bottom_neighbor, volatile int iteration_done[2]) {
 //     cg::thread_block cta = cg::this_thread_block();
 //     cg::grid_group grid = cg::this_grid();
 
@@ -61,7 +61,8 @@
 //             for (tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
 //                 tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size;
 //                 tile_end_ny =
-//                     (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) * tile_size;
+//                     (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) *
+//                     tile_size;
 
 //                 tile_start_nx = (tile_idx_x == 0) ? 1 : tile_idx_x * tile_size;
 //                 tile_end_nx =
@@ -107,10 +108,10 @@
 // }
 
 // __global__ void __launch_bounds__(1024, 1) boundary_sync_kernel(
-//     real *a_new, real *a, const int iy_start, const int iy_end, const int nx, const int tile_size,
-//     const int num_tiles_x, const int num_tiles_y, const int iter_max,
-//     real *local_halo_buffer_for_top_neighbor, real *local_halo_buffer_for_bottom_neighbor,
-//     real *remote_my_halo_buffer_on_top_neighbor, real *remote_my_halo_buffer_on_bottom_neighbor,
+//     real *a_new, real *a, const int iy_start, const int iy_end, const int nx, const int
+//     tile_size, const int num_tiles_x, const int num_tiles_y, const int iter_max, real
+//     *local_halo_buffer_for_top_neighbor, real *local_halo_buffer_for_bottom_neighbor, real
+//     *remote_my_halo_buffer_on_top_neighbor, real *remote_my_halo_buffer_on_bottom_neighbor,
 //     volatile int *local_is_top_neighbor_done_writing_to_me,
 //     volatile int *local_is_bottom_neighbor_done_writing_to_me,
 //     volatile int *remote_am_done_writing_to_top_neighbor,
@@ -156,7 +157,8 @@
 //             for (tile_idx_x = 0; tile_idx_x < num_tiles_x; tile_idx_x++) {
 //                 tile_start_ny = (tile_idx_y == 0) ? iy_start + 1 : tile_idx_y * tile_size;
 //                 tile_end_ny =
-//                     (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) * tile_size;
+//                     (tile_idx_y == (num_tiles_y - 1)) ? iy_end - 1 : (tile_idx_y + 1) *
+//                     tile_size;
 
 //                 tile_start_nx = (tile_idx_x == 0) ? 1 : tile_idx_x * tile_size;
 //                 tile_end_nx =
@@ -178,8 +180,8 @@
 //                     if (tile_idx_y == 0) {
 //                         if (threadIdx.x == 0 && threadIdx.y == 0) {
 //                             while (
-//                                 local_is_top_neighbor_done_writing_to_me[cur_iter_tile_flag_idx] !=
-//                                 iter) {
+//                                 local_is_top_neighbor_done_writing_to_me[cur_iter_tile_flag_idx]
+//                                 != iter) {
 //                             }
 //                         }
 
@@ -214,8 +216,8 @@
 //                 {
 //                     int col = threadIdx.y * blockDim.x + threadIdx.x + tile_start_nx;
 
-//                     cur_iter_tile_flag_idx = (num_tiles_x + tile_idx_x) + cur_iter_mod * num_flags;
-//                     next_iter_tile_flag_idx = tile_idx_x + next_iter_mod * num_flags;
+//                     cur_iter_tile_flag_idx = (num_tiles_x + tile_idx_x) + cur_iter_mod *
+//                     num_flags; next_iter_tile_flag_idx = tile_idx_x + next_iter_mod * num_flags;
 
 //                     if (tile_idx_y == (num_tiles_y - 1)) {
 //                         if (threadIdx.x == 0 && threadIdx.y == 0) {
@@ -230,9 +232,10 @@
 //                         if (col < tile_end_nx) {
 //                             const real last_row_val =
 //                                 0.25 *
-//                                 (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1] +
-//                                  remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod + col] +
-//                                  a[(iy_end - 2) * nx + col]);
+//                                 (a[(iy_end - 1) * nx + col + 1] + a[(iy_end - 1) * nx + col - 1]
+//                                 +
+//                                  remote_my_halo_buffer_on_bottom_neighbor[nx * cur_iter_mod +
+//                                  col] + a[(iy_end - 2) * nx + col]);
 
 //                             a_new[(iy_end - 1) * nx + col] = last_row_val;
 //                             local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + col] =
@@ -377,16 +380,19 @@
 //         CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
 
 //         CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * sizeof(real)));
-//         CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * sizeof(real)));
+//         CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx *
+//         sizeof(real)));
 
 //         CUDA_RT_CALL(cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, 2 * nx * sizeof(real)));
-//         CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx * sizeof(real)));
+//         CUDA_RT_CALL(cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx *
+//         sizeof(real)));
 
 //         CUDA_RT_CALL(cudaMalloc(is_top_done_computing_flags + dev_id, num_flags * sizeof(int)));
-//         CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, num_flags * sizeof(int)));
+//         CUDA_RT_CALL(cudaMalloc(is_bottom_done_computing_flags + dev_id, num_flags *
+//         sizeof(int)));
 
-//         CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, num_flags * sizeof(int)));
-//         CUDA_RT_CALL(
+//         CUDA_RT_CALL(cudaMemset(is_top_done_computing_flags[dev_id], 0, num_flags *
+//         sizeof(int))); CUDA_RT_CALL(
 //             cudaMemset(is_bottom_done_computing_flags[dev_id], 0, num_flags * sizeof(int)));
 
 //         // Calculate local domain boundaries
@@ -397,7 +403,8 @@
 //             iy_start_global =
 //                 num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
 //         }
-//         int iy_end_global = iy_start_global + chunk_size - 1;  // My last index in the global array
+//         int iy_end_global = iy_start_global + chunk_size - 1;  // My last index in the global
+//         array
 
 //         int iy_start = 1;
 //         iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
@@ -498,7 +505,8 @@
 
 // #pragma omp master
 //         {
-//             report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent, start,
+//             report_results(ny, nx, a_ref_h, a_h, num_devices, runtime_serial_non_persistent,
+//             start,
 //                            stop, compare_to_single_gpu);
 //         }
 

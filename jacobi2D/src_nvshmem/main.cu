@@ -1,6 +1,6 @@
 
-#include "../include_nvshmem/baseline/multi-threaded-nvshmem.cuh"
 #include "../include_nvshmem/baseline/multi-threaded-nvshmem-opt.cuh"
+#include "../include_nvshmem/baseline/multi-threaded-nvshmem.cuh"
 
 #include "../include_nvshmem/single-stream/multi-threaded-one-block-comm.cuh"
 #include "../include_nvshmem/single-stream/multi-threaded-two-block-comm.cuh"
@@ -17,23 +17,28 @@
 
 using std::make_pair;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     const std::array versions{
         make_pair("NVSHMEM Baseline Multi Threaded", BaselineMultiThreadedNvshmem::init),
-        make_pair("NVSHMEM Baseline Single Threaded Optimized", BaselineMultiThreadedNvshmemOpt::init),
+        make_pair("NVSHMEM Baseline Single Threaded Optimized",
+                  BaselineMultiThreadedNvshmemOpt::init),
         make_pair("NVSHMEM Single stream multi threaded (one thread block communicates)",
                   SSMultiThreadedOneBlockCommNvshmem::init),
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate)",
                   SSMultiThreadedTwoBlockCommNvshmem::init),
         make_pair("NVSHMEM Double stream multi threaded", MultiGPUPeerTilingNvshmem::init),
-        make_pair("NVSHMEM Baseline Multi Threaded (No Computation)", BaselineMultiThreadedNvshmemNoCompute::init),
-        make_pair("NVSHMEM Baseline Multi Threaded Optimized (No Computation)", BaselineMultiThreadedNvshmemOptNoCompute::init),
-        make_pair("NVSHMEM Single stream multi threaded (one thread block communicates; no computation)",
-                  SSMultiThreadedOneBlockCommNvshmemNoCompute::init),
-        make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate; no computation)",
-                  SSMultiThreadedTwoBlockCommNvshmemNoCompute::init),
-        make_pair("NVSHMEM Double stream multi threaded (no computation)", MultiGPUPeerTilingNvshmemNoCompute::init),
+        make_pair("NVSHMEM Baseline Multi Threaded (No Computation)",
+                  BaselineMultiThreadedNvshmemNoCompute::init),
+        make_pair("NVSHMEM Baseline Multi Threaded Optimized (No Computation)",
+                  BaselineMultiThreadedNvshmemOptNoCompute::init),
+        make_pair(
+            "NVSHMEM Single stream multi threaded (one thread block communicates; no computation)",
+            SSMultiThreadedOneBlockCommNvshmemNoCompute::init),
+        make_pair(
+            "NVSHMEM Single stream multi threaded (two thread blocks communicate; no computation)",
+            SSMultiThreadedTwoBlockCommNvshmemNoCompute::init),
+        make_pair("NVSHMEM Double stream multi threaded (no computation)",
+                  MultiGPUPeerTilingNvshmemNoCompute::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
@@ -41,19 +46,16 @@ int main(int argc, char *argv[])
 
     auto &selected = versions[selection];
 
-    if (!silent)
-    {
+    if (!silent) {
         std::cout << "Versions (select with -v):"
                   << "\n";
-        for (int i = 0; i < versions.size(); ++i)
-        {
+        for (int i = 0; i < versions.size(); ++i) {
             auto &v = versions[i];
             std::cout << i << ":\t" << v.first << "\n";
         }
         std::cout << std::endl;
 
-        std::cout << "Running " << selected.first << "\n"
-                  << std::endl;
+        std::cout << "Running " << selected.first << "\n" << std::endl;
     }
 
     return selected.second(argc, argv);
