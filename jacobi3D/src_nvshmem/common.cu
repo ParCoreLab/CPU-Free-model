@@ -82,7 +82,7 @@ __global__ void jacobi_kernel_single_gpu_mirror(real *__restrict__ const a_new,
     real top = a[(iz - 1) * ny * nx + iy * nx + ix];
     real bottom = a[(iz + 1) * ny * nx + iy * nx + ix];
 
-    const real new_val = (north + south + west + east + top + bottom) / 6.0f;
+    const real new_val = (1.0f / 6.0f) * (north + south + west + east + top + bottom);
 
     a_new[iz * ny * nx + iy * nx + ix] = new_val;
 }

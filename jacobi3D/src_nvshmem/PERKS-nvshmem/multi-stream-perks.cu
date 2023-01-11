@@ -66,7 +66,7 @@ namespace MultiStreamPERKSNvshmem {
                         real top = halo_buffer_top[cur_iter_mod * ny * nx + iy + ix];
                         real bottom = a[comm_start_iz + ny * nx + iy + ix];
 
-                        const real first_row_val = (north + south + west + east + top + bottom) / 6.0f;
+                        const real first_row_val = (1.0f / 6.0f) *(north + south + west + east + top + bottom);
 
                         a_new[comm_start_iz + iy + ix] = first_row_val;
                     }
@@ -97,7 +97,7 @@ namespace MultiStreamPERKSNvshmem {
                         real top = a[end_iz - ny * nx + iy + ix];
                         real bottom = halo_buffer_bottom[cur_iter_mod * ny * nx + iy + ix];
 
-                        const real last_row_val = (north + south + west + east + top + bottom) / 6.0f;
+                        const real last_row_val = (1.0f / 6.0f) * (north + south + west + east + top + bottom);
 
                         a_new[end_iz + iy + ix] = last_row_val;
                     }
@@ -150,6 +150,8 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     real *a_h;
 
     double runtime_serial_non_persistent = 0.0;
+
+//#define isUseSM (true)
 
     // PERKS config
 #define ITEM_PER_THREAD (8)
@@ -668,13 +670,18 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
                                   (void *) &iteration_done_flags};
 
     nvshmem_barrier_all();
-    double start = MPI_Wtime();
 
     cudaStream_t inner_domain_stream;
     cudaStream_t boundary_sync_stream;
 
     CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
     CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
+
+    double start = MPI_Wtime();
+
+//    printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
+//    printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
+//    printf("SM: %d\n", executeSM);
 
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) execute_kernel, executeGridDim,
                                              executeBlockDim, KernelArgs, executeSM,
