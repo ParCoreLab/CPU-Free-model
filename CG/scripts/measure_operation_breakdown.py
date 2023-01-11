@@ -37,20 +37,20 @@ VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
 }
 
 VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
-VERSIONS_INDICES_TO_RUN = list(VERSION_NAME_TO_IDX_MAP_NVSHMEM.values())
+VERSION_INDICES_TO_RUN = list(VERSION_NAME_TO_IDX_MAP_NVSHMEM.values())
 
 MATRIX_NAMES = [
-    '(generated)_tridiagonal',
-    'ecology2',
+    # '(generated)_tridiagonal',
+    # 'ecology2',
     #   'shallow_water2', Too little non-zeros
     #   'Trefethen_2000', Too little non-zeros
-    'hood',
-    'bmwcra_1',
-    'consph',
-    'thermomech_dM',
-    'tmt_sym',
-    'crankseg_1',
-    'crankseg_2',
+    # 'hood',
+    # 'bmwcra_1',
+    # 'consph',
+    # 'thermomech_dM',
+    # 'tmt_sym',
+    # 'crankseg_1',
+    # 'crankseg_2',
     'Queen_4147',
     'Bump_2911',
     'G3_circuit',
@@ -65,7 +65,6 @@ MATRIX_NAMES = [
 ]
 
 VERSION_LABELS = None
-GPU_COLUMN_NAMES = None
 
 
 def get_perf_data_string(version_to_matrix_to_result_map, column_labels):
@@ -130,7 +129,7 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
         version_to_operation_labels_map = dict.fromkeys(VERSION_LABELS)
 
         for version_name, version_idx in VERSION_NAME_TO_IDX_MAP.items():
-            if version_idx not in VERSIONS_INDICES_TO_RUN:
+            if version_idx not in VERSION_INDICES_TO_RUN:
                 continue
 
             matrix_to_result_map = defaultdict(list)
@@ -217,10 +216,18 @@ if __name__ == "__main__":
     SAVE_NSYS_REPORTS_TO_DIR_PATH = dir_path + '/../nsys_reports'
     SAVE_RESULT_TO_DIR_PATH = dir_path + '/../results'
     EXECUTABLE_DIR = dir_path + '/../bin'
+    FILENAME = None
 
     arg_idx = 1
 
     while arg_idx < len(sys.argv):
+        if sys.argv[arg_idx] == '--filename':
+            arg_idx += 1
+            arg_val = sys.argv[arg_idx]
+
+            if arg_val != 'USE_DEFAULT_FILENAME':
+                FILENAME = arg_val
+
         if sys.argv[arg_idx] == '--num_iter':
             arg_idx += 1
 
@@ -249,16 +256,7 @@ if __name__ == "__main__":
             versions_to_run = [int(version_index.strip())
                                for version_index in versions_to_run]
 
-            VERSIONS_INDICES_TO_RUN = versions_to_run[:]
-
-        if sys.argv[arg_idx] == '--versions_to_run':
-            arg_idx += 1
-
-            versions_to_run = sys.argv[arg_idx].split(',')
-            versions_to_run = [int(version_index.strip())
-                               for version_index in versions_to_run]
-
-            VERSIONS_INDICES_TO_RUN = versions_to_run[:]
+            VERSION_INDICES_TO_RUN = versions_to_run[:]
 
         if sys.argv[arg_idx] == '--gpu_model':
             arg_idx += 1
@@ -271,15 +269,17 @@ if __name__ == "__main__":
         arg_idx += 1
 
     BASE_FILENAME = 'cg_operation_breakdown'
-    SAVE_RESULT_TO_FILE_PATH = SAVE_RESULT_TO_DIR_PATH + '/' + BASE_FILENAME
+
+    if FILENAME == None:
+        FILENAME = BASE_FILENAME + '-' + datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + \
+            f'-{GPU_MODEL}' + '.txt'
+
+    SAVE_RESULT_TO_FILE_PATH = SAVE_RESULT_TO_DIR_PATH + '/' + FILENAME
 
     if USING_NVSHMEM:
         VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
         EXECUTABLE_NAME = 'cg_nvshmem_nvtx'
 
     VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
-
-    GPU_COLUMN_NAMES = [str(num_gpus) + ' GPU' + ('s' if num_gpus != 1 else '')
-                        for num_gpus in range(1, MAX_NUM_GPUS + 1)]
 
     measure_operation_breakdown(SAVE_RESULT_TO_FILE_PATH, EXECUTABLE_DIR)
