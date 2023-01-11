@@ -146,45 +146,6 @@ int ProfilingDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devi
     real real_positive_one = 1.0;
     real real_negative_one = -1.0;
 
-    MPI_Comm mpi_comm;
-    nvshmemx_init_attr_t attr;
-
-    mpi_comm = MPI_COMM_WORLD;
-    attr.mpi_comm = &mpi_comm;
-
-    // Set symmetric heap size for nvshmem based on problem size
-    // Its default value in nvshmem is 1 GB which is not sufficient
-    // for large mesh sizes
-    long long unsigned int mesh_size_per_rank =
-        num_rows / num_devices + (num_rows % num_devices != 0);
-
-    long long unsigned int required_symmetric_heap_size =
-        8 * mesh_size_per_rank * sizeof(real) * 1.1;
-
-    char *value = getenv("NVSHMEM_SYMMETRIC_SIZE");
-    if (value) { /* env variable is set */
-        long long unsigned int size_env = parse_nvshmem_symmetric_size(value);
-        if (size_env < required_symmetric_heap_size) {
-            fprintf(stderr,
-                    "ERROR: Minimum NVSHMEM_SYMMETRIC_SIZE = %lluB, Current "
-                    "NVSHMEM_SYMMETRIC_SIZE=%s\n",
-                    required_symmetric_heap_size, value);
-            MPI_CALL(MPI_Finalize());
-            return -1;
-        }
-    } else {
-        char symmetric_heap_size_str[100];
-        sprintf(symmetric_heap_size_str, "%llu", required_symmetric_heap_size);
-
-        // if (rank == 0) {
-        //     printf("Setting environment variable NVSHMEM_SYMMETRIC_SIZE = %llu\n",
-        //            required_symmetric_heap_size);
-        // }
-
-        setenv("NVSHMEM_SYMMETRIC_SIZE", symmetric_heap_size_str, 1);
-    }
-    nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr);
-
     int npes = nvshmem_n_pes();
     int mype = nvshmem_my_pe();
 
@@ -455,8 +416,6 @@ int ProfilingDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devi
     CUDA_RT_CALL(cudaStreamDestroy(mainStream));
 
     free(host_merged_dots);
-
-    nvshmem_finalize();
 
     return 0;
 }
