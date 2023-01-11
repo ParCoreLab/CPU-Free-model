@@ -31,16 +31,22 @@ int main(int argc, char *argv[]) {
         make_pair("Profiling Discrete Pipelined NVSHMEM", ProfilingDiscretePipelinedNVSHMEM::init),
     };
 
-    const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
+    std::string versions_to_run_string = get_argval<std::string>(argv, argv + argc, "-v", "0");
     const bool silent = get_arg(argv, argv + argc, "-s");
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
-
-    // How many times to run the selected version
     const int num_runs = get_argval<int>(argv, argv + argc, "-num_runs", 1);
-
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
     bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
     bool compare_to_cpu = get_arg(argv, argv + argc, "-compare-cpu");
+
+    std::vector<int> versions_indices_to_run;
+    std::stringstream tmp_stringstream(versions_to_run_string);
+    std::string tmp_version;
+    char delimiter = ',';
+
+    while (getline(tmp_stringstream, tmp_version, delimiter)) {
+        versions_indices_to_run.push_back(std::stoi(tmp_version));
+    }
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
     bool generate_random_tridiag_matrix = matrix_path_str.empty();
@@ -213,29 +219,34 @@ int main(int argc, char *argv[]) {
                               matrix_is_zero_indexed);
     }
 
-    auto &selected = versions[selection];
+    for (int version_idx : versions_indices_to_run) {
+        auto &selected = versions[version_idx];
 
-    if (!silent && local_rank == 0) {
-        std::cout << "Versions (select with -v):"
-                  << "\n";
-        for (int i = 0; i < versions.size(); ++i) {
-            auto &v = versions[i];
-            std::cout << i << ":\t" << v.first << "\n";
+        if (!silent && local_rank == 0) {
+            std::cout << "Versions (select with -v):"
+                      << "\n";
+            for (int i = 0; i < versions.size(); ++i) {
+                auto &v = versions[i];
+                std::cout << i << ":\t" << v.first << "\n";
+            }
+            std::cout << std::endl;
+
+            std::cout << "Running " << selected.first << "\n" << std::endl;
         }
-        std::cout << std::endl;
 
-        std::cout << "Running " << selected.first << "\n" << std::endl;
-    }
+        bool tmp_compare_to_single_gpu = compare_to_single_gpu;
+        bool tmp_compare_to_cpu = compare_to_cpu;
 
-    for (int run_idx = 1; run_idx <= num_runs; run_idx++) {
-        selected.second(device_csrRowIndices, device_csrColIndices, device_csrVal, num_rows, nnz,
-                        matrix_is_zero_indexed, num_devices, iter_max, x_final_result,
-                        single_gpu_runtime, compare_to_single_gpu, compare_to_cpu, x_ref_single_gpu,
-                        x_ref_cpu);
+        for (int run_idx = 1; run_idx <= num_runs; run_idx++) {
+            selected.second(device_csrRowIndices, device_csrColIndices, device_csrVal, num_rows,
+                            nnz, matrix_is_zero_indexed, num_devices, iter_max, x_final_result,
+                            single_gpu_runtime, tmp_compare_to_single_gpu, tmp_compare_to_cpu,
+                            x_ref_single_gpu, x_ref_cpu);
 
-        // Only compare correctness on first run
-        compare_to_single_gpu = false;
-        compare_to_cpu = false;
+            // Only compare correctness on first run
+            tmp_compare_to_single_gpu = false;
+            tmp_compare_to_cpu = false;
+        }
     }
 
     CUDA_RT_CALL(cudaFree(device_csrRowIndices));

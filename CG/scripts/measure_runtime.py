@@ -41,7 +41,7 @@ VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
 }
 
 VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
-VERSIONS_INDICES_TO_RUN = list(VERSION_NAME_TO_IDX_MAP_NVSHMEM.values())
+VERSION_INDICES_TO_RUN = list(VERSION_NAME_TO_IDX_MAP_NVSHMEM.values())
 
 MATRIX_NAMES = [
     '(generated)_tridiagonal',
@@ -107,36 +107,43 @@ def measure_runtime(save_result_to_path, executable_dir):
 
         version_to_result_map = defaultdict(list)
 
-        for version_name, version_idx in VERSION_NAME_TO_IDX_MAP.items():
-            if version_idx not in VERSIONS_INDICES_TO_RUN:
-                continue
+        filtered_version_name_to_idx_map = dict((version_name, version_idx) for (
+            version_name, version_idx) in VERSION_NAME_TO_IDX_MAP.items() if version_idx in VERSION_INDICES_TO_RUN)
+        filter_version_indices = [
+            str(version_idx) for version_idx in filtered_version_name_to_idx_map.values()]
 
-            for num_gpus in GPU_NUMS_TO_RUN:
+        filted_versions_string = ','.join(filter_version_indices)
+
+        for num_gpus in GPU_NUMS_TO_RUN:
+            cuda_string = CUDA_VISIBLE_DEVICES_SETTING[num_gpus]
+            os.environ['CUDA_VISIBLE_DEVICES'] = cuda_string
+
+            executable_path = executable_dir + '/' + EXECUTABLE_NAME
+            command = f'{executable_path} -s 1 -v {filted_versions_string} -niter {NUM_ITERATIONS} -num_runs {NUM_RUNS}'
+
+            if matrix_path:
+                command += f' -matrix_path {matrix_path}'
+
+            if USING_NVSHMEM:
+                command = f'mpirun -np {num_gpus}' + ' ' + command
+
+            output = subprocess.run(
+                command.split(), capture_output=True)
+
+            output = output.stdout.decode('utf-8')
+
+            runtimes = output.splitlines()
+
+            for cur_idx, version_name in enumerate(filtered_version_name_to_idx_map.keys()):
                 print(
                     f'Running version {version_name} on matrix {matrix_name} with {num_gpus} GPUs for {NUM_RUNS} runs')
 
-                cuda_string = CUDA_VISIBLE_DEVICES_SETTING[num_gpus]
-                os.environ['CUDA_VISIBLE_DEVICES'] = cuda_string
-
-                executable_path = executable_dir + '/' + EXECUTABLE_NAME
-                command = f'{executable_path} -s 1 -v {version_idx} -niter {NUM_ITERATIONS} -num_runs {NUM_RUNS}'
-
-                if matrix_path:
-                    command += f' -matrix_path {matrix_path}'
-
-                if USING_NVSHMEM:
-                    command = f'mpirun -np {num_gpus}' + ' ' + command
+                current_version_runtimes = runtimes[cur_idx *
+                                                    NUM_RUNS: (cur_idx + 1) * NUM_RUNS]
 
                 execution_times = []
 
-                output = subprocess.run(
-                    command.split(), capture_output=True)
-
-                output = output.stdout.decode('utf-8')
-
-                runtimes = output.splitlines()
-
-                for _run_idx, runtime in enumerate(runtimes):
+                for _run_idx, runtime in enumerate(current_version_runtimes):
                     execution_time_match = execution_time_regex_pattern.match(
                         runtime)
                     execution_time_on_run = float(
@@ -230,7 +237,7 @@ if __name__ == "__main__":
             versions_to_run = [int(version_index.strip())
                                for version_index in versions_to_run]
 
-            VERSIONS_INDICES_TO_RUN = versions_to_run[:]
+            VERSION_INDICES_TO_RUN = versions_to_run[:]
 
         if sys.argv[arg_idx] == '--gpu_model':
             arg_idx += 1
