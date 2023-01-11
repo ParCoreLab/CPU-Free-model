@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
 
     auto &selected = versions[selection];
 
-    if (!silent) {
+    if (!silent && local_rank == 0) {
         std::cout << "Versions (select with -v):"
                   << "\n";
         for (int i = 0; i < versions.size(); ++i) {
