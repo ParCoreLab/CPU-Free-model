@@ -32,9 +32,13 @@ int main(int argc, char *argv[]) {
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
     const bool silent = get_arg(argv, argv + argc, "-s");
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 10000);
+
+    // How many times to run the selected version
+    const int num_runs = get_argval<int>(argv, argv + argc, "-num_runs", 1);
+
     std::string matrix_path_str = get_argval<std::string>(argv, argv + argc, "-matrix_path", "");
-    const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
-    const bool compare_to_cpu = get_arg(argv, argv + argc, "-compare-cpu");
+    bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare-single-gpu");
+    bool compare_to_cpu = get_arg(argv, argv + argc, "-compare-cpu");
 
     char *matrix_path_char = const_cast<char *>(matrix_path_str.c_str());
     bool generate_random_tridiag_matrix = matrix_path_str.empty();
@@ -182,10 +186,16 @@ int main(int argc, char *argv[]) {
         std::cout << "Running " << selected.first << "\n" << std::endl;
     }
 
+    for (int run_idx = 1; run_idx <= num_runs; run_idx++) {
     selected.second(device_csrRowIndices, device_csrColIndices, device_csrVal, num_rows, nnz,
                     matrix_is_zero_indexed, num_devices, iter_max, x_final_result,
                     single_gpu_runtime, compare_to_single_gpu, compare_to_cpu, x_ref_single_gpu,
                     x_ref_cpu);
+
+        // Only compare correctness on first run
+        compare_to_single_gpu = false;
+        compare_to_cpu = false;
+    }
 
     CUDA_RT_CALL(cudaFree(device_csrRowIndices));
     CUDA_RT_CALL(cudaFree(device_csrColIndices));

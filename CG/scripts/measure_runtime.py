@@ -113,13 +113,13 @@ def measure_runtime(save_result_to_path, executable_dir):
 
             for num_gpus in GPU_NUMS_TO_RUN:
                 print(
-                    f'Running version {version_name} on matrix {matrix_name} with {num_gpus} GPUs')
+                    f'Running version {version_name} on matrix {matrix_name} with {num_gpus} GPUs for {NUM_RUNS} runs')
 
                 cuda_string = CUDA_VISIBLE_DEVICES_SETTING[num_gpus]
                 os.environ['CUDA_VISIBLE_DEVICES'] = cuda_string
 
                 executable_path = executable_dir + '/' + EXECUTABLE_NAME
-                command = f'{executable_path} -s 1 -v {version_idx} -niter {NUM_ITERATIONS}'
+                command = f'{executable_path} -s 1 -v {version_idx} -niter {NUM_ITERATIONS} -num_runs {NUM_RUNS}'
 
                 if matrix_path:
                     command += f' -matrix_path {matrix_path}'
@@ -129,18 +129,22 @@ def measure_runtime(save_result_to_path, executable_dir):
 
                 execution_times = []
 
-                for _ in range(NUM_RUNS):
-                    output = subprocess.run(
-                        command.split(), capture_output=True)
+                output = subprocess.run(
+                    command.split(), capture_output=True)
 
-                    output = output.stdout.decode('utf-8')
+                output = output.stdout.decode('utf-8')
 
+                runtimes = output.splitlines()
+
+                for _run_idx, runtime in enumerate(runtimes):
                     execution_time_match = execution_time_regex_pattern.match(
-                        output)
+                        runtime)
                     execution_time_on_run = float(
                         execution_time_match.group('exec_time'))
 
                     execution_times.append(execution_time_on_run)
+
+                    # print(f'Run {_run_idx} took {execution_time_on_run}')
 
                 min_execution_time = min(execution_times)
 
