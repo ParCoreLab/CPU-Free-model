@@ -28,8 +28,8 @@ version_name_to_idx_map["Baseline P2P"]=2
 #version_name_to_idx_map["PERKS"]=7
 
 #version_name_to_idx_map["Baseline Copy (No compute)"]=8
-version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=9
-version_name_to_idx_map["Baseline P2P (No Compute)"]=10
+#version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=9
+#version_name_to_idx_map["Baseline P2P (No Compute)"]=10
 
 #version_name_to_idx_map["Single Stream 1TB (No Compute)"]=10
 #version_name_to_idx_map["Single Stream 2TB (No Compute)"]=11
@@ -43,15 +43,18 @@ version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized"]=1
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB"]=2
 version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB"]=3
 version_name_to_idx_map_nvshmem["NVSHMEM Double Stream"]=4
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB Partitoned"]=5
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream Partitoned"]=5
+version_name_to_idx_map_nvshmem["NVSHMEM Double Stream Partitoned"]=6
 
-version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Compute)"]=6
-version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=7
+version_name_to_idx_map_nvshmem["NVSHMEM PERKS"]=13
 
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB (No Compute)"]=8
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=9
-version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=10
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB Partitoned (No Compute)"]=11
+#version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Compute)"]=7
+#version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=8
+
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB (No Compute)"]=9
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=10
+#version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=11
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream Partitoned (No Compute)"]=12
 
 BIN="./jacobi -s 1"
 NV_BIN="./jacobi_nvshmem -s 1"
