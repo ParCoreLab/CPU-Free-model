@@ -6,12 +6,12 @@
 //    #define RTILE_Y (8)
 //#endif
 
-//minimal architecture is 600
+// minimal architecture is 600
 
 // #if defined(js2d5pt)
 #define HALO (1)
-    // #define REG_FOLDER_Y (5)
-    
+// #define REG_FOLDER_Y (5)
+
 // #elif defined(js2d9pt)
 //     #define HALO (2)
 //     #define REG_FOLDER_Y (10)
@@ -35,7 +35,7 @@
 //     #define HALO (2)
 //     #define BOX
 //     #define REG_FOLDER_Y (0)
-    
+
 //#endif
 
 //#ifndef Halo

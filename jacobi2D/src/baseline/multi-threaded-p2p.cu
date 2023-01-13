@@ -30,38 +30,37 @@
 
 #include "../../include/baseline/multi-threaded-p2p.cuh"
 
-
 namespace BaselineMultiThreadedP2P {
-    __global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
-    const int iy_start, const int iy_end, const int nx,
-            real* __restrict__ const a_new_top, const int top_iy,
-            real* __restrict__ const a_new_bottom, const int bottom_iy) {
+__global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __restrict__ const a,
+                              const int iy_start, const int iy_end, const int nx,
+                              real* __restrict__ const a_new_top, const int top_iy,
+                              real* __restrict__ const a_new_bottom, const int bottom_iy) {
     int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
     // real local_l2_norm = 0.0;
 
     if (iy < iy_end && ix < (nx - 1)) {
-    const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                 a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-    a_new[iy * nx + ix] = new_val;
+        const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                     a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+        a_new[iy * nx + ix] = new_val;
 
-    if (iy_start == iy) {
-    a_new_top[top_iy * nx + ix] = new_val;
-}
+        if (iy_start == iy) {
+            a_new_top[top_iy * nx + ix] = new_val;
+        }
 
-if ((iy_end - 1) == iy) {
-a_new_bottom[bottom_iy * nx + ix] = new_val;
-}
+        if ((iy_end - 1) == iy) {
+            a_new_bottom[bottom_iy * nx + ix] = new_val;
+        }
 
-// if (calculate_norm) {
-//     real residue = new_val - a[iy * nx + ix];
-//     local_l2_norm += residue * residue;
-// }
-}
+        // if (calculate_norm) {
+        //     real residue = new_val - a[iy * nx + ix];
+        //     local_l2_norm += residue * residue;
+        // }
+    }
 
-// if (calculate_norm) {
-//     atomicAdd(l2_norm, local_l2_norm);
-// }
+    // if (calculate_norm) {
+    //     atomicAdd(l2_norm, local_l2_norm);
+    // }
 }
 }  // namespace BaselineMultiThreadedP2P
 
@@ -167,17 +166,17 @@ int BaselineMultiThreadedP2P::init(int argc, char* argv[]) {
                 iy_start_global = dev_id * chunk_size_low + 1;
             } else {
                 iy_start_global =
-                        num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
+                    num_ranks_low * chunk_size_low + (dev_id - num_ranks_low) * chunk_size_high + 1;
             }
             int iy_end_global =
-                    iy_start_global + chunk_size - 1;  // My last index in the global array
+                iy_start_global + chunk_size - 1;  // My last index in the global array
 
             int iy_start = 1;
             iy_end[dev_id] = (iy_end_global - iy_start_global + 1) + iy_start;
 
             // Set diriclet boundary conditions on left and right boarder
             initialize_boundaries<<<(ny / num_devices) / 128 + 1, 128>>>(
-                    a, a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
+                a, a_new[dev_id], PI, iy_start_global - 1, nx, (chunk_size + 2), ny);
             CUDA_RT_CALL(cudaGetLastError());
             CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -185,9 +184,9 @@ int BaselineMultiThreadedP2P::init(int argc, char* argv[]) {
             CUDA_RT_CALL(cudaStreamCreate(&push_top_stream));
             CUDA_RT_CALL(cudaStreamCreate(&push_bottom_stream));
             CUDA_RT_CALL(
-                    cudaEventCreateWithFlags(compute_done[0] + dev_id, cudaEventDisableTiming));
+                cudaEventCreateWithFlags(compute_done[0] + dev_id, cudaEventDisableTiming));
             CUDA_RT_CALL(
-                    cudaEventCreateWithFlags(compute_done[1] + dev_id, cudaEventDisableTiming));
+                cudaEventCreateWithFlags(compute_done[1] + dev_id, cudaEventDisableTiming));
             CUDA_RT_CALL(cudaEventCreateWithFlags(&push_top_done, cudaEventDisableTiming));
             CUDA_RT_CALL(cudaEventCreateWithFlags(&push_bottom_done, cudaEventDisableTiming));
 
@@ -210,11 +209,11 @@ int BaselineMultiThreadedP2P::init(int argc, char* argv[]) {
 #pragma omp barrier
                 CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, compute_done[iter % 2][top], 0));
                 CUDA_RT_CALL(
-                        cudaStreamWaitEvent(compute_stream, compute_done[iter % 2][bottom], 0));
+                    cudaStreamWaitEvent(compute_stream, compute_done[iter % 2][bottom], 0));
 
                 jacobi_kernel<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
-                        a_new[dev_id], a, iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top],
-                        a_new[bottom], 0);
+                    a_new[dev_id], a, iy_start, iy_end[dev_id], nx, a_new[top], iy_end[top],
+                    a_new[bottom], 0);
                 CUDA_RT_CALL(cudaGetLastError());
                 CUDA_RT_CALL(cudaEventRecord(compute_done[(iter + 1) % 2][dev_id], compute_stream));
 
@@ -229,9 +228,9 @@ int BaselineMultiThreadedP2P::init(int argc, char* argv[]) {
 
             if (compare_to_single_gpu) {
                 CUDA_RT_CALL(cudaMemcpy(
-                        a_h + iy_start_global * nx, a + nx,
-                        std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
-                        cudaMemcpyDeviceToHost));
+                    a_h + iy_start_global * nx, a + nx,
+                    std::min((ny - iy_start_global) * nx, chunk_size * nx) * sizeof(real),
+                    cudaMemcpyDeviceToHost));
             }
 
 #pragma omp barrier

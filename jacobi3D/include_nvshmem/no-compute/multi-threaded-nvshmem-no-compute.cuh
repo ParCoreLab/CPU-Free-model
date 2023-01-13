@@ -4,7 +4,7 @@
 #include "../common.h"
 
 namespace BaselineMultiThreadedNvshmemNoCompute {
-    int init(int argc, char **argv);
+int init(int argc, char **argv);
 }
 
 #endif  // INC_3D_STENCIL_BASELINE_MULTI_THREADED_NVSHMEM_NO_COMPUTE_CUH

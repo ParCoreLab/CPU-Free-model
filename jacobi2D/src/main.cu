@@ -16,17 +16,15 @@
 #include "../include/no-compute/multi-threaded-p2p-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
 
-
 using std::make_pair;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     const std::array versions{
         make_pair("Baseline Multi Threaded Copy", BaselineMultiThreadedCopy::init),
         make_pair("Baseline Multi Threaded Copy Overlap", BaselineMultiThreadedCopyOverlap::init),
         make_pair("Baseline Multi Threaded P2P", BaselineMultiThreadedP2P::init),
         make_pair("Baseline Single Threaded Copy", BaselineSingleThreadedCopy::init),
-        
+
         make_pair("Single stream multi threaded  (one thread block communicates)",
                   SSMultiThreadedOneBlockComm::init),
         make_pair("Single stream multi threaded (two thread blocks communicate)",
@@ -54,19 +52,16 @@ int main(int argc, char *argv[])
 
     auto &selected = versions[selection];
 
-    if (!silent)
-    {
+    if (!silent) {
         std::cout << "Versions (select with -v):"
                   << "\n";
-        for (int i = 0; i < versions.size(); ++i)
-        {
+        for (int i = 0; i < versions.size(); ++i) {
             auto &v = versions[i];
             std::cout << i << ":\t" << v.first << "\n";
         }
         std::cout << std::endl;
 
-        std::cout << "Running " << selected.first << "\n"
-                  << std::endl;
+        std::cout << "Running " << selected.first << "\n" << std::endl;
     }
 
     return selected.second(argc, argv);

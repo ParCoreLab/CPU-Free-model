@@ -4,7 +4,7 @@
 #include "../common.h"
 
 namespace MultiGPUPeerTilingNvshmem {
-    int init(int argc, char** argv);
+int init(int argc, char** argv);
 }
 
 #endif  // INC_3D_STENCIL_MULTI_GPU_PEER_TILING_NVSHMEM_CUH

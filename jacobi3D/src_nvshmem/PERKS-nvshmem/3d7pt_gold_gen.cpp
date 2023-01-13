@@ -6,8 +6,8 @@
 //// #define REAL float
 //// #endif
 //
-//template<class REAL>
-//static void j3d_step
+// template<class REAL>
+// static void j3d_step
 //(const REAL* l_input, int height, int width_y, int width_x, REAL* l_output, int step)
 //{
 //  const REAL (*input)[width_y][width_x] =
@@ -31,12 +31,13 @@
 //          0.165f * input[t0][l_y][l_x] +
 //          0.166f * input[b0][l_y][l_x]
 //          -1.67f * input[l_h][l_y][l_x];
-//	  //if (step == 0) printf ("output[%d][%d][%d] = %.6f (%.6f)\n", i, j, k, output[i][j][k], input[i+1][j][k]);
+//	  //if (step == 0) printf ("output[%d][%d][%d] = %.6f (%.6f)\n", i, j, k, output[i][j][k],
+// input[i+1][j][k]);
 //      }
 //}
 //
-//template<class REAL>
-//void j3d_gold_iterative
+// template<class REAL>
+// void j3d_gold_iterative
 //(REAL *l_input, int height, int width_y, int width_x, REAL* l_output, int iteration)
 //{
 //  REAL* temp = getZero3DArray<REAL>(height, width_y, width_x);
@@ -66,4 +67,4 @@
 //  // delete[] temp;
 //}
 //
-//PERKS_INITIALIZE_ALL_TYPE(PERKS_DECLARE_INITIONIZATION_REFERENCE_ITERATIVE);
+// PERKS_INITIALIZE_ALL_TYPE(PERKS_DECLARE_INITIONIZATION_REFERENCE_ITERATIVE);

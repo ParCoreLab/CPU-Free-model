@@ -1,3 +1,4 @@
+.vscode/
 .idea/
 
 *.cmake
@@ -5,15 +6,12 @@
 *.out
 
 jacobi
-2D_Stencil
+jacobi_nvshmem
+*/results/
 */obj/
-CMakeFiles/
-Testing/
-cmake-build-debug
-cmake-build-debug-remote
-CMakeCache.txt
-*.cbp
-/.vscode
+*/obj_nvshmem/
+
 # Benchmarking artifacts
 *.log
+*.txt
 
