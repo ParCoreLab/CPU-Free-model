@@ -4,6 +4,7 @@
 #include "../../include/PERKS/multi-stream-perks.cuh"
 
 #include "config.cuh"
+
 #include "./common/cuda_common.cuh"
 #include "./common/cuda_computation.cuh"
 #include "./common/jacobi_cuda.cuh"
@@ -15,52 +16,6 @@
 namespace cg = cooperative_groups;
 
 namespace MultiStreamPERKS {
-__global__ void __launch_bounds__(1024, 1)
-    jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
-                  const int iter_max, volatile int *iteration_done) {
-    cg::thread_block cta = cg::this_thread_block();
-    cg::grid_group grid = cg::this_grid();
-
-    int iter = 0;
-
-    int cur_iter_mod = 0;
-    int next_iter_mod = 1;
-
-    const int comp_size_iy = gridDim.y * blockDim.y * nx;
-    const int comp_size_ix = gridDim.x * blockDim.x;
-
-    const int comp_start_iy = (blockIdx.y * blockDim.y + threadIdx.y + iy_start + 1) * nx;
-    const int comp_start_ix = (blockIdx.x * blockDim.x + threadIdx.x + 1);
-
-    const int end_iy = (iy_end - 1) * nx;
-    const int end_ix = (nx - 1);
-
-    while (iter < iter_max) {
-        for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy) {
-            for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix) {
-                a_new[iy + ix] =
-                    0.25 * (a[iy + ix + 1] + a[iy + ix - 1] + a[iy + nx + ix] + a[iy - nx + ix]);
-            }
-        }
-
-        real *temp = a_new;
-        a_new = a;
-        a = temp;
-
-        iter++;
-
-        cur_iter_mod = next_iter_mod;
-        next_iter_mod = 1 - cur_iter_mod;
-        cg::sync(grid);
-        if (!grid.thread_rank()) {
-            while (iteration_done[0] != iter) {
-            }
-            iteration_done[1] = iter;
-        }
-        cg::sync(grid);
-    }
-}
-
 __global__ void __launch_bounds__(1024, 1)
     boundary_sync_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
                          const int iter_max, volatile real *local_halo_buffer_for_top_neighbor,
@@ -90,8 +45,8 @@ __global__ void __launch_bounds__(1024, 1)
 
     while (iter < iter_max) {
         if (!grid.thread_rank()) {
-            while (iteration_done[1] != iter) {
-            }
+            //            while (iteration_done[1] != iter) {
+            //            }
         }
         cg::sync(grid);
         if (blockIdx.x == gridDim.x - 1) {
@@ -178,6 +133,77 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
+
+    // PERKS config
+
+    // 128 or 256
+    int bdimx = 256;
+    int blkpsm = 0;
+
+    // damnit
+    if (blkpsm <= 0) blkpsm = 100;
+
+    bool useSM = true;
+    bool isDoubleTile = true;
+
+    // Change this later
+    int ptx = 800;
+
+    int REG_FOLDER_Y = 0;
+
+    if (blkpsm * bdimx >= 2 * 256) {
+        if (useSM) {
+            if (ptx == 800)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 128, 800, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 128, 800, true, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 128, 700, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 128, 700, true, real>::val);
+        } else {
+            if (ptx == 800)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 128, 800, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 128, 800, false, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 128, 700, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 128, 700, false, real>::val);
+        }
+    } else {
+        if (useSM) {
+            if (ptx == 800)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 256, 800, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 256, 800, true, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 256, 700, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 256, 700, true, real>::val);
+        } else {
+            if (ptx == 800)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 256, 800, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 256, 800, false, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 256, 700, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 256, 700, false, real>::val);
+        }
+    }
+
+    auto execute_kernel =
+        isDoubleTile ? (blkpsm * bdimx >= 2 * 256
+                            ? (useSM ? kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 128, true>
+                                     : kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 128, false>)
+                            : (useSM ? kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 256, true>
+                                     : kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 256, false>))
+                     : (blkpsm * bdimx >= 2 * 256
+                            ? (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 128, true>
+                                     : kernel_general_wrapper<real, RTILE_Y, HALO, 128, false>)
+                            : (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 256, true>
+                                     : kernel_general_wrapper<real, RTILE_Y, HALO, 256, false>));
 
 #pragma omp parallel num_threads(num_devices)
     {
@@ -297,13 +323,101 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         dim3 comm_dim_grid(2);
         dim3 comm_dim_block(dim_block_x * dim_block_y);
 
-        void *kernelArgsInner[] = {(void *)&a_new[dev_id],
-                                   (void *)&a[dev_id],
-                                   (void *)&iy_start,
-                                   (void *)&iy_end[dev_id],
-                                   (void *)&nx,
-                                   (void *)&iter_max,
-                                   (void *)&iteration_done_flags[dev_id]};
+        // More PERKS config
+        const int LOCAL_RTILE_Y = isDoubleTile ? RTILE_Y * 2 : RTILE_Y;
+
+        int sm_count;
+        cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, 0);
+
+        // Reserve 2 for the boundary kernel
+        sm_count -= 4;
+
+        real *L2_cache3;
+        real *L2_cache4;
+        size_t L2_utage_2 = sizeof(real) * (ny)*2 * (nx / bdimx) * HALO;
+
+        CUDA_RT_CALL(cudaMalloc(&L2_cache3, L2_utage_2 * 2));
+        L2_cache4 = L2_cache3 + (ny)*2 * (nx / bdimx) * HALO;
+
+        // initialize shared memory
+        int maxSharedMemory;
+        CUDA_RT_CALL(cudaDeviceGetAttribute(&maxSharedMemory,
+                                            cudaDevAttrMaxSharedMemoryPerMultiprocessor, 0));
+
+        int SharedMemoryUsed = maxSharedMemory - 1024;
+        CUDA_RT_CALL(cudaFuncSetAttribute(
+            execute_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, SharedMemoryUsed));
+
+        size_t executeSM = 0;
+
+        int basic_sm_space = (LOCAL_RTILE_Y + 2 * HALO) * (bdimx + 2 * HALO) + 1;
+
+        size_t sharememory_basic = (basic_sm_space) * sizeof(real);
+        executeSM = sharememory_basic;
+        {
+#define halo HALO
+            executeSM += (HALO * 2 * ((REG_FOLDER_Y)*LOCAL_RTILE_Y + isBOX)) * sizeof(real);
+#undef halo
+        }
+
+        int numBlocksPerSm_current = 1000;
+
+        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &numBlocksPerSm_current, execute_kernel, bdimx, executeSM));
+        CUDA_RT_CALL(cudaDeviceSynchronize());
+        // printf("");
+        // int smbound=SharedMemoryUsed/executeSM;
+        // printf("%d,%d,%d\n",numBlocksPerSm_current,blkpsm,smbound);
+        if (blkpsm != 0) {
+            //            blkpsm = 1;
+
+            numBlocksPerSm_current = min(numBlocksPerSm_current, blkpsm);
+        }
+
+        dim3 block_dim(bdimx);
+        dim3 grid_dim(nx / bdimx, sm_count * numBlocksPerSm_current / (nx / bdimx));
+
+        dim3 executeBlockDim = block_dim;
+        dim3 executeGridDim = grid_dim;
+
+#define halo HALO
+
+        size_t max_sm_flder = 0;
+        int tmp0 = SharedMemoryUsed / sizeof(real) / numBlocksPerSm_current;
+        int tmp1 = 2 * HALO * isBOX;
+        int tmp2 = basic_sm_space;
+        int tmp3 = 2 * HALO * (REG_FOLDER_Y)*LOCAL_RTILE_Y;
+        int tmp4 = 2 * HALO * (bdimx + 2 * HALO);
+        tmp0 = tmp0 - tmp1 - tmp2 - tmp3 - tmp4;
+        tmp0 = tmp0 > 0 ? tmp0 : 0;
+        max_sm_flder = (tmp0) / (bdimx + 4 * HALO) / LOCAL_RTILE_Y;
+        // printf("smflder is %d\n",max_sm_flder);
+        if (!useSM) max_sm_flder = 0;
+        if (useSM && max_sm_flder == 0) {
+            std::cout << "Jesse" << std::endl;
+        }
+
+        size_t sm_cache_size = max_sm_flder == 0 ? 0
+                                                 : (max_sm_flder * LOCAL_RTILE_Y + 2 * HALO) *
+                                                       (bdimx + 2 * HALO) * sizeof(real);
+        size_t y_axle_halo =
+            (HALO * 2 * ((max_sm_flder + REG_FOLDER_Y) * LOCAL_RTILE_Y + isBOX)) * sizeof(real);
+        executeSM = sharememory_basic + y_axle_halo;
+        executeSM += sm_cache_size;
+        // =====================================================================================
+        const auto chunk_size_local = chunk_size - 100;
+
+        void *kernelArgsInner[] = {(void *)&a[dev_id],
+                                     (void *)&ny,
+                                     (void *)&nx,
+                                     (void *)&iy_start,
+                                     (void *)&iy_end[dev_id], // iy_end
+                                     (void *)&a_new[dev_id],
+                                     (void *)&L2_cache3,
+                                     (void *)&L2_cache4,
+                                     (void *)&iter_max,
+                                     (void *)&max_sm_flder,
+                                     (void *)&iteration_done_flags[0]};
 
         void *kernelArgsBoundary[] = {(void *)&a_new[dev_id],
                                       (void *)&a[dev_id],
@@ -330,11 +444,9 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
         CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-        // THE KERNELS ARE SERIALIZED!
-        // perhaps only on V100
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::jacobi_kernel,
-                                                 comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
-                                                 inner_domain_stream));
+//        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) execute_kernel, executeGridDim,
+//                                                 executeBlockDim, kernelArgsInner, executeSM,
+//                                                 inner_domain_stream));
 
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel,
                                                  comm_dim_grid, comm_dim_block, kernelArgsBoundary,

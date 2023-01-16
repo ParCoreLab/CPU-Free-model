@@ -15,20 +15,20 @@ template<class REAL, int LOCAL_TILE_Y, int halo,
           int registeramount, bool UseSMCache, bool isstar,
           int minblocks>
 __launch_bounds__(MAXTHREAD, minblocks)
-__global__ void kernel_general_wrapper(REAL *  input, int width_y, int width_x, 
+__global__ void kernel_general_wrapper(REAL *  input, int width_y, int width_x, int iy_start, int iy_end,
   REAL *  __var_4__, 
   REAL *  l2_cache_o,REAL *  l2_cache_i,
   int iteration,
-  int max_sm_flder)
+  int max_sm_flder, volatile int *iteration_done)
 {
   inner_general<REAL, LOCAL_TILE_Y, halo, 
   regfolder<halo,isstar,registeramount,PERKS_ARCH,UseSMCache,REAL,LOCAL_TILE_Y>::val, 
   // 1, 
-  UseSMCache>( input,  width_y,  width_x, 
+  UseSMCache>( input,  width_y,  width_x, iy_start, iy_end,
     __var_4__, 
     l2_cache_o, l2_cache_i,
     iteration,
-    max_sm_flder);
+    max_sm_flder, iteration_done);
 }
 
 PERKS_INITIALIZE_ALL_TYPE_4ARG(PERKS_DECLARE_INITIONIZATION_GENERAL_WRAPPER,8,HALO,128,true);

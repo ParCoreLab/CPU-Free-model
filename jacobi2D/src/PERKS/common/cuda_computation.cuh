@@ -259,7 +259,7 @@ __global__ void kernel_persistent_baseline_box_async( REAL *  input, int width_y
 template<class REAL, int LOCAL_TILE_Y, int halo,int reg_folder_y, int minblocks, bool UseSMCache>
 __global__ void kernel_general(REAL *  input, int width_y, int width_x, 
   REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp, 
-  int iteration, int max_sm_flder);
+  int iteration, int max_sm_flder, volatile int *iteration_done);
 
 template<class REAL, int LOCAL_TILE_Y, int halo,int reg_folder_y, int minblocks, bool UseSMCache>
 __global__ void kernel_general_async(REAL *  input, int width_y, int width_x, 
@@ -278,7 +278,7 @@ __global__ void kernel_general_box_async( REAL *  input, int width_y, int width_
 
 
 #define PERKS_DECLARE_INITIONIZATION_GENERAL(_type,tile,halo,rf,minblocks,usesm) \
-    __global__ void kernel_general<_type,tile,halo,rf,minblocks,usesm>(_type*,int,int,_type*,_type*,_type*,int, int);
+    __global__ void kernel_general<_type,tile,halo,rf,minblocks,usesm>(_type*,int,int,_type*,_type*,_type*,int, int, int*);
 
 #define PERKS_DECLARE_INITIONIZATION_GENERALBOX(_type,tile,halo,rf,minblocks,usesm) \
     __global__ void kernel_general_box<_type,tile,halo,rf,minblocks,usesm>(_type*,int,int,_type*,_type*,_type*,int, int);
@@ -296,14 +296,14 @@ template<class REAL, int LOCAL_TILE_Y, int halo,
           int registeramount, bool UseSMCache, bool isstar=(isBOX==0),
           int minblocks=256/registeramount>
 __global__ void  kernel_general_wrapper
-(REAL *  input, int width_y, int width_x, 
+(REAL *  input, int width_y, int width_x, int iy_start, int iy_end,
   REAL *  __var_4__, 
   REAL *  l2_cache_o,REAL *  l2_cache_i,
   int iteration,
-  int max_sm_flder);
+  int max_sm_flder, volatile int *iteration_done);
 
 #define PERKS_DECLARE_INITIONIZATION_GENERAL_WRAPPER(_type,tile,halo,ramount,usesm) \
-    __global__ void kernel_general_wrapper<_type,tile,halo,ramount,usesm>(_type*,int,int,_type*,_type*,_type*,int, int);
+    __global__ void kernel_general_wrapper<_type,tile,halo,ramount,usesm>(_type*,int,int,int,int,_type*,_type*,_type*,int, int, volatile int*);
 
 
 
