@@ -7,11 +7,10 @@ namespace cg = cooperative_groups;
 namespace SSMultiThreadedMultiBlockCommNvshmem {
 
 __global__ void __launch_bounds__(1024, 1)
-    jacobi_kernel(real *a_new, real *a, const int iz_start, const int iz_end, const int ny,
-                  const int nx, const int comm_sm_count_per_layer,
-                  const int comm_block_count_per_sm, const int comp_block_count_per_sm,
-                  const int tile_count_y, const int tile_count_x, const int iter_max,
-                  uint64_t *is_done_computing_flags, const int top_iz, const int bottom_iz,
+    jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
+                  const int comm_sm_count_per_layer, const int comm_block_count_per_sm,
+                  const int comp_block_count_per_sm, const int tile_count_x, const int iter_max,
+                  uint64_t *is_done_computing_flags, const int top_iy, const int bottom_iy,
                   const int top, const int bottom) {
     cg::thread_block cta = cg::this_thread_block();
     cg::grid_group grid = cg::this_grid();
@@ -20,21 +19,14 @@ __global__ void __launch_bounds__(1024, 1)
     int cur_iter_mod = 0;
     int next_iter_mod = 1;
 
-    const int comp_start_iz =
-        ((blockIdx.x * comp_block_count_per_sm / (tile_count_x * tile_count_y)) * blockDim.z +
-         threadIdx.z + iz_start + 1);
-    const int comp_start_iy =
-        ((((blockIdx.x * comp_block_count_per_sm) / tile_count_x) % tile_count_y) * blockDim.y +
-         threadIdx.y + 1);
+    const int comp_start_iy = ((blockIdx.x * comp_block_count_per_sm / tile_count_x) * blockDim.y +
+                               threadIdx.y + iy_start + 1);
     const int comp_start_ix =
         ((blockIdx.x * comp_block_count_per_sm) % tile_count_x) * blockDim.x + threadIdx.x + 1;
 
     const int comm_block_idx = blockIdx.x % comm_sm_count_per_layer;
-    const int comm_start_block_y =
-        (((comm_block_idx * comm_block_count_per_sm) / tile_count_x) * blockDim.y);
     const int comm_start_block_x =
         ((comm_block_idx * comm_block_count_per_sm) % tile_count_x) * blockDim.x;
-    const int comm_start_iy = comm_start_block_y + (threadIdx.y + 1);
     const int comm_start_ix = comm_start_block_x + threadIdx.x + 1;
 
     while (iter < iter_max) {
@@ -48,95 +40,70 @@ __global__ void __launch_bounds__(1024, 1)
             cg::sync(cta);
 
             int block_count = 0;
-            int iy = comm_start_iy;
             int ix = comm_start_ix;
-
-            for (; block_count < comm_block_count_per_sm && iy < (ny - 1); iy += blockDim.y) {
-                for (; block_count < comm_block_count_per_sm && ix < (nx - 1); ix += blockDim.x) {
-                    const real first_row_val =
-                        (real(1) / real(6)) * (a[iz_start * ny * nx + iy * nx + ix + 1] +
-                                               a[iz_start * ny * nx + iy * nx + ix - 1] +
-                                               a[iz_start * ny * nx + (iy + 1) * nx + ix] +
-                                               a[iz_start * ny * nx + (iy - 1) * nx + ix] +
-                                               a[(iz_start + 1) * ny * nx + iy * nx + ix] +
-                                               a[(iz_start - 1) * ny * nx + iy * nx + ix]);
-                    a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
-                    block_count++;
-                }
-                block_count += (block_count < comm_block_count_per_sm) && !(ix < (nx - 1));
-                ix = (threadIdx.x + 1);
+            for (; block_count < comm_block_count_per_sm && ix < (nx - 1); ix += blockDim.x) {
+                const real first_row_val =
+                    (real(1) / real(4)) *
+                    (a[iy_start * nx + ix + 1] + a[iy_start * nx + ix - 1] +
+                     a[(iy_start + 1) * nx + ix] + a[(iy_start - 1) * nx + ix]);
+                a_new[iy_start * nx + ix] = first_row_val;
+                block_count++;
             }
+            block_count += (block_count < comm_block_count_per_sm) && !(ix < (nx - 1));
 
             nvshmemx_putmem_signal_nbi_block(
-                a_new + top_iz * ny * nx + comm_start_block_y * nx + comm_start_block_x,
-                a_new + iz_start * ny * nx + comm_start_block_y * nx + comm_start_block_x,
-                min(comm_block_count_per_sm * cta.num_threads(),
-                    max(0, ny * nx - comm_start_block_y * nx - comm_start_block_x)) *
+                a_new + top_iy * nx + comm_start_block_x,
+                a_new + iy_start * nx + comm_start_block_x,
+                min(comm_block_count_per_sm * cta.num_threads(), max(0, nx - comm_start_block_x)) *
                     sizeof(real),
                 is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer +
                     comm_sm_count_per_layer + comm_block_idx,
                 iter + 1, NVSHMEM_SIGNAL_SET, top);
+
         } else if (blockIdx.x >= gridDim.x - 2 * comm_sm_count_per_layer) {
             if (!cta.thread_rank()) {
-                nvshmem_signal_wait_until(
-                    is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer +
-                        comm_sm_count_per_layer + comm_block_idx,
-                    NVSHMEM_CMP_EQ, iter);
+                nvshmem_signal_wait_until(is_done_computing_flags +
+                                              cur_iter_mod * 2 * comm_sm_count_per_layer +
+                                              comm_sm_count_per_layer + comm_block_idx,
+                                          NVSHMEM_CMP_EQ, iter);
             }
             cg::sync(cta);
 
             int block_count = 0;
-            int iy = comm_start_iy;
             int ix = comm_start_ix;
 
-            for (; block_count < comm_block_count_per_sm && iy < (ny - 1); iy += blockDim.y) {
-                for (; block_count < comm_block_count_per_sm && ix < (nx - 1); ix += blockDim.x) {
-                    const real last_row_val =
-                        (real(1) / real(6)) * (a[(iz_end - 1) * ny * nx + iy * nx + ix + 1] +
-                                               a[(iz_end - 1) * ny * nx + iy * nx + ix - 1] +
-                                               a[(iz_end - 1) * ny * nx + (iy + 1) * nx + ix] +
-                                               a[(iz_end - 1) * ny * nx + (iy - 1) * nx + ix] +
-                                               a[iz_end * ny * nx + iy * nx + ix] +
-                                               a[(iz_end - 2) * ny * nx + iy * nx + ix]);
-                    a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
-                    block_count++;
-                }
-                block_count += (block_count < comm_block_count_per_sm) && !(ix < (nx - 1));
-                ix = (threadIdx.x + 1);
+            for (; block_count < comm_block_count_per_sm && ix < (nx - 1); ix += blockDim.x) {
+                const real last_row_val =
+                    (real(1) / real(4)) *
+                    (a[(iy_end - 1) * nx + ix + 1] + a[(iy_end - 1) * nx + ix - 1] +
+                     a[iy_end * nx + ix] + a[(iy_end - 2) * nx + ix]);
+                a_new[(iy_end - 1) * nx + ix] = last_row_val;
+                block_count++;
             }
+            block_count += (block_count < comm_block_count_per_sm) && !(ix < (nx - 1));
 
             nvshmemx_putmem_signal_nbi_block(
-                a_new + bottom_iz * ny * nx + comm_start_block_y * nx + comm_start_block_x,
-                a_new + (iz_end - 1) * ny * nx + comm_start_block_y * nx + comm_start_block_x,
-                min(comm_block_count_per_sm * cta.num_threads(),
-                    max(0, ny * nx - comm_start_block_y * nx - comm_start_block_x)) *
+                a_new + bottom_iy * nx + comm_start_block_x,
+                a_new + (iy_end - 1) * nx + comm_start_block_x,
+                min(comm_block_count_per_sm * cta.num_threads(), max(0, nx - comm_start_block_x)) *
                     sizeof(real),
                 is_done_computing_flags + next_iter_mod * 2 * comm_sm_count_per_layer +
                     comm_block_idx,
                 iter + 1, NVSHMEM_SIGNAL_SET, bottom);
         } else {
-            int iz = comp_start_iz;
             int iy = comp_start_iy;
             int ix = comp_start_ix;
             int block_count = 0;
 
-            for (; block_count < comp_block_count_per_sm && iz < (iz_end - 1); iz += blockDim.z) {
-                for (; block_count < comp_block_count_per_sm && iy < (ny - 1); iy += blockDim.y) {
-                    for (; block_count < comp_block_count_per_sm && ix < (nx - 1);
-                         ix += blockDim.x) {
-                        a_new[iz * ny * nx + iy * nx + ix] =
-                            (real(1) / real(6)) * (a[iz * ny * nx + iy * nx + ix + 1] +
-                                                   a[iz * ny * nx + iy * nx + ix - 1] +
-                                                   a[iz * ny * nx + (iy + 1) * nx + ix] +
-                                                   a[iz * ny * nx + (iy - 1) * nx + ix] +
-                                                   a[(iz + 1) * ny * nx + iy * nx + ix] +
-                                                   a[(iz - 1) * ny * nx + iy * nx + ix]);
-                        block_count++;
-                    }
-                    block_count += (block_count < comp_block_count_per_sm) && !(ix < (nx - 1));
-                    ix = (threadIdx.x + 1);
+            for (; block_count < comp_block_count_per_sm && iy < (iy_end - 1); iy += blockDim.y) {
+                for (; block_count < comp_block_count_per_sm && ix < (nx - 1); ix += blockDim.x) {
+                    a_new[iy * nx + ix] =
+                        (real(1) / real(4)) * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                               a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+                    block_count++;
                 }
-                iy = (threadIdx.y + 1);
+                block_count += (block_count < comp_block_count_per_sm) && !(ix < (nx - 1));
+                ix = (threadIdx.x + 1);
             }
         }
 
@@ -158,7 +125,6 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
     const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
-    const int nz = get_argval<int>(argv, argv + argc, "-nz", 512);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
     real *a;
@@ -214,7 +180,7 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[]) {
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * nz;
+    long long unsigned int mesh_size_per_rank = nx * ny;
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1;  // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -244,19 +210,19 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[]) {
     nvshmem_barrier_all();
 
     if (compare_to_single_gpu) {
-        CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * nz * sizeof(real)));
-        CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * nz * sizeof(real)));
+        CUDA_RT_CALL(cudaMallocHost(&a_ref_h, nx * ny * sizeof(real)));
+        CUDA_RT_CALL(cudaMallocHost(&a_h, nx * ny * sizeof(real)));
 
-        runtime_serial_non_persistent = single_gpu(nz, ny, nx, iter_max, a_ref_h, 0, true);
+        runtime_serial_non_persistent = single_gpu(nx, ny, iter_max, a_ref_h, 0, true);
     }
 
     nvshmem_barrier_all();
 
     int chunk_size;
-    int chunk_size_low = (nz - 2) / npes;
+    int chunk_size_low = (ny - 2) / npes;
     int chunk_size_high = chunk_size_low + 1;
 
-    int num_ranks_low = npes * chunk_size_low + npes - (nz - 2);
+    int num_ranks_low = npes * chunk_size_low + npes - (ny - 2);
     if (mype < num_ranks_low)
         chunk_size = chunk_size_low;
     else
@@ -271,23 +237,19 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[]) {
 
     const int dim_block_x =
         nx >= num_threads_per_block ? num_threads_per_block : (int)pow(2, ceil(log2(nx)));
-    const int dim_block_y = ny >= (num_threads_per_block / dim_block_x)
+    const int dim_block_y = chunk_size_high >= (num_threads_per_block / dim_block_x)
                                 ? (num_threads_per_block / dim_block_x)
-                                : (int)pow(2, ceil(log2(ny)));
-    const int dim_block_z = chunk_size_high >= (num_threads_per_block / (dim_block_x * dim_block_y))
-                                ? (num_threads_per_block / (dim_block_x * dim_block_y))
                                 : (int)pow(2, ceil(log2(chunk_size_high)));
 
     const int tile_count_x = nx / (dim_block_x) + (nx % (dim_block_x) != 0);
-    const int tile_count_y = ny / (dim_block_y) + (ny % (dim_block_y) != 0);
-    const int tile_count_z =
-        chunk_size_high / (dim_block_z) + (chunk_size_high % (dim_block_z) != 0);
+    const int tile_count_y =
+        chunk_size_high / (dim_block_y) + (chunk_size_high % (dim_block_y) != 0);
 
-    const int comm_layer_tile_count = tile_count_x * tile_count_y;
-    const int comp_total_tile_count = tile_count_x * tile_count_y * tile_count_z;
+    const int comm_layer_tile_count = tile_count_x;
+    const int comp_total_tile_count = tile_count_x * tile_count_y;
 
     const int comm_sm_count_per_layer =
-        numSms / (tile_count_z + 2) + (numSms % (tile_count_z + 2) != 0);
+        numSms / (tile_count_y + 2) + (numSms % (tile_count_y + 2) != 0);
     const int comp_sm_count = comp_total_tile_count < numSms - 2 * comm_sm_count_per_layer
                                   ? comp_total_tile_count
                                   : numSms - 2 * comm_sm_count_per_layer;
@@ -301,56 +263,55 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[]) {
 
     const int top_pe = mype > 0 ? mype - 1 : (npes - 1);
     const int bottom_pe = (mype + 1) % npes;
-    int iz_end_top = (top_pe < num_ranks_low) ? chunk_size_low + 1 : chunk_size_high + 1;
-    int iz_start_bottom = 0;
+
+    int iy_end_top = (top_pe < num_ranks_low) ? chunk_size_low + 1 : chunk_size_high + 1;
+    int iy_start_bottom = 0;
 
     nvshmem_barrier_all();
 
-    a = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
-    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
+    a = (real *)nvshmem_malloc(nx * (chunk_size_high + 2) * sizeof(real));
+    a_new = (real *)nvshmem_malloc(nx * (chunk_size_high + 2) * sizeof(real));
 
-    CUDA_RT_CALL(cudaMemset((void *)a, 0, nx * ny * (chunk_size_high + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMemset((void *)a_new, 0, nx * ny * (chunk_size_high + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset((void *)a, 0, nx * (chunk_size_high + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset((void *)a_new, 0, nx * (chunk_size_high + 2) * sizeof(real)));
 
     is_done_computing_flags = (uint64_t *)nvshmem_malloc(total_num_flags * sizeof(uint64_t));
     CUDA_RT_CALL(cudaMemset(is_done_computing_flags, 0, total_num_flags * sizeof(uint64_t)));
 
     // Calculate local domain boundaries
-    int iz_start_global;  // My start index in the global array
+    int iy_start_global;  // My start index in the global array
     if (mype < num_ranks_low) {
-        iz_start_global = mype * chunk_size_low + 1;
+        iy_start_global = mype * chunk_size_low + 1;
     } else {
-        iz_start_global =
+        iy_start_global =
             num_ranks_low * chunk_size_low + (mype - num_ranks_low) * chunk_size_high + 1;
     }
-    int iz_end_global = iz_start_global + chunk_size - 1;  // My last index in the global array
+    int iy_end_global = iy_start_global + chunk_size - 1;  // My last index in the global array
 
-    int iz_start = 1;
-    int iz_end = (iz_end_global - iz_start_global + 1) + iz_start;
+    int iy_start = 1;
+    int iy_end = (iy_end_global - iy_start_global + 1) + iy_start;
 
-    initialize_boundaries<<<(nz / npes) / 128 + 1, 128>>>(a_new, a, PI, iz_start_global - 1, nx, ny,
-                                                          chunk_size + 2, nz);
+    initialize_boundaries<<<(ny / npes) / 128 + 1, 128>>>(a_new, a, PI, iy_start_global - 1, nx,
+                                                          chunk_size + 2, ny);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
     dim3 dim_grid(comp_sm_count + comm_sm_count_per_layer * 2);
-    dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
+    dim3 dim_block(dim_block_x, dim_block_y);
 
     void *kernelArgs[] = {(void *)&a_new,
                           (void *)&a,
-                          (void *)&iz_start,
-                          (void *)&iz_end,
-                          (void *)&ny,
+                          (void *)&iy_start,
+                          (void *)&iy_end,
                           (void *)&nx,
                           (void *)&comm_sm_count_per_layer,
                           (void *)&comm_block_count_per_sm,
                           (void *)&comp_block_count_per_sm,
-                          (void *)&tile_count_y,
                           (void *)&tile_count_x,
                           (void *)&iter_max,
                           (void *)&is_done_computing_flags,
-                          (void *)&iz_end_top,
-                          (void *)&iz_start_bottom,
+                          (void *)&iy_end_top,
+                          (void *)&iy_start_bottom,
                           (void *)&top_pe,
                           (void *)&bottom_pe};
 
@@ -378,23 +339,19 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[]) {
 
     bool result_correct = 1;
     if (compare_to_single_gpu) {
-        CUDA_RT_CALL(cudaMemcpy(a_h + iz_start_global * ny * nx, a + ny * nx,
-                                std::min(nz - iz_start_global, chunk_size) * nx * ny * sizeof(real),
+        CUDA_RT_CALL(cudaMemcpy(a_h + iy_start_global * nx, a + nx,
+                                std::min(ny - iy_start_global, chunk_size) * nx * sizeof(real),
                                 cudaMemcpyDeviceToHost));
 
-        for (int iz = iz_start_global; result_correct && (iz <= iz_end_global); ++iz) {
-            for (int iy = 1; result_correct && (iy < (ny - 1)); ++iy) {
-                for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix) {
-                    if (std::fabs(a_h[iz * ny * nx + iy * nx + ix] -
-                                  a_ref_h[iz * ny * nx + iy * nx + ix]) > tol) {
-                        fprintf(stderr,
-                                "ERROR on rank %d: a[%d * %d + %d * %d + %d] = %f does "
-                                "not match %f "
-                                "(reference)\n",
-                                rank, iz, ny * nx, iy, nx, ix, a_h[iz * ny * nx + iy * nx + ix],
-                                a_ref_h[iz * ny * nx + iy * nx + ix]);
-                        result_correct = 0;
-                    }
+        for (int iy = iy_start_global; result_correct && (iy <= iy_end_global); ++iy) {
+            for (int ix = 1; result_correct && (ix < (nx - 1)); ++ix) {
+                if (std::fabs(a_h[iy * nx + ix] - a_ref_h[iy * nx + ix]) > tol) {
+                    fprintf(stderr,
+                            "ERROR on rank %d: a[%d * %d + %d] = %f does "
+                            "not match %f "
+                            "(reference)\n",
+                            rank, iy, nx, ix, a_h[iy * nx + ix], a_ref_h[iy * nx + ix]);
+                    result_correct = 0;
                 }
             }
         }
@@ -408,12 +365,12 @@ int SSMultiThreadedMultiBlockCommNvshmem::init(int argc, char *argv[]) {
 
         if (compare_to_single_gpu) {
             printf(
-                "Non-persistent kernel - %dx%dx%d: 1 GPU: %8.4f s, %d GPUs: "
+                "Non-persistent kernel - %dx%d: 1 GPU: %8.4f s, %d GPUs: "
                 "%8.4f "
                 "s, speedup: "
                 "%8.2f, "
                 "efficiency: %8.2f \n",
-                nx, ny, nz, runtime_serial_non_persistent, npes, (stop - start),
+                nx, ny, runtime_serial_non_persistent, npes, (stop - start),
                 runtime_serial_non_persistent / (stop - start),
                 runtime_serial_non_persistent / (npes * (stop - start)) * 100);
         }

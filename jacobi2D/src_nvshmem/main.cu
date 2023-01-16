@@ -2,10 +2,12 @@
 #include "../include_nvshmem/baseline/multi-threaded-nvshmem-opt.cuh"
 #include "../include_nvshmem/baseline/multi-threaded-nvshmem.cuh"
 
+#include "../include_nvshmem/multi-stream/multi-gpu-multi-block-tiling.cuh"
+#include "../include_nvshmem/multi-stream/multi-gpu-peer-tiling.cuh"
+
+#include "../include_nvshmem/single-stream/multi-threaded-multi-block-comm.cuh"
 #include "../include_nvshmem/single-stream/multi-threaded-one-block-comm.cuh"
 #include "../include_nvshmem/single-stream/multi-threaded-two-block-comm.cuh"
-
-#include "../include_nvshmem/multi-stream/multi-gpu-peer-tiling.cuh"
 
 #include "../include_nvshmem/no-compute/multi-threaded-nvshmem-no-compute.cuh"
 #include "../include_nvshmem/no-compute/multi-threaded-nvshmem-opt-no-compute.cuh"
@@ -27,6 +29,10 @@ int main(int argc, char *argv[]) {
         make_pair("NVSHMEM Single stream multi threaded (two thread blocks communicate)",
                   SSMultiThreadedTwoBlockCommNvshmem::init),
         make_pair("NVSHMEM Double stream multi threaded", MultiGPUPeerTilingNvshmem::init),
+        make_pair("NVSHMEM Single stream multi threaded Partitioned",
+                  SSMultiThreadedMultiBlockCommNvshmem::init),
+        make_pair("NVSHMEM Double stream multi threaded Partitioned",
+                  MultiGPUMultiBlockPeerTilingNvshmem::init),
         make_pair("NVSHMEM Baseline Multi Threaded (No Computation)",
                   BaselineMultiThreadedNvshmemNoCompute::init),
         make_pair("NVSHMEM Baseline Multi Threaded Optimized (No Computation)",
