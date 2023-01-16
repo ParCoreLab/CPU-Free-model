@@ -3,6 +3,15 @@
 
 #include "../../include/PERKS/multi-stream-perks.cuh"
 
+#include "config.cuh"
+#include "./common/cuda_common.cuh"
+#include "./common/cuda_computation.cuh"
+#include "./common/jacobi_cuda.cuh"
+#include "./common/jacobi_reference.hpp"
+#include "./common/types.hpp"
+#include "./config.cuh"
+#include "./perksconfig.cuh"
+
 namespace cg = cooperative_groups;
 
 namespace MultiStreamPERKS {
