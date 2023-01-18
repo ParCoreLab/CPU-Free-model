@@ -146,7 +146,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
     // PERKS config
 
     // 128 or 256
-    int bdimx = 256;
+    int bdimx = 128;
     int blkpsm = 0;
 
     // damnit
