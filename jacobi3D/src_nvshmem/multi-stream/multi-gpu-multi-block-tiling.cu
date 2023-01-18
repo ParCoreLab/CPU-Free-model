@@ -44,9 +44,10 @@ __global__ void __launch_bounds__(1024, 1)
                          a[(iz - 1) * ny * nx + iy * nx + ix]);
                     block_count++;
                 }
-                block_count += (block_count < comp_block_count_per_sm) && !(ix < (nx - 1));
+                block_count += (ix-threadIdx.x) < (nx - 1);
                 ix = (threadIdx.x + 1);
             }
+            block_count += (iy-threadIdx.y) < (ny - 1);
             iy = (threadIdx.y + 1);
         }
 
@@ -122,7 +123,7 @@ __global__ void __launch_bounds__(1024, 1)
                     a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                     block_count++;
                 }
-                block_count += (block_count < comm_block_count_per_sm) && !(ix < (nx - 1));
+                block_count += (ix-threadIdx.x) < (nx - 1);
                 ix = (threadIdx.x + 1);
             }
 
@@ -160,7 +161,7 @@ __global__ void __launch_bounds__(1024, 1)
                     a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                     block_count++;
                 }
-                block_count += (block_count < comm_block_count_per_sm) && !(ix < (nx - 1));
+                block_count += (ix-threadIdx.x) < (nx - 1);
                 ix = (threadIdx.x + 1);
             }
 

@@ -34,7 +34,7 @@ __global__ void __launch_bounds__(1024, 1)
                                            a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
                 block_count++;
             }
-            block_count += (block_count < comp_block_count_per_sm) && !(ix < (nx - 1));
+            block_count += (ix-threadIdx.x) < (nx - 1);
             ix = (threadIdx.x + 1);
         }
 
@@ -101,7 +101,6 @@ __global__ void __launch_bounds__(1024, 1)
                 a_new[iy_start * nx + ix] = first_row_val;
                 block_count++;
             }
-            block_count += (block_count < comm_block_count_per_sm) && !(ix < (nx - 1));
 
             nvshmemx_putmem_signal_nbi_block(
                 a_new + top_iy * nx + comm_start_block_x,
@@ -131,7 +130,6 @@ __global__ void __launch_bounds__(1024, 1)
                 a_new[(iy_end - 1) * nx + ix] = last_row_val;
                 block_count++;
             }
-            block_count += (block_count < comm_block_count_per_sm) && !(ix < (nx - 1));
 
             nvshmemx_putmem_signal_nbi_block(
                 a_new + bottom_iy * nx + comm_start_block_x,
