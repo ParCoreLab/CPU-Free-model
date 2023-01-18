@@ -35,22 +35,13 @@ __global__ void jacobi_kernel(real* __restrict__ const a_new, const real* __rest
                               const int iy_start, const int iy_end, const int nx) {
     int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    // real local_l2_norm = 0.0;
+    
 
     if (iy < iy_end && ix < (nx - 1)) {
         const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                      a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
         a_new[iy * nx + ix] = new_val;
-
-        // if (calculate_norm) {
-        //     real residue = new_val - a[iy * nx + ix];
-        //     local_l2_norm += residue * residue;
-        // }
     }
-
-    // if (calculate_norm) {
-    //     atomicAdd(l2_norm, local_l2_norm);
-    // }
 }
 }  // namespace BaselineMultiThreadedCopy
 
@@ -186,10 +177,7 @@ int BaselineMultiThreadedCopy::init(int argc, char* argv[]) {
             CUDA_RT_CALL(cudaGetLastError());
             CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));
 
-            // if (calculate_norm) {
-            //     CUDA_RT_CALL(cudaMemcpyAsync(l2_norm_h, l2_norm_d, sizeof(real),
-            //                                  cudaMemcpyDeviceToHost, compute_stream));
-            // }
+            
 
 // Apply periodic boundary conditions need to wait for other threads due to
 // std::swap(a_new[dev_id],a);

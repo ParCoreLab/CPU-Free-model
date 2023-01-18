@@ -14,33 +14,29 @@ __global__ void __launch_bounds__(1024, 1)
 
     int iter = 0;
 
-    // const int comp_size_iz = gridDim.z * blockDim.z * ny * nx;
-    // const int comp_size_iy = gridDim.y * blockDim.y * nx;
-    // const int comp_size_ix = gridDim.x * blockDim.x;
+    const int comp_size_iz = gridDim.z * blockDim.z * ny * nx;
+    const int comp_size_iy = gridDim.y * blockDim.y * nx;
+    const int comp_size_ix = gridDim.x * blockDim.x;
 
-    // const int comp_start_iz = (blockIdx.z * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
-    // const int comp_start_iy = (blockIdx.y * blockDim.y + threadIdx.y + 1) * nx;
-    // const int comp_start_ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
+    const int comp_start_iz = (blockIdx.z * blockDim.z + threadIdx.z + iz_start + 1) * ny * nx;
+    const int comp_start_iy = (blockIdx.y * blockDim.y + threadIdx.y + 1) * nx;
+    const int comp_start_ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
-    // const int end_iz = (iz_end - 1) * ny * nx;
-    // const int end_iy = (ny - 1) * nx;
-    // const int end_ix = (nx - 1);
+    const int end_iz = (iz_end - 1) * ny * nx;
+    const int end_iy = (ny - 1) * nx;
+    const int end_ix = (nx - 1);
 
     while (iter < iter_max) {
-        /*
-        for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz)
-        {
-            for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy)
-            {
-                for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix)
-                {
-                    a_new[iz + iy + ix] = (real(1) / real(6)) * (a[iz + iy + ix + 1] + a[iz + iy +
-        ix - 1] + a[iz + iy + nx + ix] + a[iz + iy - nx + ix] + a[iz + ny * nx + iy + ix] + a[iz -
-        ny * nx + iy + ix]);
+        for (int iz = comp_start_iz; iz < end_iz; iz += comp_size_iz) {
+            for (int iy = comp_start_iy; iy < end_iy; iy += comp_size_iy) {
+                for (int ix = comp_start_ix; ix < end_ix; ix += comp_size_ix) {
+                    a_new[iz + iy + ix] = (real(1) / real(6)) *
+                                          (a[iz + iy + ix + 1] + a[iz + iy + ix - 1] +
+                                           a[iz + iy + nx + ix] + a[iz + iy - nx + ix] +
+                                           a[iz + ny * nx + iy + ix] + a[iz - ny * nx + iy + ix]);
                 }
             }
         }
-        */
 
         real *temp_pointer = a_new;
         a_new = a;
@@ -371,9 +367,10 @@ int MultiGPUPeerTilingNoCompute::init(int argc, char *argv[]) {
 
         // THE KERNELS ARE SERIALIZED!
         // perhaps only on V100
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNoCompute::jacobi_kernel,
-                                                 comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
-                                                 inner_domain_stream));
+        // CUDA_RT_CALL(cudaLaunchCooperativeKernel((void
+        // *)MultiGPUPeerTilingNoCompute::jacobi_kernel,
+        //                                          comp_dim_grid, comp_dim_block, kernelArgsInner,
+        //                                          0, inner_domain_stream));
 
         CUDA_RT_CALL(cudaLaunchCooperativeKernel(
             (void *)MultiGPUPeerTilingNoCompute::boundary_sync_kernel, comm_dim_grid,

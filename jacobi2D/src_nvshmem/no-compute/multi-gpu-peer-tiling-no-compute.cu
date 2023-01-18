@@ -13,9 +13,6 @@ __global__ void __launch_bounds__(1024, 1)
 
     int iter = 0;
 
-    int cur_iter_mod = 0;
-    int next_iter_mod = 1;
-
     // const int comp_size_iy = gridDim.y * blockDim.y * nx;
     // const int comp_size_ix = gridDim.x * blockDim.x;
 
@@ -44,8 +41,6 @@ __global__ void __launch_bounds__(1024, 1)
 
         iter++;
 
-        cur_iter_mod = next_iter_mod;
-        next_iter_mod = 1 - cur_iter_mod;
         cg::sync(grid);
         if (!grid.thread_rank()) {
             while (iteration_done[0] != iter) {

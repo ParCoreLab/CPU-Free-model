@@ -34,22 +34,12 @@ __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__rest
                               const int iy_start, const int iy_end, const int nx) {
     int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    // real local_l2_norm = 0.0;
 
     if (iy < iy_end && ix < (nx - 1)) {
-        // const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-        //                              a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-        // a_new[iy * nx + ix] = new_val;
-
-        // if (calculate_norm) {
-        //     real residue = new_val - a[iy * nx + ix];
-        //     local_l2_norm += residue * residue;
-        // }
+        const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
+                                     a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
+        a_new[iy * nx + ix] = new_val;
     }
-
-    // if (calculate_norm) {
-    //     atomicAdd(l2_norm, local_l2_norm);
-    // }
 }
 
 }  // namespace BaselineMultiThreadedCopyOverlapNoCompute
@@ -191,24 +181,24 @@ int BaselineMultiThreadedCopyOverlapNoCompute::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, push_top_done[(iter % 2)][dev_id], 0));
             CUDA_RT_CALL(
                 cudaStreamWaitEvent(compute_stream, push_bottom_done[(iter % 2)][dev_id], 0));
-            jacobi_kernel<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
-                a_new[dev_id], a, (iy_start + 1), (iy_end[dev_id] - 1), nx);
-            CUDA_RT_CALL(cudaGetLastError());
+            // jacobi_kernel<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
+            //     a_new[dev_id], a, (iy_start + 1), (iy_end[dev_id] - 1), nx);
+            // CUDA_RT_CALL(cudaGetLastError());
 
             // Compute boundaries
             // CUDA_RT_CALL(cudaStreamWaitEvent(push_top_stream, reset_l2norm_done, 0));
             CUDA_RT_CALL(
                 cudaStreamWaitEvent(push_top_stream, push_bottom_done[(iter % 2)][top], 0));
-            jacobi_kernel<<<nx / 128 + 1, 128, 0, push_top_stream>>>(a_new[dev_id], a, iy_start,
-                                                                     (iy_start + 1), nx);
-            CUDA_RT_CALL(cudaGetLastError());
+            // jacobi_kernel<<<nx / 128 + 1, 128, 0, push_top_stream>>>(a_new[dev_id], a, iy_start,
+            //                                                          (iy_start + 1), nx);
+            // CUDA_RT_CALL(cudaGetLastError());
 
             // CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream, reset_l2norm_done, 0));
             CUDA_RT_CALL(
                 cudaStreamWaitEvent(push_bottom_stream, push_top_done[(iter % 2)][bottom], 0));
-            jacobi_kernel<<<nx / 128 + 1, 128, 0, push_bottom_stream>>>(
-                a_new[dev_id], a, (iy_end[dev_id] - 1), iy_end[dev_id], nx);
-            CUDA_RT_CALL(cudaGetLastError());
+            // jacobi_kernel<<<nx / 128 + 1, 128, 0, push_bottom_stream>>>(
+            //     a_new[dev_id], a, (iy_end[dev_id] - 1), iy_end[dev_id], nx);
+            // CUDA_RT_CALL(cudaGetLastError());
 
             // Apply periodic boundary conditions and exchange halo
             CUDA_RT_CALL(cudaMemcpyAsync(a_new[top] + (iy_end[top] * nx),

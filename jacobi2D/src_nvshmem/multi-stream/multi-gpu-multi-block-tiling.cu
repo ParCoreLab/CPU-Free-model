@@ -14,8 +14,6 @@ __global__ void __launch_bounds__(1024, 1)
     cg::grid_group grid = cg::this_grid();
 
     int iter = 0;
-    int cur_iter_mod = 0;
-    int next_iter_mod = 1;
 
     const int comp_start_iy = ((blockIdx.x * comp_block_count_per_sm / tile_count_x) * blockDim.y +
                                threadIdx.y + iy_start + 1);
@@ -43,9 +41,6 @@ __global__ void __launch_bounds__(1024, 1)
         a = temp_pointer;
 
         iter++;
-
-        next_iter_mod = cur_iter_mod;
-        cur_iter_mod = 1 - cur_iter_mod;
 
         cg::sync(grid);
         if (!grid.thread_rank()) {
