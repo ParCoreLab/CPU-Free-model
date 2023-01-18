@@ -1,0 +1,10 @@
+#ifndef INC_NVSHMEM_3D_STENCIL_BASELINE_MULTI_THREADED_NVSHMEM_OPT_NO_COMM_CUH
+#define INC_NVSHMEM_3D_STENCIL_BASELINE_MULTI_THREADED_NVSHMEM_OPT_NO_COMM_CUH
+
+#include "../common.h"
+
+namespace BaselineMultiThreadedNvshmemOptNoComm {
+int init(int argc, char **argv);
+}
+
+#endif  // INC_NVSHMEM_3D_STENCIL_BASELINE_MULTI_THREADED_NVSHMEM_OPT_NO_COMM_CUH

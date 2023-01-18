@@ -1,5 +1,5 @@
-#ifndef INC_3D_STENCIL_NVSHMEM_COMMON_H
-#define INC_3D_STENCIL_NVSHMEM_COMMON_H
+#ifndef INC_NVSHMEM_3D_STENCIL_NVSHMEM_COMMON_H
+#define INC_NVSHMEM_3D_STENCIL_NVSHMEM_COMMON_H
 
 #include <assert.h>
 #include <cooperative_groups.h>
@@ -137,4 +137,4 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
         }                                                                                   \
     }
 
-#endif  // INC_3D_STENCIL_NVSHMEM_COMMON_H
+#endif  // INC_NVSHMEM_3D_STENCIL_NVSHMEM_COMMON_H

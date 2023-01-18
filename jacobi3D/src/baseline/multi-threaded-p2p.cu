@@ -38,7 +38,7 @@ __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__rest
     int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
     int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    // real local_l2_norm = 0.0;
+    
 
     if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
         const real new_val =
@@ -56,16 +56,7 @@ __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__rest
         if ((iz_end - 1) == iz) {
             a_new_bottom[bottom_iz * ny * nx + iy * nx + ix] = new_val;
         }
-
-        // if (calculate_norm) {
-        //     real residue = new_val - a[iy * nx + ix];
-        //     local_l2_norm += residue * residue;
-        // }
     }
-
-    // if (calculate_norm) {
-    //     atomicAdd(l2_norm, local_l2_norm);
-    // }
 }
 }  // namespace BaselineMultiThreadedP2P
 

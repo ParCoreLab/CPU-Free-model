@@ -35,7 +35,6 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
     int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
     int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    //    real local_l2_norm = 0.0;
 
     if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
         const real new_val =
@@ -44,15 +43,7 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
              a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
              a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
         a_new[iz * ny * nx + iy * nx + ix] = new_val;
-
-        //        if (calculate_norm) {
-        //            real residue = new_val - a[iz * ny * nx + iy * nx + ix];
-        //            local_l2_norm += residue * residue;
-        //        }
     }
-    //    if (calculate_norm) {
-    //        atomicAdd(l2_norm, local_l2_norm);
-    //    }
 }
 
 __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const int iz_start,
@@ -64,8 +55,6 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
     int iz = blockIdx.z * blockDim.z + threadIdx.z + iz_start;
     int iy = blockIdx.y * blockDim.y + threadIdx.y + 1;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
-
-    //    real local_l2_norm = 0.0;
 
     int iter = 0;
 
@@ -85,11 +74,6 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
             if ((iz_end - 1) == iz) {
                 a_new[(iz_start - 1) * ny * nx + iy * nx + ix] = new_val;
             }
-
-            //        if (calculate_norm) {
-            //            real residue = new_val - a[iy * nx + ix];
-            //            local_l2_norm += residue * residue;
-            //        }
         }
 
         iter++;
@@ -100,10 +84,6 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
 
         cg::sync(grid);
     }
-
-    //    if (calculate_norm) {
-    //        atomicAdd(l2_norm, local_l2_norm);
-    //    }
 }
 
 double single_gpu(const int nz, const int ny, const int nx, const int iter_max, real *const a_ref_h,
@@ -117,9 +97,6 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max, 
     cudaEvent_t compute_done;
     cudaEvent_t push_top_done;
     cudaEvent_t push_bottom_done;
-
-    //    real* l2_norm_d;
-    //    real* l2_norm_h;
 
     int iz_start = 1;
     int iz_end = (nz - 1);
@@ -142,9 +119,6 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max, 
     CUDA_RT_CALL(cudaEventCreateWithFlags(&push_top_done, cudaEventDisableTiming));
     CUDA_RT_CALL(cudaEventCreateWithFlags(&push_bottom_done, cudaEventDisableTiming));
 
-    //    CUDA_RT_CALL(cudaMalloc(&l2_norm_d, sizeof(real)));
-    //    CUDA_RT_CALL(cudaMallocHost(&l2_norm_h, sizeof(real)));
-
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
     if (print)
@@ -166,31 +140,18 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max, 
 
     int iter = 0;
     bool calculate_norm = false;
-    //    real l2_norm = 1.0;
 
     double start = omp_get_wtime();
     PUSH_RANGE("Jacobi solve", 0)
     while (iter < iter_max) {
-        //        CUDA_RT_CALL(cudaMemsetAsync(l2_norm_d, 0, sizeof(real),
-        //        compute_stream));
-
         CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, push_top_done, 0));
         CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, push_bottom_done, 0));
 
-        //        calculate_norm = (iter % nccheck) == 0 || (print && ((iter %
-        //        100)
-        //        == 0));
         jacobi_kernel_single_gpu<<<dim_grid, {dim_block_x, dim_block_y, dim_block_z}, 0,
                                    compute_stream>>>(a_new, a, nullptr, iz_start, iz_end, ny, nx,
                                                      calculate_norm);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));
-
-        //        if (calculate_norm) {
-        //            CUDA_RT_CALL(cudaMemcpyAsync(l2_norm_h, l2_norm_d,
-        //            sizeof(real), cudaMemcpyDeviceToHost,
-        //                                         compute_stream));
-        //        }
 
         // Apply periodic boundary conditions
 
@@ -204,14 +165,6 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max, 
                                      nx * ny * sizeof(real), cudaMemcpyDeviceToDevice,
                                      compute_stream));
         CUDA_RT_CALL(cudaEventRecord(push_bottom_done, push_bottom_stream));
-
-        //        if (calculate_norm) {
-        //            CUDA_RT_CALL(cudaStreamSynchronize(compute_stream));
-        //            l2_norm = *l2_norm_h;
-        //            l2_norm = std::sqrt(l2_norm);
-        //            if (print && (iter % 100) == 0) printf("%5d, %0.6f\n",
-        //            iter, l2_norm);
-        //        }
 
         std::swap(a_new, a);
         iter++;
@@ -228,9 +181,6 @@ double single_gpu(const int nz, const int ny, const int nx, const int iter_max, 
     CUDA_RT_CALL(cudaStreamDestroy(push_top_stream));
     CUDA_RT_CALL(cudaStreamDestroy(compute_stream));
 
-    //    CUDA_RT_CALL(cudaFreeHost(l2_norm_h));
-    //    CUDA_RT_CALL(cudaFree(l2_norm_d));
-
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));
 
@@ -242,10 +192,6 @@ double single_gpu_persistent(const int nz, const int ny, const int nx, const int
     real *a;
     real *a_new;
 
-    // Skipping l2-norm calculation for now
-    //    real* l2_norm_d;
-    //    real* l2_norm_h;
-
     int iz_start = 1;
     int iz_end = (nz - 1);
 
@@ -256,12 +202,11 @@ double single_gpu_persistent(const int nz, const int ny, const int nx, const int
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * nz * sizeof(real)));
 
     // Set diriclet boundary conditions on left and right boarder
-    initialize_boundaries<<<ny / 128 + 1, 128>>>(a_new, a, PI, 0, nx, ny, nz, nz);
+    initialize_boundaries<<<nz / 128 + 1, 128>>>(a_new, a, PI, 0, nx, ny, nz, nz);
     CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    //    CUDA_RT_CALL(cudaMalloc(&l2_norm_d, sizeof(real)));
-    //    CUDA_RT_CALL(cudaMallocHost(&l2_norm_h, sizeof(real)));
+
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
@@ -283,7 +228,7 @@ double single_gpu_persistent(const int nz, const int ny, const int nx, const int
                   (nz + dim_block_z - 1) / dim_block_z);
 
     bool calculate_norm = false;
-    //    real l2_norm = 1.0;
+
 
     void *kernelArgs[] = {(void *)&a_new, (void *)&a,  (void *)&iz_start,       (void *)&iz_end,
                           (void *)&ny,    (void *)&nx, (void *)&calculate_norm, (void *)&iter_max};
@@ -299,9 +244,6 @@ double single_gpu_persistent(const int nz, const int ny, const int nx, const int
     double stop = omp_get_wtime();
 
     CUDA_RT_CALL(cudaMemcpy(a_ref_h, a, nx * ny * nz * sizeof(real), cudaMemcpyDeviceToHost));
-
-    //    CUDA_RT_CALL(cudaFreeHost(l2_norm_h));
-    //    CUDA_RT_CALL(cudaFree(l2_norm_d));
 
     CUDA_RT_CALL(cudaFree(a_new));
     CUDA_RT_CALL(cudaFree(a));

@@ -8,47 +8,59 @@
 #SBATCH -p palamut-cuda
 #SBATCH --gres=gpu:8
 #SBATCH --time=24:00:00
-#SBATCH -o stencil_bench_weak_output_%j.log
+#SBATCH -o %x_%j.log
 
 . ./scripts/modules_truba.sh > /dev/null
 
 MAX_NUM_GPUS=8
 CUDA_VISIBLE_DEVICES_SETTING=("0" "0" "0,1" "0,1,2" "0,1,2,3" "0,1,2,3,4" "0,1,2,3,4,5" "0,1,2,3,4,5,6" "0,1,2,3,4,5,6,7" )
 
-declare -A version_name_to_idx_map
+#version_name_to_idx_map["Baseline Single Copy"]=0
+#version_name_to_idx_map["Baseline Copy"]=1
+version_name_to_idx_map["Baseline Copy Overlap"]=2
+version_name_to_idx_map["Baseline P2P"]=3
 
-#version_name_to_idx_map["Baseline Copy"]=0
-version_name_to_idx_map["Baseline Copy Overlap"]=1
-version_name_to_idx_map["Baseline P2P"]=2
-#version_name_to_idx_map["Baseline Single Copy"]=3
+#version_name_to_idx_map["Single Stream 1TB"]=4
+#version_name_to_idx_map["Single Stream 2TB"]=5
+#version_name_to_idx_map["Double Stream"]=6
+#version_name_to_idx_map["PERKS"]=7
 
-version_name_to_idx_map["Single Stream 1TB Tile-by-Tile"]=4
-version_name_to_idx_map["Single Stream 1TB Plane-by-Plane"]=5
-#version_name_to_idx_map["Single Stream 2TB"]=6
-#version_name_to_idx_map["Double Stream"]=7
+#version_name_to_idx_map["Baseline Copy (No Compute)"]=8
+#version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=9
+#version_name_to_idx_map["Baseline P2P (No Compute)"]=10
+#version_name_to_idx_map["Single Stream 1TB (No Compute)"]=11
+#version_name_to_idx_map["Single Stream 2TB (No Compute)"]=12
+#version_name_to_idx_map["Double Stream (No Compute)"]=13
 
-#version_name_to_idx_map["Baseline Copy (No compute)"]=8
-version_name_to_idx_map["Baseline Copy Overlap (No Compute)"]=9
-version_name_to_idx_map["Baseline P2P (No Compute)"]=10
-
-version_name_to_idx_map["Single Stream 1TB Tile-by-Tile (No Compute)"]=11
-version_name_to_idx_map["Single Stream 1TB Tile-by-Tile (No Compute)"]=12
-#version_name_to_idx_map["Single Stream 2TB Tile-by-Tile (No Compute)"]=13
-#version_name_to_idx_map["Double Stream (No Compute)"]=14
+#version_name_to_idx_map["Baseline Copy (No Comm)"]=14
+#version_name_to_idx_map["Baseline Copy Overlap (No Comm)"]=15
+#version_name_to_idx_map["Baseline P2P (No Comm)"]=16
+#version_name_to_idx_map["Single Stream 1TB (No Comm)"]=17
+#version_name_to_idx_map["Single Stream 2TB (No Comm)"]=18
+#version_name_to_idx_map["Double Stream (No Comm)"]=19
 
 declare -A version_name_to_idx_map_nvshmem
 
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM"]=15
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized"]=16
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline"]=0
+version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized"]=1
 
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Plane-by-Plane"]=17
-#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB Plane-by-Plane"]=18
-#version_name_to_idx_map_nvshmem["NVSHMEM Double Stream Plane-by-Plane"]=19
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB"]=2
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB"]=3
+version_name_to_idx_map_nvshmem["NVSHMEM Double Stream"]=4
+version_name_to_idx_map_nvshmem["NVSHMEM Single Stream Partitoned"]=5
+version_name_to_idx_map_nvshmem["NVSHMEM Double Stream Partitoned"]=6
 
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM (No Compute)"]=20
-version_name_to_idx_map_nvshmem["Baseline NVSHMEM Optimized (No Compute)"]=21
+#version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Compute)"]=7
+#version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Compute)"]=8
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB (No Compute)"]=9
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Compute)"]=10
+#version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Compute)"]=11
 
-version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB Plane-by-Plane (No Compute)"]=22
+#version_name_to_idx_map_nvshmem["NVSHMEM Baseline (No Comm)"]=12
+#version_name_to_idx_map_nvshmem["NVSHMEM Baseline Optimized (No Comm)"]=13
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 1TB (No Comm)"]=14
+#version_name_to_idx_map_nvshmem["NVSHMEM Single Stream 2TB (No Comm)"]=15
+#version_name_to_idx_map_nvshmem["NVSHMEM Double Stream (No Comm)"]=16
 
 BIN="./jacobi -s 1"
 
