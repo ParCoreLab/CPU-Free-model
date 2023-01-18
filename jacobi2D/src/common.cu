@@ -17,9 +17,10 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__re
                                       const int my_ny, const int ny) {
     for (unsigned int iy = blockIdx.x * blockDim.x + threadIdx.x; iy < my_ny;
          iy += blockDim.x * gridDim.x) {
-        for (unsigned int ix = 0; ix < nx; ix++) {
-            a[iy * nx + ix] = iy * nx + ix;
-            a_new[iy * nx + ix] = iy * nx + ix;
+        const real y0 = sin(2.0 * pi * (offset + iy) / (ny - 1));
+        for (unsigned int ix = 0; ix < nx; ix += nx - 1) {
+            a[iy * nx + ix] = y0;
+            a_new[iy * nx + ix] = y0;
         }
     }
 }
@@ -32,12 +33,36 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
     int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
     int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
-    if (iy <= iy_end && ix < (nx - 1)) {
+    if (iy < iy_end && ix < (nx - 1)) {
         const real new_val = 0.25 * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
                                      a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
 
         a_new[iy * nx + ix] = new_val;
     }
+}
+
+__global__ void jacobi_kernel_single_gpu_mirror(real *__restrict__ const a_new,
+                                                const real *__restrict__ const a,
+                                                real *__restrict__ const l2_norm,
+                                                const int iy_start, const int iy_end, const int nx,
+                                                const bool calculate_norm) {
+    int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    int ix = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (iy < iy_start || iy > (iy_end - 1)) {
+        //        if (iy < iy_end && ix < (nx)) {
+        return;
+    }
+
+    real east = a[iy * nx + ix + (ix < (nx - 1))];
+    real west = a[iy * nx + ix - (ix > 0)];
+
+    real north = a[(iy + 1) * nx + ix];
+    real south = a[(iy - 1) * nx + ix];
+
+    const real new_val = 0.25f * (north + south + east + west);
+
+    a_new[iy * nx + ix] = new_val;
 }
 
 // I changed the kernel, switch it back later
@@ -127,7 +152,7 @@ __global__ void jacobi_kernel_single_gpu_persistent(real *a_new, real *a, const 
 }*/
 
 double single_gpu(const int nx, const int ny, const int iter_max, real *const a_ref_h,
-                  const int nccheck, const bool print) {
+                  const int nccheck, const bool print, decltype(jacobi_kernel_single_gpu) kernel) {
     real *a;
     real *a_new;
 
@@ -193,7 +218,7 @@ double single_gpu(const int nx, const int ny, const int iter_max, real *const a_
         CUDA_RT_CALL(cudaStreamWaitEvent(compute_stream, push_bottom_done, 0));
 
         //        calculate_norm = (iter % nccheck) == 0 || (print && ((iter % 100) == 0));
-        jacobi_kernel_single_gpu<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
+        kernel<<<dim_grid, {dim_block_x, dim_block_y, 1}, 0, compute_stream>>>(
             a_new, a, nullptr, iy_start, iy_end, nx, calculate_norm);
         CUDA_RT_CALL(cudaGetLastError());
         CUDA_RT_CALL(cudaEventRecord(compute_done, compute_stream));

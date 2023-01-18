@@ -1,0 +1,4 @@
+Version,1 GPU (256x256x256),2 GPUs (256x256x512),4 GPUs (256x256x1024),8 GPUs (256x256x2048)
+Baseline Copy Overlap (No Compute),2.5735,6.952,7.8268,10.0821
+Baseline P2P (No Compute),3.9442,5.209,5.3338,5.9174
+NVSHMEM Double Stream (No Compute),1.7782,1.9406,1.9862,2.0168

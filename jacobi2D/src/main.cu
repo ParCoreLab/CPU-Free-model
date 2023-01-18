@@ -7,6 +7,7 @@
 #include "../include/single-stream/multi-threaded-two-block-comm.cuh"
 
 #include "../include/multi-stream/multi-gpu-peer-tiling.cuh"
+#include "../include/PERKS/multi-stream-perks.cuh"
 
 #include "../include/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 #include "../include/no-compute/multi-threaded-copy-no-compute.cuh"
@@ -31,6 +32,7 @@ int main(int argc, char *argv[]) {
                   SSMultiThreadedTwoBlockComm::init),
 
         make_pair("Double stream multi threaded with Tiling", MultiGPUPeerTiling::init),
+        make_pair("PERKS", MultiStreamPERKS::init),
 
         make_pair("Baseline Multi Threaded Copy (No computation)",
                   BaselineMultiThreadedCopyNoCompute::init),
