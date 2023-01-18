@@ -135,6 +135,6 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
                     "%s (%d).\n",                                                           \
                     #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus), cudaStatus); \
     }                                                                                       \
-    noop
+    static_assert(true, "")
 
 #endif  // INC_2D_STENCIL_COMMON_H
