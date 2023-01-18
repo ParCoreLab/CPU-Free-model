@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../include/mmio.h"
+#include "../include_nvshmem/mmio.h"
 
 /* avoid Windows warnings (for example: strcpy, fscanf, etc.) */
 #if defined(_WIN32)
