@@ -36,17 +36,17 @@ __global__ void __launch_bounds__(1024, 1)
     int next_iter_mod = 1;
 
     const int end_iy = (iy_end - 1) * nx;
-    const int end_ix = (nx - 1);
+    const int end_ix = (nx);
 
     const int comm_size_ix = blockDim.x;
 
-    const int comm_start_ix = threadIdx.x + 1;
+    const int comm_start_ix = threadIdx.x;
     const int comm_start_iy = iy_start * nx;
 
     while (iter < iter_max) {
         if (!grid.thread_rank()) {
-            //            while (iteration_done[1] != iter) {
-            //            }
+            while (iteration_done[1] != iter) {
+            }
         }
         cg::sync(grid);
         if (blockIdx.x == gridDim.x - 1) {
@@ -57,10 +57,14 @@ __global__ void __launch_bounds__(1024, 1)
             cg::sync(cta);
 
             for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix) {
-                const real first_row_val =
-                    0.25 * (a[comm_start_iy + ix + 1] + a[comm_start_iy + ix - 1] +
-                            a[comm_start_iy + nx + ix] +
-                            remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * nx + ix]);
+                real east = a[comm_start_iy + ix + (ix < (nx - 1))];
+                real west = a[comm_start_iy + ix - (ix > 0)];
+
+                real north = remote_my_halo_buffer_on_top_neighbor[cur_iter_mod * nx + ix];
+                real south = a[comm_start_iy + nx + ix];
+
+                const real first_row_val = 0.25f * (east + west + north + south);
+
                 a_new[comm_start_iy + ix] = first_row_val;
                 local_halo_buffer_for_top_neighbor[nx * next_iter_mod + ix] = first_row_val;
             }
@@ -78,10 +82,14 @@ __global__ void __launch_bounds__(1024, 1)
             cg::sync(cta);
 
             for (int ix = comm_start_ix; ix < end_ix; ix += comm_size_ix) {
-                const real last_row_val =
-                    0.25 * (a[end_iy + ix + 1] + a[end_iy + ix - 1] +
-                            remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * nx + ix] +
-                            a[end_iy - nx + ix]);
+                real east = a[end_iy + ix + (ix < (nx - 1))];
+                real west = a[end_iy + ix - (ix > 0)];
+
+                real north = remote_my_halo_buffer_on_bottom_neighbor[cur_iter_mod * nx + ix];
+                real south = a[end_iy - nx + ix];
+
+                const real last_row_val = 0.25f * (east + west + north + south);
+
                 a_new[end_iy + ix] = last_row_val;
                 local_halo_buffer_for_bottom_neighbor[nx * next_iter_mod + ix] = last_row_val;
             }
@@ -101,9 +109,10 @@ __global__ void __launch_bounds__(1024, 1)
         cur_iter_mod = next_iter_mod;
         next_iter_mod = 1 - cur_iter_mod;
         cg::sync(grid);
-        if (!grid.thread_rank()) {
+        if (grid.thread_rank() == 0) {
             iteration_done[0] = iter;
         }
+        cg::sync(grid);
     }
 }
 }  // namespace MultiStreamPERKS
@@ -445,13 +454,13 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
         CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-//        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) execute_kernel, executeGridDim,
-//                                                 executeBlockDim, kernelArgsInner, executeSM,
-//                                                 inner_domain_stream));
-
         CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel,
                                                  comm_dim_grid, comm_dim_block, kernelArgsBoundary,
                                                  0, boundary_sync_stream));
+
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)execute_kernel, executeGridDim,
+                                                 executeBlockDim, kernelArgsInner, executeSM,
+                                                 inner_domain_stream));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
