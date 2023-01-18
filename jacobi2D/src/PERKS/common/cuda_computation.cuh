@@ -56,56 +56,63 @@
 
 
 template<class REAL, int RESULT_SIZE, int halo, int INPUTREG_SIZE=(RESULT_SIZE+2*halo)>
-__device__ void __forceinline__ computation(REAL result[RESULT_SIZE], 
-                                            REAL* sm_ptr, int sm_y_base, int sm_x_ind,int sm_width, 
+__device__ void __forceinline__ computation(REAL result[RESULT_SIZE],
+                                            REAL* sm_ptr, int sm_y_base, int sm_x_ind,int sm_width,
                                             REAL R_PTR,
-                                            int reg_base, 
+                                            int reg_base,
                                             stencilParaList
-                                            // const REAL west[6],const REAL east[6], 
+                                            // const REAL west[6],const REAL east[6],
                                             // const REAL north[6],const REAL south[6],
-                                            // const REAL center 
+                                            // const REAL center
                                           )
 {
 #ifndef BOX
+//  _Pragma("unroll")
+//  for(int hl=0; hl<halo; hl++)
+//  {
+//    _Pragma("unroll")
+//    for(int l_y=0; l_y<RESULT_SIZE ; l_y++)
+//    {
+//      result[l_y]+=sm_ptr[(l_y+sm_y_base)*sm_width+sm_x_ind-1-hl]*west[hl];
+//    }
+//  }
+//  _Pragma("unroll")
+//  for(int hl=0; hl<halo; hl++)
+//  {
+//    _Pragma("unroll")
+//    for(int l_y=0; l_y<RESULT_SIZE ; l_y++)
+//    {
+//      result[l_y]+=r_ptr[reg_base+l_y-1-hl]*south[hl];
+//    }
+//  }
+//  _Pragma("unroll")
+//  for(int l_y=0; l_y<RESULT_SIZE ; l_y++)
+//  {
+//    result[l_y]+=r_ptr[reg_base+l_y]*center;
+//  }
+//  _Pragma("unroll")
+//  for(int hl=0; hl<halo; hl++)
+//  {
+//    _Pragma("unroll")
+//    for(int l_y=0; l_y<RESULT_SIZE ; l_y++)
+//    {
+//      result[l_y]+=r_ptr[reg_base+l_y+1+hl]*north[hl];
+//    }
+//  }
   _Pragma("unroll")
   for(int hl=0; hl<halo; hl++)
   {
     _Pragma("unroll")
     for(int l_y=0; l_y<RESULT_SIZE ; l_y++)
     {
-      result[l_y]+=sm_ptr[(l_y+sm_y_base)*sm_width+sm_x_ind-1-hl]*west[hl];
-    }
-  }
-  _Pragma("unroll")
-  for(int hl=0; hl<halo; hl++)
-  {
-    _Pragma("unroll")
-    for(int l_y=0; l_y<RESULT_SIZE ; l_y++)
-    {
-      result[l_y]+=r_ptr[reg_base+l_y-1-hl]*south[hl];
-    }
-  }
-  _Pragma("unroll")
-  for(int l_y=0; l_y<RESULT_SIZE ; l_y++)
-  {
-    result[l_y]+=r_ptr[reg_base+l_y]*center;
-  }
-  _Pragma("unroll")
-  for(int hl=0; hl<halo; hl++)
-  {
-    _Pragma("unroll")
-    for(int l_y=0; l_y<RESULT_SIZE ; l_y++)
-    {
-      result[l_y]+=r_ptr[reg_base+l_y+1+hl]*north[hl];
-    }
-  }
-  _Pragma("unroll")
-  for(int hl=0; hl<halo; hl++)
-  {
-    _Pragma("unroll")
-    for(int l_y=0; l_y<RESULT_SIZE ; l_y++)
-    {
-      result[l_y]+=sm_ptr[(l_y+sm_y_base)*sm_width+sm_x_ind+1+hl]*east[hl];
+        const float new_value = 0.25f * (
+                                  r_ptr[reg_base+l_y+1+hl]   // north
+                                  + r_ptr[reg_base+l_y-1-hl]   // south
+                                  + sm_ptr[(l_y+sm_y_base)*sm_width+sm_x_ind+1+hl]   // east
+                                  + sm_ptr[(l_y+sm_y_base)*sm_width+sm_x_ind-1-hl]   // west
+        );
+
+        result[l_y] = new_value;
     }
   }
 #else
@@ -127,15 +134,15 @@ __device__ void __forceinline__ computation(REAL result[RESULT_SIZE],
 //special for box version
 #ifdef BOX
 template<class REAL, int RESULT_SIZE, int halo, int INPUTREG_SIZE=(RESULT_SIZE+2*halo), int CACHESIZE>
-__device__ void __forceinline__ computation(REAL result[RESULT_SIZE], 
-                                            REAL* sm_ptr, int sm_y_base, int sm_x_ind,int sm_width, 
+__device__ void __forceinline__ computation(REAL result[RESULT_SIZE],
+                                            REAL* sm_ptr, int sm_y_base, int sm_x_ind,int sm_width,
                                             REAL R_PTR,
                                             REAL r_space[CACHESIZE],
-                                            int reg_base, 
+                                            int reg_base,
                                             stencilParaList
-                                            // const REAL west[6],const REAL east[6], 
+                                            // const REAL west[6],const REAL east[6],
                                             // const REAL north[6],const REAL south[6],
-                                            // const REAL center 
+                                            // const REAL center
                                           )
 {
 
@@ -292,12 +299,12 @@ __global__ void kernel_general_box_async( REAL *  input, int width_y, int width_
 
 #include "../perksconfig.cuh"
 #include "./cuda_common.cuh"
-template<class REAL, int LOCAL_TILE_Y, int halo, 
+template<class REAL, int LOCAL_TILE_Y, int halo,
           int registeramount, bool UseSMCache, bool isstar=(isBOX==0),
           int minblocks=256/registeramount>
 __global__ void  kernel_general_wrapper
 (REAL *  input, int width_y, int width_x, int iy_start, int iy_end,
-  REAL *  __var_4__, 
+  REAL *  __var_4__,
   REAL *  l2_cache_o,REAL *  l2_cache_i,
   int iteration,
   int max_sm_flder, volatile int *iteration_done);

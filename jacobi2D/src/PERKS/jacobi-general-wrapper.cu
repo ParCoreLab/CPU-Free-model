@@ -21,7 +21,8 @@ __global__ void kernel_general_wrapper(REAL *  input, int width_y, int width_x, 
   int iteration,
   int max_sm_flder, volatile int *iteration_done)
 {
-  inner_general<REAL, LOCAL_TILE_Y, halo, 
+
+  inner_general<REAL, LOCAL_TILE_Y, halo,
   regfolder<halo,isstar,registeramount,PERKS_ARCH,UseSMCache,REAL,LOCAL_TILE_Y>::val, 
   // 1, 
   UseSMCache>( input,  width_y,  width_x, iy_start, iy_end,
