@@ -40,6 +40,7 @@ __device__ __forceinline__ void inner_general
   stencilParaT;
   //basic pointer
   cg::grid_group gg = cg::this_grid();
+  cg::thread_block cta = cg::this_thread_block();
   //extern __shared__ REAL sm[];
   extern __shared__ char sm[];
 
@@ -88,7 +89,7 @@ __device__ __forceinline__ void inner_general
   int blocksize_y=(width_y/gridDim.y);
   int y_quotient = width_y%gridDim.y;
   
-  const int p_y =  blockIdx.y * (blocksize_y) + (blockIdx.y<=y_quotient?blockIdx.y:y_quotient);
+  const int p_y =  blockIdx.y * (blocksize_y) + (blockIdx.y<=y_quotient?blockIdx.y:y_quotient) + 2;
   blocksize_y += (blockIdx.y<y_quotient?1:0);
   const int p_y_cache_end = p_y + total_reg_tile_y + total_sm_tile_y;
   const int p_y_end = p_y + (blocksize_y);
@@ -403,8 +404,8 @@ __device__ __forceinline__ void inner_general
                                       sm_rbuffer, ps_y, local_x+ps_x, tile_x_with_halo,
                                       r_smbuffer, halo,
                                       stencilParaInput);
-      reg2global<REAL,LOCAL_TILE_Y,LOCAL_TILE_Y>(sum, __var_4__, 
-                  global_y,p_y_end, 
+      reg2global<REAL,LOCAL_TILE_Y,LOCAL_TILE_Y>(sum, __var_4__,
+                  global_y,p_y_end,
                   p_x+local_x, width_x);
       __syncthreads();
       ptrselfcp<REAL,-halo, halo, halo>(sm_rbuffer, ps_y, LOCAL_TILE_Y, tid, tile_x_with_halo);
@@ -412,6 +413,8 @@ __device__ __forceinline__ void inner_general
                 (r_smbuffer,r_smbuffer, LOCAL_TILE_Y, 0);
     }
 #endif
+    gg.sync();
+
     if(iter==iteration-1)break;
     //register memory related boundary
     //south
@@ -507,6 +510,14 @@ __device__ __forceinline__ void inner_general
     }
     gg.sync();
 
+    if (gg.thread_rank() == 0) {
+        int iter_next = iter + 1;
+        while (iteration_done[0] != iter_next) {}
+        iteration_done[1] = iter_next;
+    }
+
+    gg.sync();
+
     REAL* tmp_ptr=__var_4__;
     __var_4__=input;
     input=tmp_ptr;
@@ -574,7 +585,7 @@ __device__ __forceinline__ void inner_general
   {
     __syncthreads();
     // shared memory -> global
-    sm2global<REAL,false>(sm_space, __var_4__, 
+    sm2global<REAL,false>(sm_space, __var_4__,
                                     total_sm_tile_y,
                                     p_y+total_reg_tile_y, width_y,
                                     p_x, width_x,

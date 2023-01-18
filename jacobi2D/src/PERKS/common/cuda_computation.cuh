@@ -232,23 +232,23 @@ kernel_baseline_box_async (REAL*  input, int width_y, int width_x, REAL*  output
 
 
 template<class REAL, int LOCAL_TILE_Y, int halo>
-__global__ void kernel_persistent_baseline(REAL *  input, int width_y, int width_x, 
-  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp, 
+__global__ void kernel_persistent_baseline(REAL *  input, int width_y, int width_x,
+  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp,
   int iteration);
 
   template<class REAL, int LOCAL_TILE_Y, int halo>
-__global__ void kernel_persistent_baseline_box( REAL *  input, int width_y, int width_x, 
-  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp, 
+__global__ void kernel_persistent_baseline_box( REAL *  input, int width_y, int width_x,
+  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp,
   int iteration);
 
 template<class REAL, int LOCAL_TILE_Y, int halo>
-__global__ void kernel_persistent_baseline_async(REAL *  input, int width_y, int width_x, 
-  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp, 
+__global__ void kernel_persistent_baseline_async(REAL *  input, int width_y, int width_x,
+  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp,
   int iteration);
 
 template<class REAL, int LOCAL_TILE_Y, int halo>
-__global__ void kernel_persistent_baseline_box_async( REAL *  input, int width_y, int width_x, 
-  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp, 
+__global__ void kernel_persistent_baseline_box_async( REAL *  input, int width_y, int width_x,
+  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp,
   int iteration);
 
 #define PERKS_DECLARE_INITIONIZATION_PBASELINE(_type,tile,halo) \
@@ -264,23 +264,23 @@ __global__ void kernel_persistent_baseline_box_async( REAL *  input, int width_y
     __global__ void kernel_persistent_baseline_box_async<_type,tile,halo>(_type*,int,int,_type*,_type*,_type*,int );
 
 template<class REAL, int LOCAL_TILE_Y, int halo,int reg_folder_y, int minblocks, bool UseSMCache>
-__global__ void kernel_general(REAL *  input, int width_y, int width_x, 
-  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp, 
+__global__ void kernel_general(REAL *  input, int width_y, int width_x,
+  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp,
   int iteration, int max_sm_flder, volatile int *iteration_done);
 
 template<class REAL, int LOCAL_TILE_Y, int halo,int reg_folder_y, int minblocks, bool UseSMCache>
-__global__ void kernel_general_async(REAL *  input, int width_y, int width_x, 
-  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp, 
+__global__ void kernel_general_async(REAL *  input, int width_y, int width_x,
+  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp,
   int iteration, int max_sm_flder);
 
 template<class REAL, int LOCAL_TILE_Y, int halo,int reg_folder_y, int minblocks, bool UseSMCache>
-__global__ void kernel_general_box( REAL *  input, int width_y, int width_x, 
-  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp, 
+__global__ void kernel_general_box( REAL *  input, int width_y, int width_x,
+  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp,
   int iteration, int max_sm_flder);
 
 template<class REAL, int LOCAL_TILE_Y, int halo,int reg_folder_y, int minblocks, bool UseSMCache>
-__global__ void kernel_general_box_async( REAL *  input, int width_y, int width_x, 
-  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp, 
+__global__ void kernel_general_box_async( REAL *  input, int width_y, int width_x,
+  REAL *  __var_4__,REAL *  l2_cache, REAL *  l2_cachetmp,
   int iteration, int max_sm_flder);
 
 

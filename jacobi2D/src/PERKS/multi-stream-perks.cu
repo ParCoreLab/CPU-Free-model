@@ -213,7 +213,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
                                      : kernel_general_wrapper<real, RTILE_Y, HALO, 128, false>)
                             : (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 256, true>
                                      : kernel_general_wrapper<real, RTILE_Y, HALO, 256, false>));
-
 #pragma omp parallel num_threads(num_devices)
     {
         int dev_id = omp_get_thread_num();
@@ -282,11 +281,14 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaMalloc(iteration_done_flags + dev_id, 2 * sizeof(int)));
         CUDA_RT_CALL(cudaMemset(iteration_done_flags[dev_id], 0, 2 * sizeof(int)));
 
-        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size + 2) * sizeof(real)));
-        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + 2) * sizeof(real)));
+        // There is no meaning for adding numSms more rows. PERKS overcomputes
+        // after the last index in case of a non-perfect domain match to avoid
+        // branching, so we are allocating more than necessary to avoid a segfault
+        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * (chunk_size + numSms) * sizeof(real)));
+        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * (chunk_size + numSms) * sizeof(real)));
 
-        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
-        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + 2) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * (chunk_size + numSms) * sizeof(real)));
+        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * (chunk_size + numSms) * sizeof(real)));
 
         CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * sizeof(real)));
         CUDA_RT_CALL(cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * sizeof(real)));
@@ -415,19 +417,19 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         executeSM = sharememory_basic + y_axle_halo;
         executeSM += sm_cache_size;
         // =====================================================================================
-        const auto chunk_size_local = chunk_size - 100;
+        const auto chunk_size_local = chunk_size;
 
         void *kernelArgsInner[] = {(void *)&a[dev_id],
-                                     (void *)&ny,
-                                     (void *)&nx,
-                                     (void *)&iy_start,
-                                     (void *)&iy_end[dev_id], // iy_end
-                                     (void *)&a_new[dev_id],
-                                     (void *)&L2_cache3,
-                                     (void *)&L2_cache4,
-                                     (void *)&iter_max,
-                                     (void *)&max_sm_flder,
-                                     (void *)&iteration_done_flags[0]};
+                                   (void *)&chunk_size_local,
+                                   (void *)&nx,
+                                   (void *)&iy_start,
+                                   (void *)&iy_end[dev_id],
+                                   (void *)&a_new[dev_id],
+                                   (void *)&L2_cache3,
+                                   (void *)&L2_cache4,
+                                   (void *)&iter_max,
+                                   (void *)&max_sm_flder,
+                                   (void *)&iteration_done_flags[dev_id]};
 
         void *kernelArgsBoundary[] = {(void *)&a_new[dev_id],
                                       (void *)&a[dev_id],
