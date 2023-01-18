@@ -83,7 +83,7 @@ __device__ void __forceinline__ reg2global(REAL reg_array[SIZE_REG], REAL* dst,
       int l_global_y=global_y+l_y;
       if(considerbound==true)
       {
-        if(l_global_y>=global_y_size|global_x>=global_x_size)
+        if(l_global_y>=global_y_size||global_x>=global_x_size)
         {
           break;
         }
@@ -167,11 +167,11 @@ __device__ void __forceinline__ global2sm(REAL* src, REAL* sm_buffer,
     int l_global_y;
     if(isInit)
     {
-      l_global_y=(MAX(global_y_base+l_y,0));
+      l_global_y=global_y_base+l_y;
     }
     else
     {
-      l_global_y=(MIN(global_y_base+l_y,global_y_size-1));
+      l_global_y=global_y_base+l_y;
       // l_global_y=(MAX(l_global_y,0));
     }
   
@@ -235,12 +235,12 @@ __device__ void __forceinline__ global2sm(REAL* src, REAL* sm_buffer,
     int l_global_y;
     if(isInit)
     {
-      l_global_y=(MAX(global_y_base+l_y,0));
+      l_global_y=global_y_base+l_y;
       // l_global_y=(global_y_base);
     }
     else if(isLast)
     {
-      l_global_y=(MIN(global_y_base+l_y,global_y_size-1));
+      l_global_y=global_y_base+l_y;
     //   // l_global_y=(MAX(l_global_y,0));
     }
     else
