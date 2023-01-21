@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
             if PRINT:
                 num_gpus = gpu_setting.count(',')
-                print(f'Running {name} on {num_gpus + 1} GPUs {args} ->', end=' ')
+                print(f'Running {name} on {num_gpus + 1} GPUs {args} ->', end=' ', flush=True)
 
             execution_time = REPEAT_REDUCE([run_execution_time(args) for _ in range(NUM_REPEAT)])
 
