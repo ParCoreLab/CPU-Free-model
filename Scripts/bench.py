@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+#SBATCH --job-name=stencil-bench
+#SBATCH --ntasks=8
+#SBATCH --gres=gpu:8
+#SBATCH --partition hgx2q
+#SBATCH --time=04:00:00
+#SBATCH --output=sbatch_output_%j.log
+
 import os
 import re
 import subprocess
