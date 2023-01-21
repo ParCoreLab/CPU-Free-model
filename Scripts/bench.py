@@ -14,10 +14,10 @@ PRE_ARGS = ['-s']           # No header output
 
 PRINT = True                # For debugging
 
-VERSIONS = [1, 2, 3]        # Version numbers to run
+VERSIONS = [0, 1, 2]        # Version numbers to run
 NUM_REPEAT = 5              # Number of times to repeat the experiments
 REPEAT_REDUCE = min         # Function to reduce repetitions to a single number
-NUM_ITER = str(1)
+NUM_ITER = 1000
 STARTING_DIM = [256, 256]
 GPU_STEP = lambda x: x * 2  # How the next GPU count is calculated. Doubled by default
 
@@ -33,7 +33,11 @@ def DIM_FUNC(dims):
 
 ##########################################
 
-_num_gpus = int(subprocess.run("nvidia-smi --query-gpu=name --format=csv,noheader", shell=True, capture_output=True)
+visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
+if visible_devices:
+    _num_gpus = visible_devices.count(',') + 1
+else:
+    _num_gpus = int(subprocess.run("nvidia-smi --query-gpu=name --format=csv,noheader", shell=True, capture_output=True)
                 .stdout
                 .decode()
                 .count('\n'))
