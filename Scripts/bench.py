@@ -19,13 +19,13 @@ import pandas as pd
 BIN = ['./jacobi']
 PRE_ARGS = ['-s']           # No header output
 
-PRINT = True                # For debugging
+PRINT = False               # For debugging
 
-VERSIONS = [0, 1, 2]        # Version numbers to run
-NUM_REPEAT = 5              # Number of times to repeat the experiments
+VERSIONS = list(range(14))  # Version numbers to run
+NUM_REPEAT = 10000          # Number of times to repeat the experiments
 REPEAT_REDUCE = min         # Function to reduce repetitions to a single number
-NUM_ITER = 1000
-STARTING_DIM = [256, 256]
+NUM_ITER = 5
+STARTING_DIM = [1024, 1024]
 GPU_STEP = lambda x: x * 2  # How the next GPU count is calculated. Doubled by default
 
 OUT_FILE = '/dev/stdout'    # File to write csv to
@@ -113,3 +113,4 @@ if __name__ == '__main__':
             results.loc[name].iloc[i] = execution_time
 
     results.to_csv(OUT_FILE)
+
