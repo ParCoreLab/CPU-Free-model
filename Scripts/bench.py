@@ -4,7 +4,7 @@
 # SBATCH --ntasks=8
 # SBATCH --gres=gpu:8
 # SBATCH --partition hgx2q
-# SBATCH --time=04:00:00
+# SBATCH --time=01:00:00
 # SBATCH --output=sbatch_output_%j.log
 
 import os
@@ -17,7 +17,7 @@ import pandas as pd
 
 ##########################################
 # Default Config
-BIN_MPI = ['mpirun', '-np', '1', '--timeout', str(5 * 60)]   # Timeout after 5 minutes
+BIN_MPI = ['mpirun', '-np', '1', '--timeout', str(5 * 60)]  # Timeout after 5 minutes
 BIN = ['./jacobi']
 PRE_ARGS = ['-s']  # No header output
 
@@ -78,7 +78,7 @@ def get_dim_str(dim):
 
 def run_execution_time(args: []):
     out = subprocess.run(args, capture_output=True).stdout.decode()
-    # We avoid killing the benchmark asioasjasodisajoidsjoidadosadsasaa
+    # We avoid killing the benchmark when one run fails
     return float(next(iter(re.findall(r'\d+\.\d+', out)), 'nan'))
 
 
@@ -96,7 +96,7 @@ def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_I
         bin = BIN_MPI + bin
 
     # Get actual version names
-    full_out = subprocess.run(bin, capture_output=True).stdout.decode()
+    full_out = subprocess.run(bin, capture_output=True, check=True).stdout.decode()
     version_names = [name for _, name in re.findall(VERSION_REGEX, full_out)]
 
     if not versions:
