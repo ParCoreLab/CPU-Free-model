@@ -92,7 +92,7 @@ def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_I
         bin = [bin]
 
     # Add binary to mpirun
-    if mpi:
+    if mpi or True:
         bin = BIN_MPI + bin
 
     # Get actual version names
