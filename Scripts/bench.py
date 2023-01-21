@@ -1,34 +1,35 @@
 #!/usr/bin/env python3
 
-#SBATCH --job-name=stencil-bench
-#SBATCH --ntasks=8
-#SBATCH --gres=gpu:8
-#SBATCH --partition hgx2q
-#SBATCH --time=04:00:00
-#SBATCH --output=sbatch_output_%j.log
+# SBATCH --job-name=stencil-bench
+# SBATCH --ntasks=8
+# SBATCH --gres=gpu:8
+# SBATCH --partition hgx2q
+# SBATCH --time=04:00:00
+# SBATCH --output=sbatch_output_%j.log
 
 import os
 import re
 import subprocess
+import sys
 from itertools import accumulate, cycle
 
 import pandas as pd
 
 ##########################################
-# Config
+# Default Config
 BIN = ['./jacobi']
-PRE_ARGS = ['-s']           # No header output
+PRE_ARGS = ['-s']  # No header output
 
-PRINT = False               # For debugging
+LOG = True  # For debugging
 
-VERSIONS = list(range(14))  # Version numbers to run
-NUM_REPEAT = 10000          # Number of times to repeat the experiments
-REPEAT_REDUCE = min         # Function to reduce repetitions to a single number
-NUM_ITER = 5
+VERSIONS = None  # Version numbers to run. None means all
+NUM_REPEAT = 5  # Number of times to repeat the experiments
+REPEAT_REDUCE = min  # Function to reduce repetitions to a single number
+NUM_ITER = 10000
 STARTING_DIM = [1024, 1024]
 GPU_STEP = lambda x: x * 2  # How the next GPU count is calculated. Doubled by default
 
-OUT_FILE = '/dev/stdout'    # File to write csv to
+OUT_FILE = '/dev/stdout'  # File to write csv to
 
 
 # Defines how the next dimension is calculated
@@ -45,17 +46,17 @@ if visible_devices:
     _num_gpus = visible_devices.count(',') + 1
 else:
     _num_gpus = int(subprocess.run("nvidia-smi --query-gpu=name --format=csv,noheader", shell=True, capture_output=True)
-                .stdout
-                .decode()
-                .count('\n'))
+                    .stdout
+                    .decode()
+                    .count('\n'))
 
 
-def _gpu_setting_generator(settings, max=_num_gpus):
+def _gpu_setting_generator(settings, step=GPU_STEP, max=_num_gpus):
     index = 1
 
     while index <= max:
         yield settings[index - 1]
-        index = GPU_STEP(index)
+        index = step(index)
 
 
 CUDA_VISIBLE_DEVICES_SETTING = list(accumulate(map(str, range(0, _num_gpus)), func=lambda a, b: f'{a},{b}'))
@@ -70,47 +71,64 @@ def dim_to_dim(dims):
     return [item for t in zip(alphabet, dims) for item in t]
 
 
+def get_dim_str(dim):
+    return 'x'.join([str(x) for x in dim])
+
+
 def run_execution_time(args: []):
     out = subprocess.run(args, capture_output=True).stdout.decode()
     return float(re.findall(r'\d+\.\d+', out)[0])
 
 
-if __name__ == '__main__':
+def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_ITER, dim_func=DIM_FUNC,
+        out_file=OUT_FILE, pre_args=PRE_ARGS,
+        gpu_step=GPU_STEP, num_repeat=NUM_REPEAT, repeat_reduce=REPEAT_REDUCE, log=LOG):
+    gpu_indices = list(_gpu_setting_generator(CUDA_VISIBLE_DEVICES_SETTING, step=gpu_step, max=_num_gpus))
+
     # Get actual version names
-    full_out = subprocess.run(BIN, capture_output=True).stdout.decode()
+    full_out = subprocess.run(bin, capture_output=True).stdout.decode()
     version_names = [name for _, name in re.findall(VERSION_REGEX, full_out)]
 
+    if bin.__class__ == str:
+        bin = [bin]
+
+    if not versions:
+        versions = list(range(len(version_names)))
+
     # Pre-compute dimensions for each GPU count
-    dim_generator = DIM_FUNC(STARTING_DIM)
-    dims = [next(dim_generator) for _ in range(len(GPU_INDICES))]
+    dim_generator = dim_func(starting_dim)
+    dims = [next(dim_generator) for _ in range(len(gpu_indices))]
 
     # 1 GPUs (256x256), 2 GPUs (256x512) ...
-    columns = list(map(lambda dims: f'{dims[0] + 1} GPUs ({"x".join([str(x) for x in dims[1]])})', enumerate(dims)))
+    columns = list(map(lambda dims: f'{dims[0] + 1} GPUs ({get_dim_str(dims[1])})', enumerate(dims)))
 
     # Create output csv handler
-    results = pd.DataFrame(index=[*version_names[:len(VERSIONS)]], columns=columns)
+    results = pd.DataFrame(index=[*version_names[:len(versions)]], columns=columns)
     results = results.rename_axis('Version')
 
-    for v, name in zip(VERSIONS, version_names):
-        for i, (dim, gpu_setting) in enumerate(zip(dims, GPU_INDICES)):
+    for v, name in zip(versions, version_names):
+        for i, (dim, gpu_setting) in enumerate(zip(dims, gpu_indices)):
             os.environ["CUDA_VISIBLE_DEVICES"] = gpu_setting
 
             # Get dimensions in -nx x form
             dim = dim_to_dim(dim)
 
             # Make sure all the args are string
-            args = list(map(str, [*BIN, *PRE_ARGS, '-v', v, '-niter', NUM_ITER, *dim]))
+            args = list(map(str, [*bin, *pre_args, '-v', v, '-niter', num_iter, *dim]))
 
-            if PRINT:
+            if log:
                 num_gpus = gpu_setting.count(',')
-                print(f'Running {name} on {num_gpus + 1} GPUs {args} ->', end=' ', flush=True)
+                print(f'Running {name} on {num_gpus + 1} GPUs {args} ->', end=' ', flush=True, file=sys.stderr)
 
-            execution_time = REPEAT_REDUCE([run_execution_time(args) for _ in range(NUM_REPEAT)])
+            execution_time = repeat_reduce([run_execution_time(args) for _ in range(num_repeat)])
 
-            if PRINT:
-                print(f'{execution_time} seconds')
+            if log:
+                print(f'{execution_time} seconds', file=sys.stderr)
 
             results.loc[name].iloc[i] = execution_time
 
-    results.to_csv(OUT_FILE)
+    results.to_csv(out_file)
 
+
+if __name__ == '__main__':
+    run()
