@@ -14,6 +14,10 @@ import bench
 
 BIN = './jacobi'
 BIN_3D = './jacobi3d'
+
+BIN_NVSHMEM = './jacobi_nvshmem'
+BIN_3D_NVSHMEM = './jacobi3d_nvshmem'
+
 NUM_REPEAT = 5
 
 
@@ -68,14 +72,22 @@ def run_experiment(name: str, args):
     bench.run(**args)
 
 
-for args in weak_scaling:
-    run_experiment('Weak_scaling', {**default_args, **args})
+def run():
+    [run_experiment('Weak_scaling', {**default_args, **args}) for args in weak_scaling]
+    [run_experiment('Strong_scaling', {**default_args_strong, **args}) for args in strong_scaling]
+    [run_experiment('Weak_scaling', {**default_args, **args}) for args in weak_scaling_3D]
+    [run_experiment('Strong_scaling', {**default_args_strong, **args}) for args in strong_scaling_3D]
 
-for args in strong_scaling:
-    run_experiment('Strong_scaling', {**default_args_strong, **args})
 
-for args in weak_scaling_3D:
-    run_experiment('Weak_scaling', {**default_args, **args})
+if __name__ == '__main__':
+    # Regular
+    run()
 
-for args in strong_scaling_3D:
-    run_experiment('Strong_scaling', {**default_args_strong, **args})
+    # NVSHMEM
+    default_args['bin'] = BIN_NVSHMEM
+    default_args_strong['bin'] = BIN_3D_NVSHMEM
+
+    default_args['mpi'] = True
+    default_args_strong['mpi'] = True
+
+    run()

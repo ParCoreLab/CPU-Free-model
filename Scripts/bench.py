@@ -17,6 +17,7 @@ import pandas as pd
 
 ##########################################
 # Default Config
+BIN_MPI = ['mpirun', '-np', '1', '--timeout', str(5 * 60)]   # Timeout after 5 minutes
 BIN = ['./jacobi']
 PRE_ARGS = ['-s']  # No header output
 
@@ -77,20 +78,26 @@ def get_dim_str(dim):
 
 def run_execution_time(args: []):
     out = subprocess.run(args, capture_output=True).stdout.decode()
-    return float(re.findall(r'\d+\.\d+', out)[0])
+    # We avoid killing the benchmark asioasjasodisajoidsjoidadosadsasaa
+    return float(next(iter(re.findall(r'\d+\.\d+', out)), 'nan'))
 
 
 def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_ITER, dim_func=DIM_FUNC,
         out_file=OUT_FILE, pre_args=PRE_ARGS,
-        gpu_step=GPU_STEP, num_repeat=NUM_REPEAT, repeat_reduce=REPEAT_REDUCE, log=LOG):
+        gpu_step=GPU_STEP, num_repeat=NUM_REPEAT, repeat_reduce=REPEAT_REDUCE, log=LOG, mpi=False):
     gpu_indices = list(_gpu_setting_generator(CUDA_VISIBLE_DEVICES_SETTING, step=gpu_step, max=_num_gpus))
+
+    # Make sure the binary is in a list
+    if bin.__class__ == str:
+        bin = [bin]
+
+    # Add binary to mpirun
+    if mpi:
+        bin = BIN_MPI + bin
 
     # Get actual version names
     full_out = subprocess.run(bin, capture_output=True).stdout.decode()
     version_names = [name for _, name in re.findall(VERSION_REGEX, full_out)]
-
-    if bin.__class__ == str:
-        bin = [bin]
 
     if not versions:
         versions = list(range(len(version_names)))
@@ -108,7 +115,12 @@ def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_I
 
     for v, name in zip(versions, version_names):
         for i, (dim, gpu_setting) in enumerate(zip(dims, gpu_indices)):
-            os.environ["CUDA_VISIBLE_DEVICES"] = gpu_setting
+            num_gpus = gpu_setting.count(',') + 1
+            if mpi:
+                # This corresponds to -np x
+                bin[2] = num_gpus
+            else:
+                os.environ["CUDA_VISIBLE_DEVICES"] = gpu_setting
 
             # Get dimensions in -nx x form
             dim = dim_to_dim(dim)
@@ -117,8 +129,7 @@ def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_I
             args = list(map(str, [*bin, *pre_args, '-v', v, '-niter', num_iter, *dim]))
 
             if log:
-                num_gpus = gpu_setting.count(',')
-                print(f'Running {name} on {num_gpus + 1} GPUs {args} ->', end=' ', flush=True, file=sys.stderr)
+                print(f'Running {name} on {num_gpus} GPUs {args} ->', end=' ', flush=True, file=sys.stderr)
 
             execution_time = repeat_reduce([run_execution_time(args) for _ in range(num_repeat)])
 
