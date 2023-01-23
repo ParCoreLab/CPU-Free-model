@@ -49,7 +49,7 @@ handles, labels = axes.get_legend_handles_labels()
 legend = fig.legend(handles, labels, loc='upper center',
                     bbox_to_anchor=(0.5,  # horizontal
                                     1.1),  # vertical
-                    ncol=3, fancybox=True)
+                    ncol=6, fancybox=True)
 
 title = Path(files[0].name).stem
 
