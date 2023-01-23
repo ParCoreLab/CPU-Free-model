@@ -27,7 +27,7 @@ VERSIONS = None  # Version numbers to run. None means all
 NUM_REPEAT = 5  # Number of times to repeat the experiments
 REPEAT_REDUCE = min  # Function to reduce repetitions to a single number
 NUM_ITER = 10000
-STARTING_DIM = [1024, 1024]
+STARTING_DIM = (1024, 1024)
 GPU_STEP = lambda x: x * 2  # How the next GPU count is calculated. Doubled by default
 
 OUT_FILE = '/dev/stdout'  # File to write csv to
@@ -85,6 +85,9 @@ def run_execution_time(args: []):
 def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_ITER, dim_func=DIM_FUNC,
         out_file=OUT_FILE, pre_args=PRE_ARGS,
         gpu_step=GPU_STEP, num_repeat=NUM_REPEAT, repeat_reduce=REPEAT_REDUCE, log=LOG, mpi=False):
+    # Make sure it's a mutable list
+    starting_dim = list(starting_dim)
+
     gpu_indices = list(_gpu_setting_generator(CUDA_VISIBLE_DEVICES_SETTING, step=gpu_step, max=_num_gpus))
 
     # Make sure the binary is in a list

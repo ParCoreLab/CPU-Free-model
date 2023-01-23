@@ -46,22 +46,22 @@ default_args_strong = {
 }
 
 weak_scaling = [
-    {'starting_dim': [256, 256], 'num_iter': 100000},
-    {'starting_dim': [1024, 1024], 'num_iter': 100000},
-    {'starting_dim': [8192, 4096], 'num_iter': 10000},
+    {'starting_dim': (256, 256), 'num_iter': 100000},
+    {'starting_dim': (1024, 1024), 'num_iter': 100000},
+    {'starting_dim': (8192, 4096), 'num_iter': 10000},
 ]
 
 strong_scaling = [
-    {'starting_dim': [4096, 4096], 'num_iter': 10000},
+    {'starting_dim': (4096, 4096), 'num_iter': 10000},
 ]
 
 weak_scaling_3D = [
-    {'bin': BIN_3D, 'starting_dim': [256, 256, 256], 'num_iter': 10000},
-    {'bin': BIN_3D, 'starting_dim': [256, 256, 256], 'num_iter': 10000, 'dim_func': dim_func_last},
+    {'bin': BIN_3D, 'starting_dim': (256, 256, 256), 'num_iter': 10000},
+    {'bin': BIN_3D, 'starting_dim': (256, 256, 256), 'num_iter': 10000, 'dim_func': dim_func_last},
 ]
 
 strong_scaling_3D = [
-    {'bin': BIN_3D, 'starting_dim': [512, 512, 512], 'num_iter': 10000},
+    {'bin': BIN_3D, 'starting_dim': (512, 512, 512), 'num_iter': 10000},
 ]
 
 
