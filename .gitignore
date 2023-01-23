@@ -1,5 +1,7 @@
 .vscode/
 .idea/
+venv/
+__pycache__/
 
 *.cmake
 *.o
