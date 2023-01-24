@@ -1,11 +1,11 @@
 Execution time on 8A100
 Matrix,Version,1 GPU,2 GPUs,3 GPUs,4 GPUs,5 GPUs,6 GPUs,7 GPUs,8 GPUs
-(generated)_tridiagonal,(Baseline) Discrete Standard,19.7869,20.135,4.0181,3.2096,2.8414,2.494,2.2673,2.075
-(generated)_tridiagonal,(Baseline) Discrete Pipelined,26.0182,26.1759,5.0409,3.942,3.32,2.8766,2.5758,2.3455
-(generated)_tridiagonal,(Ours) Persistent Standard,10.6928,5.5335,3.9954,3.0121,2.5519,2.2677,1.9331,1.7074
-(generated)_tridiagonal,(Ours) Persistent Pipelined,14.8408,7.4733,5.1214,3.7905,3.0573,2.6239,2.2291,1.9564
-(generated)_tridiagonal,(Ours) Persistent Pipelined Multi-Overlap,14.8428,7.4857,5.1514,3.8075,3.0937,2.6522,2.2644,1.9758
-(generated)_tridiagonal,(Ours) Persistent Standard Saxpy Overlap,10.7124,5.5087,3.9259,2.939,2.4853,2.2381,1.9483,1.7588
+tridiagonal,(Baseline) Discrete Standard,19.7869,20.135,4.0181,3.2096,2.8414,2.494,2.2673,2.075
+tridiagonal,(Baseline) Discrete Pipelined,26.0182,26.1759,5.0409,3.942,3.32,2.8766,2.5758,2.3455
+tridiagonal,(Ours) Persistent Standard,10.6928,5.5335,3.9954,3.0121,2.5519,2.2677,1.9331,1.7074
+tridiagonal,(Ours) Persistent Pipelined,14.8408,7.4733,5.1214,3.7905,3.0573,2.6239,2.2291,1.9564
+tridiagonal,(Ours) Persistent Pipelined Multi-Overlap,14.8428,7.4857,5.1514,3.8075,3.0937,2.6522,2.2644,1.9758
+tridiagonal,(Ours) Persistent Standard Saxpy Overlap,10.7124,5.5087,3.9259,2.939,2.4853,2.2381,1.9483,1.7588
 ecology2,(Baseline) Discrete Standard,1.9208,3.1879,0.8745,0.8115,0.8558,0.8769,0.8637,0.8597
 ecology2,(Baseline) Discrete Pipelined,2.2642,3.1747,0.7386,0.6612,0.63,0.6377,0.6272,0.6239
 ecology2,(Ours) Persistent Standard,0.6875,0.5073,0.5212,0.4334,0.4994,0.5208,0.5282,0.485

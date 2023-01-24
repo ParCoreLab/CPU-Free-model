@@ -11,7 +11,7 @@ import matplotlib as mpl
 mpl.rcParams['hatch.linewidth'] = 0.3
 
 MATRIX_NAMES = [
-    # '(generated)_tridiagonal',
+    'tridiagonal',
     'ecology2',
     #   'shallow_water2', Too little non-zeros
     #   'Trefethen_2000', Too little non-zeros
@@ -29,7 +29,7 @@ MATRIX_NAMES = [
     'Flan_1565',
     'audikw_1',
     'Serena',
-    # 'Geo_1438',
+    'Geo_1438',
     'Hook_1498',
     #   'bone010', Multi-part matrix, don't handle those for now
     'ldoor'
@@ -80,13 +80,11 @@ for file in files:
         per_gpu_num_data = pd.DataFrame(
             per_gpu_num_data, columns=VERSIONS_TO_KEEP)
 
-        print(per_gpu_num_data)
-
         axes = per_gpu_num_data.plot.bar(
             colormap='Paired', color=colors, edgecolor='black', figsize=(15, 6))
 
         bars = axes.patches
-        patterns = ('///', '\\\\\\', 'xxx', '....')
+        patterns = ('////', '\\\\\\', 'xxxx', '....')
         hatches = [p for p in patterns for i in range(len(per_gpu_num_data))]
 
         for bar, hatch in zip(bars, hatches):
@@ -108,7 +106,7 @@ for file in files:
         # per_gpu_num_title = f'{title} ({matrix_name})'
         per_gpu_num_title = gpu_num_column_label
 
-        plt.xticks(rotation=-15, ha='center')
+        plt.xticks(rotation=-20, ha='center', weight='bold')
         # plt.suptitle(per_gpu_num_title)
         plt.savefig(MODULE_DIR / per_gpu_num_title)
 
