@@ -1,15 +1,17 @@
 
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 from itertools import cycle
 from os.path import dirname, realpath
 
 from common import get_files, markers, get_module_dir, wrap_labels
 
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
+import matplotlib as mpl
+mpl.rcParams['hatch.linewidth'] = 0.3
 
 MATRIX_NAMES = [
-    '(generated)_tridiagonal',
+    # '(generated)_tridiagonal',
     'ecology2',
     #   'shallow_water2', Too little non-zeros
     #   'Trefethen_2000', Too little non-zeros
@@ -27,21 +29,32 @@ MATRIX_NAMES = [
     'Flan_1565',
     'audikw_1',
     'Serena',
-    'Geo_1438',
+    # 'Geo_1438',
     'Hook_1498',
     #   'bone010', Multi-part matrix, don't handle those for now
     'ldoor'
+]
+
+VERSIONS_TO_KEEP = [
+    '(Baseline) Discrete Standard',
+    '(Baseline) Discrete Pipelined',
+    '(Ours) Persistent Standard',
+    '(Ours) Persistent Pipelined'
 ]
 
 MODULE_DIR = get_module_dir('Constant Number of GPUs')
 
 dir_path = dirname(realpath(__file__))
 
-# plt.style.use(dir_path + '/default.mplstyle')
-plt.style.use(dir_path + '/paper.mplstyle')
-# plt.style.use('fivethirtyeight')
+plt.style.use(
+    'https://github.com/dhaitz/matplotlib-stylesheets/raw/master/pitayasmoothie-light.mplstyle')
+
+colors = [
+    '#c6c9cb', '#64b8e5', '#ee7fb2'
+]
 
 files = get_files()
+
 
 for file in files:
     title = file.readline().strip()
@@ -64,17 +77,39 @@ for file in files:
         per_gpu_num_data = per_gpu_num_data.pivot_table(
             gpu_num_column_label, 'Matrix', 'Version')
 
-        ax = per_gpu_num_data.plot.bar()
+        per_gpu_num_data = pd.DataFrame(
+            per_gpu_num_data, columns=VERSIONS_TO_KEEP)
 
-        ax.set_ylabel('Time')
-        ax.set_title('Execution time per matrix')
-        ax.legend()
-        # ax.legend(ax.get_lines(), per_gpu_num_data.columns, loc='best')
+        print(per_gpu_num_data)
+
+        axes = per_gpu_num_data.plot.bar(
+            colormap='Paired', color=colors, edgecolor='black', figsize=(15, 6))
+
+        bars = axes.patches
+        patterns = ('///', '\\\\\\', 'xxx', '....')
+        hatches = [p for p in patterns for i in range(len(per_gpu_num_data))]
+
+        for bar, hatch in zip(bars, hatches):
+            bar.set_hatch(hatch)
+
+        axes.set_ylabel('Time (s)')
+        axes.set_title('Execution time per matrix')
+        axes.legend()
+
+        # axes.set(xlabel=None)
+        axes.set(title=None)
+        # wrap_labels(axes, 10)
+
+        axes.legend(loc='upper center',
+                    bbox_to_anchor=(0.5,  # horizontal
+                                    1.09),  # vertical
+                    ncol=2, fancybox=True)
 
         # per_gpu_num_title = f'{title} ({matrix_name})'
         per_gpu_num_title = gpu_num_column_label
 
-        plt.title(per_gpu_num_title)
+        plt.xticks(rotation=-15, ha='center')
+        # plt.suptitle(per_gpu_num_title)
         plt.savefig(MODULE_DIR / per_gpu_num_title)
 
     plt.show()

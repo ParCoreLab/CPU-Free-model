@@ -22,21 +22,12 @@ def get_module_dir(dir_name):
 
 
 def wrap_labels(ax, width, break_long_words=False):
-    x_labels = []
-    y_labels = []
-
-    for x_label in ax.get_xticklabels():
-        text = x_label.get_text()
-        x_labels.append(textwrap.fill(text, width=width,
-                                      break_long_words=break_long_words))
-
-    ax.set_xticklabels(x_labels, rotation=0)
-
-    for y_label in ax.get_yticklabels():
-        text = y_label.get_text()
-        y_labels.append(textwrap.fill(text, width=width,
-                                      break_long_words=break_long_words))
-    ax.set_yticklabels(y_labels, rotation=0)
+    labels = []
+    for label in ax.get_xticklabels():
+        text = label.get_text()
+        labels.append(textwrap.fill(text, width=width,
+                                    break_long_words=break_long_words))
+    ax.set_xticklabels(labels, rotation=0)
 
 
 markers = [
