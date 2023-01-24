@@ -50,8 +50,13 @@ plt.style.use(
     'https://github.com/dhaitz/matplotlib-stylesheets/raw/master/pitayasmoothie-light.mplstyle')
 
 colors = [
-    '#c6c9cb', '#64b8e5', '#ee7fb2'
+    '#c6c9cb', '#64b8e5', '#ee7fb2', '#eae2b7'
 ]
+
+# Color candidates =>
+# - '#30becd' => Maximum Blue Green
+# - '#eae2b7' => Yellow
+
 
 files = get_files()
 
@@ -90,14 +95,14 @@ for file in files:
             color=colors, edgecolor='black', figsize=(15, 6))
 
         bars = axes.patches
-        patterns = ('////', '\\\\\\', 'xxxx', '....')
+        patterns = ('/////', '.....', '/////', '.....')
         hatches = [p for p in patterns for i in range(
             len(per_gpu_num_speedup))]
 
         for bar, hatch in zip(bars, hatches):
             bar.set_hatch(hatch)
 
-        axes.set_ylabel('Speedup')
+        axes.set_ylabel('Speedup', weight='bold')
         axes.set_xlabel(None)
         axes.set_title(f'Speedup per matrix on {gpu_num_column_label}')
         axes.legend()
@@ -106,10 +111,10 @@ for file in files:
         axes.set(title=None)
         # wrap_labels(axes, 10)
 
-        axes.legend(loc='upper center',
-                    bbox_to_anchor=(0.5,  # horizontal
-                                    1.09),  # vertical
-                    ncol=2, fancybox=True)
+        # axes.legend(loc='upper center',
+        #             bbox_to_anchor=(0.5,  # horizontal
+        #                             1.09),  # vertical
+        #             ncol=2, fancybox=True)
 
         # per_gpu_num_title = f'{title} ({matrix_name})'
         per_gpu_num_title = gpu_num_column_label
