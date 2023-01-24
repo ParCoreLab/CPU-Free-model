@@ -7,6 +7,10 @@
 # SBATCH --time=04:00:00
 # SBATCH --output=sbatch_output_%j.log
 
+import os
+import sys
+sys.path.append(os.getcwd())
+
 import time
 from itertools import cycle
 
