@@ -72,6 +72,9 @@ for file in files:
         if matrix_name not in MATRIX_NAMES:
             data.drop(matrix_name, inplace=True)
 
+    single_gpu_baseline_standard_runtimes = data.loc[data['Version']
+                                                     == '(Baseline) Discrete Standard']['1 GPU']
+
     for gpu_num_column_label in gpu_num_column_labels:
         per_gpu_num_data = data[['Version', gpu_num_column_label]]
         per_gpu_num_data = per_gpu_num_data.pivot_table(
@@ -80,18 +83,23 @@ for file in files:
         per_gpu_num_data = pd.DataFrame(
             per_gpu_num_data, columns=VERSIONS_TO_KEEP)
 
-        axes = per_gpu_num_data.plot.bar(
-            colormap='Paired', color=colors, edgecolor='black', figsize=(15, 6))
+        per_gpu_num_speedup = 1 / per_gpu_num_data.div(
+            single_gpu_baseline_standard_runtimes, axis=0)
+
+        axes = per_gpu_num_speedup.plot.bar(
+            color=colors, edgecolor='black', figsize=(15, 6))
 
         bars = axes.patches
         patterns = ('////', '\\\\\\', 'xxxx', '....')
-        hatches = [p for p in patterns for i in range(len(per_gpu_num_data))]
+        hatches = [p for p in patterns for i in range(
+            len(per_gpu_num_speedup))]
 
         for bar, hatch in zip(bars, hatches):
             bar.set_hatch(hatch)
 
-        axes.set_ylabel('Time (s)')
-        axes.set_title('Execution time per matrix')
+        axes.set_ylabel('Speedup')
+        axes.set_xlabel(None)
+        axes.set_title(f'Speedup per matrix on {gpu_num_column_label}')
         axes.legend()
 
         # axes.set(xlabel=None)
