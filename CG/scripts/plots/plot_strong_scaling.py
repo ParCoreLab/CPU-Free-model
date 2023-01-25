@@ -1,6 +1,6 @@
 
 import math
-from itertools import cycle
+from itertools import cycle, islice
 from os.path import dirname, realpath
 
 from pathlib import Path
@@ -19,21 +19,28 @@ MATRIX_NAMES = [
     'hood',
     'bmwcra_1',
     'consph',
-    'thermomech_dM',
-    'tmt_sym',
-    'crankseg_1',
-    'crankseg_2',
-    'Queen_4147',
-    'Bump_2911',
-    'G3_circuit',
-    'StocF-1465',
-    'Flan_1565',
-    'audikw_1',
-    'Serena',
-    'Geo_1438',
-    'Hook_1498',
+    # 'thermomech_dM',
+    # 'tmt_sym',
+    # 'crankseg_1',
+    # 'crankseg_2',
+    # 'Queen_4147',
+    # 'Bump_2911',
+    # 'G3_circuit',
+    # 'StocF-1465',
+    # 'Flan_1565',
+    # 'audikw_1',
+    # 'Serena',
+    # 'Geo_1438',
+    # 'Hook_1498',
     #   'bone010', Multi-part matrix, don't handle those for now
     'ldoor'
+]
+
+VERSIONS_TO_KEEP = [
+    '(Baseline) Discrete Standard',
+    '(Baseline) Discrete Pipelined',
+    '(Ours) Persistent Standard',
+    '(Ours) Persistent Pipelined'
 ]
 
 MODULE_DIR = get_module_dir('Strong Scaling')
@@ -59,29 +66,34 @@ for file in files:
         per_matrix_data = data.loc[data['Matrix'] == matrix_name]
         per_matrix_data = per_matrix_data.drop(columns=['Matrix'])
         per_matrix_data = per_matrix_data.T
+        per_matrix_data = pd.DataFrame(
+            per_matrix_data, columns=VERSIONS_TO_KEEP)
 
-        axes = per_matrix_data.plot(ax=ax)
+        tmp_axes = per_matrix_data.plot(ax=ax)
+        tmp_axes.set_title(matrix_name)
 
         markers_cycle = cycle(markers)
 
-        for line in axes.get_lines():
-            line.set_marker(next(markers_cycle))
+        # Skip first few markers since they are underwhelming
+        offset_markers_cycle = islice(markers_cycle, 11, None)
+
+        for line in tmp_axes.get_lines():
+            line.set_marker(next(offset_markers_cycle))
 
             # If baseline version
-            if line.get_label().lower().startswith('baseline'):
+            if line.get_label().lower().startswith('(baseline)'):
                 line.set_linestyle('dashed')
 
-            markers_cycle = cycle(markers)
-
-        axes.get_legend().remove()
-        wrap_labels(axes, 10)
+        tmp_axes.get_legend().remove()
+        wrap_labels(tmp_axes, 10)
 
         # per_matrix_title = f'{title} ({matrix_name})'
         per_matrix_title = matrix_name
 
-    handles, labels = axes.get_legend_handles_labels()
+    handles, labels = tmp_axes.get_legend_handles_labels()
 
-    legend = fig.legend()
+    legend = fig.legend(handles, labels, loc='upper center',
+                        ncol=2)
 
     title = Path(files[0].name).stem
 
