@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 
-# SBATCH --job-name=stencil-bench
-# SBATCH --ntasks=8
+# SBATCH -J stencil-bench-weak
+# SBATCH -N 1
+# SBATCH -n 8
+# SBATCH -c 16
+# SBATCH -A proj16
+# SBATCH -p palamut-cuda
 # SBATCH --gres=gpu:8
-# SBATCH --partition hgx2q
-# SBATCH --time=04:00:00
-# SBATCH --output=sbatch_output_%j.log
+# SBATCH --time=24:00:00
+# SBATCH -o stencil_bench_%j.log
 
 import os
 import sys
+
 sys.path.append(os.getcwd())
 
-import time
+from pathlib import Path
+from datetime import datetime
 from itertools import cycle
 
 import bench
@@ -22,11 +27,40 @@ BIN_3D = './jacobi3d'
 BIN_NVSHMEM = './jacobi_nvshmem'
 BIN_3D_NVSHMEM = './jacobi3d_nvshmem'
 
-NUM_REPEAT = 5
+VERSIONS = [
+    0,  # Baseline Copy
+    1,  # Baseline Overlap
+    2,  # Baseline P2P
+    3,  # Design 1
+    4,  # Design 2
+    5  # PERKS
+]
+VERSIONS_NO_COMPUTE = [
+    6,  # Baseline Copy
+    7,  # Baseline Overlap
+    8,  # Baseline P2P
+    9,  # Design 1
+    10  # Design 2
+]
 
+VERSIONS_NVSHMEM = [
+    0,  # Baseline
+    1,  # Design 1
+    2,  # Design 2
+    3  # PERKS
+]
 
-def get_timestamp():
-    return round(time.time() * 1000)
+VERSIONS_NVSHMEM_NO_COMPUTE = [
+    4,  # Baseline
+    5,  # Design 1
+    6,  # Design 2
+    7  # PERKS
+]
+
+NUM_REPEAT = 1
+
+BASE_DIR = Path(str(datetime.now()))
+BASE_DIR.mkdir()
 
 
 def get_dim_str(dim):
@@ -70,28 +104,30 @@ strong_scaling_3D = [
 
 
 def run_experiment(name: str, args):
-    timestamp = get_timestamp()
     dim_str = get_dim_str(args['starting_dim'])
-    args['out_file'] = f'{name}_{dim_str}_{timestamp}.csv'
+    args['out_file'] = BASE_DIR / f'{name}_{dim_str}.csv'
     bench.run(**args)
 
 
-def run():
-    [run_experiment('Weak_scaling', {**default_args, **args}) for args in weak_scaling]
-    [run_experiment('Strong_scaling', {**default_args_strong, **args}) for args in strong_scaling]
-    [run_experiment('Weak_scaling', {**default_args, **args}) for args in weak_scaling_3D]
-    [run_experiment('Strong_scaling', {**default_args_strong, **args}) for args in strong_scaling_3D]
+def run(args, version=''):
+    run_experiment(version, {**args, 'versions': VERSIONS, 'bin': BIN})
+    run_experiment(version, {**args, 'versions': VERSIONS_NVSHMEM, 'bin': BIN_NVSHMEM, 'mpi': True})
+
+    run_experiment(f'{version}_No_Compute', {**args, 'versions': VERSIONS_NO_COMPUTE, 'bin': BIN})
+    run_experiment(f'{version}_No_Compute',
+                   {**args, 'versions': VERSIONS_NVSHMEM_NO_COMPUTE, 'bin': BIN_NVSHMEM, 'mpi': True})
 
 
 if __name__ == '__main__':
-    # Regular
-    run()
+    # Running with the same name merges them
+    for args in weak_scaling:
+        run({**default_args, **args}, version='2D_Weak_Scaling')
 
-    # NVSHMEM
-    default_args['bin'] = BIN_NVSHMEM
-    default_args_strong['bin'] = BIN_3D_NVSHMEM
+    for args in weak_scaling_3D:
+        run({**default_args, **args}, version='3D_Weak_Scaling')
 
-    default_args['mpi'] = True
-    default_args_strong['mpi'] = True
+    for args in strong_scaling:
+        run({**default_args_strong, **args}, version='2D_Strong_Scaling')
 
-    run()
+    for args in strong_scaling_3D:
+        run({**default_args_strong, **args}, version='3D_Strong_Scaling')
