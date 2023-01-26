@@ -30,9 +30,7 @@ int main(int argc, char *argv[]) {
 
             make_pair("Baseline NVSHMEM (No Computation)", BaselineMultiThreadedNvshmemOptNoCompute::init),
 
-
             make_pair("Design 1 NVSHMEM (No Compute)", MultiGPUPeerTilingNvshmemNoCompute::init),
-            make_pair("Design 2 NVSHMEM (No Compute)", SSMultiThreadedMultiBlockCommNvshmemNoCompute::init),
             make_pair("PERKS NVSHMEM", MultiStreamPERKSNvshmem::init),
 
 //        make_pair("NVSHMEM Baseline Multi Threaded", BaselineMultiThreadedNvshmem::init),
@@ -45,6 +43,7 @@ int main(int argc, char *argv[]) {
 //        make_pair(
 //                    "NVSHMEM Single stream multi threaded (two thread blocks communicate; no computation)",
 //                    SSMultiThreadedTwoBlockCommNvshmemNoCompute::init),
+//            make_pair("Design 2 NVSHMEM (No Compute)", SSMultiThreadedMultiBlockCommNvshmemNoCompute::init),
     };
 
     const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
