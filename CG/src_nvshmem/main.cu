@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 
 #include "../include_nvshmem/baseline/discrete-pipelined-nvshmem.cuh"
 #include "../include_nvshmem/baseline/discrete-standard-nvshmem.cuh"
