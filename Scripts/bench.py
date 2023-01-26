@@ -110,14 +110,17 @@ def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_I
     dims = [next(dim_generator) for _ in range(len(gpu_indices))]
 
     # 1 GPUs (256x256), 2 GPUs (256x512) ...
-    columns = list(map(lambda dims: f'{dims[0] + 1} GPUs ({get_dim_str(dims[1])})', enumerate(dims)))
+    columns = list(map(lambda dims: f'{gpu_indices[dims[0]].count(",") + 1} GPUs ({get_dim_str(dims[1])})', enumerate(dims)))
 
     # Create output csv handler
-    results = pd.DataFrame(index=[*version_names[:len(versions)]], columns=columns)
+    results = pd.DataFrame(index=[version_names[v] for v in versions], columns=columns)
     results = results.rename_axis('Version')
 
-    for v, name in zip(versions, version_names):
+    for v in versions:
+        name = version_names[v]
+
         for i, (dim, gpu_setting) in enumerate(zip(dims, gpu_indices)):
+            # I know this is stupid
             num_gpus = gpu_setting.count(',') + 1
             if mpi:
                 # This corresponds to -np x
@@ -132,7 +135,7 @@ def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_I
             args = list(map(str, [*bin, *pre_args, '-v', v, '-niter', num_iter, *dim]))
 
             if log:
-                print(f'Running {name} on {num_gpus} GPUs {args} ->', end=' ', flush=True, file=sys.stderr)
+                print(f'{name} on {num_gpus} GPUs {" ".join(args)} ->', end=' ', flush=True, file=sys.stderr)
 
             execution_time = repeat_reduce([run_execution_time(args) for _ in range(num_repeat)])
 
@@ -141,7 +144,7 @@ def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_I
 
             results.loc[name].iloc[i] = execution_time
 
-    results.to_csv(out_file)
+    results.to_csv(out_file, mode='a', header=not os.path.exists(out_file))
 
 
 if __name__ == '__main__':
