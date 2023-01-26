@@ -66,6 +66,7 @@ dir_path = dirname(realpath(__file__))
 
 plt.style.use(
     'https://github.com/dhaitz/matplotlib-stylesheets/raw/master/pitayasmoothie-light.mplstyle')
+plt.rcParams['savefig.dpi'] = 300
 
 plots = len(MATRICES_TO_PLOT)
 fig, axes = plt.subplots(math.ceil(plots / 3), 3, layout='constrained')
@@ -117,6 +118,7 @@ for file in files:
 
     y_label = fig.supylabel('Time (s)', weight='bold')
 
-    plt.savefig(MODULE_DIR / title)
+    plt.savefig(
+        MODULE_DIR / (title + '.png'), format='png')
 
     plt.show()

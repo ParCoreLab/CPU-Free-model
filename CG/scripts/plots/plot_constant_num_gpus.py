@@ -11,7 +11,7 @@ import matplotlib as mpl
 mpl.rcParams['hatch.linewidth'] = 0.3
 
 MATRIX_NAMES = [
-    'tridiagonal',
+    # 'tridiagonal',
     'ecology2',
     #   'shallow_water2', Too little non-zeros
     #   'Trefethen_2000', Too little non-zeros
@@ -48,6 +48,9 @@ dir_path = dirname(realpath(__file__))
 
 plt.style.use(
     'https://github.com/dhaitz/matplotlib-stylesheets/raw/master/pitayasmoothie-light.mplstyle')
+
+plt.rcParams['figure.constrained_layout.use'] = True
+plt.rcParams['savefig.dpi'] = 300
 
 colors = [
     '#c6c9cb', '#64b8e5', '#ee7fb2', '#eae2b7'
@@ -104,8 +107,8 @@ for file in files:
 
         axes.set_ylabel('Speedup', weight='bold')
         axes.set_xlabel(None)
-        axes.set_title(f'Speedup per matrix on {gpu_num_column_label}')
-        axes.legend()
+        # axes.set_title(f'Speedup per matrix on {gpu_num_column_label}')
+        axes.legend(fancybox=True, prop={'weight': 'bold', 'size': 'large'})
 
         # axes.set(xlabel=None)
         axes.set(title=None)
@@ -121,6 +124,7 @@ for file in files:
 
         plt.xticks(rotation=-20, ha='center', weight='bold')
         # plt.suptitle(per_gpu_num_title)
-        plt.savefig(MODULE_DIR / per_gpu_num_title)
+        plt.savefig(
+            MODULE_DIR / ('matrix_speedup_table_' + per_gpu_num_title + '.png'), format='png')
 
     plt.show()
