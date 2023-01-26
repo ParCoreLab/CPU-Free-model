@@ -14,6 +14,7 @@
 
 #include "../include_nvshmem/no-compute/multi-threaded-one-block-comm-no-compute.cuh"
 #include "../include_nvshmem/no-compute/multi-threaded-two-block-comm-no-compute.cuh"
+#include "../include_nvshmem/no-compute/design-1-multi-block-no-compute.cuh"
 
 #include "../include_nvshmem/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 
