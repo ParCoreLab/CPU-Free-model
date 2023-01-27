@@ -30,6 +30,7 @@ int main(int argc, char *argv[]) {
                   SingleStreamStandardSaxpyOverlapNVSHMEM::init),
         make_pair("Profiling Discrete Standard NVSHMEM", ProfilingDiscreteStandardNVSHMEM::init),
         make_pair("Profiling Discrete Pipelined NVSHMEM", ProfilingDiscretePipelinedNVSHMEM::init),
+        make_pair("Single GPU Discrete Standard NVSHMEM", SingleGPUDiscreteStandard::init),
     };
 
     std::string versions_to_run_string = get_argval<std::string>(argv, argv + argc, "-v", "0");
@@ -197,9 +198,11 @@ int main(int argc, char *argv[]) {
     if (compare_to_single_gpu) {
         CUDA_RT_CALL(cudaMallocHost(&x_ref_single_gpu, num_rows * sizeof(real)));
 
+        bool run_as_separate_version = false;
+
         single_gpu_runtime = SingleGPUDiscreteStandard::run_single_gpu(
             iter_max, device_csrRowIndices, device_csrColIndices, device_csrVal, x_ref_single_gpu,
-            num_rows, nnz, matrix_is_zero_indexed);
+            num_rows, nnz, matrix_is_zero_indexed, run_as_separate_version);
     }
 
     if (compare_to_cpu) {

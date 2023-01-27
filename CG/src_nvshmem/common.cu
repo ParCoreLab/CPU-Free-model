@@ -411,7 +411,7 @@ __global__ void resetLocalDotProduct(double *dot_result) {
 
 double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device_csrColIndices,
                       real *device_csrVal, real *x_ref, int num_rows, int nnz,
-                      bool matrix_is_zero_indexed) {
+                      bool matrix_is_zero_indexed, bool run_as_separate_version) {
     real *device_x;
     real *device_r;
     real *device_p;
@@ -532,7 +532,9 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
 
     double stop = omp_get_wtime();
 
-    CUDA_RT_CALL(cudaMemcpy(x_ref, device_x, num_rows * sizeof(real), cudaMemcpyDeviceToHost));
+    if (!run_as_separate_version) {
+        CUDA_RT_CALL(cudaMemcpy(x_ref, device_x, num_rows * sizeof(real), cudaMemcpyDeviceToHost));
+    }
 
     CUDA_RT_CALL(cudaFree(device_x));
     CUDA_RT_CALL(cudaFree(device_r));
@@ -768,8 +770,6 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
     }
 
     double stop = omp_get_wtime();
-
-    CUDA_RT_CALL(cudaMemcpy(x_ref, device_x, num_rows * sizeof(real), cudaMemcpyDeviceToHost));
 
     CUDA_RT_CALL(cudaFree(device_x));
     CUDA_RT_CALL(cudaFree(device_r));

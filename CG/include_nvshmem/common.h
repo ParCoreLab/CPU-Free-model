@@ -119,7 +119,13 @@ __global__ void resetLocalDotProduct(double *dot_result);
 
 double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device_csrColIndices,
                       real *device_csrVal, real *x_ref, int num_rows, int nnz,
-                      bool matrix_is_zero_indexed);
+                      bool matrix_is_zero_indexed, bool run_as_separate_version);
+
+// This is for running it as a separate version
+int init(int *device_csrRowIndices, int *device_csrColIndices, real *device_csrVal,
+         const int num_rows, const int nnz, bool matrix_is_zero_indexed, const int num_devices,
+         const int iter_max, real *x_final_result, const double single_gpu_runtime,
+         bool compare_to_single_gpu, bool compare_to_cpu, real *x_ref_single_gpu, real *x_ref_cpu);
 }  // namespace SingleGPUDiscreteStandard
 
 namespace CPU {
