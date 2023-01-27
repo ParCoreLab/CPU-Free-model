@@ -1,6 +1,7 @@
 . /truba/home/dsagbili/spack/share/spack/setup-env.sh
 
-spack load nvshmem@2.7.0-6
+# spack load nvshmem@2.7.0-6
+spack load nvshmem@2.7.0-6/pdl77w7
 
 export UCX_WARN_UNUSED_ENV_VARS=n
 #export NVSHMEM_IB_ENABLE_GPUINITIATED=1
