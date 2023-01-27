@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-# SBATCH -J stencil-bench-weak
-# SBATCH -N 1
-# SBATCH -n 8
-# SBATCH -c 16
-# SBATCH -A proj16
-# SBATCH -p palamut-cuda
-# SBATCH --gres=gpu:8
-# SBATCH --time=24:00:00
-# SBATCH -o stencil_bench_%j.log
+#SBATCH -J stencil-bench-weak
+#SBATCH -N 1
+#SBATCH -n 8
+#SBATCH -c 16
+#SBATCH -A proj16
+#SBATCH -p palamut-cuda
+#SBATCH --gres=gpu:8
+#SBATCH --time=24:00:00
+#SBATCH -o stencil_bench_%j.log
 
 import os
 import sys
