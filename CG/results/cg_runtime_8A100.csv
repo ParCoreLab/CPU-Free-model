@@ -1,116 +1,78 @@
 Execution time on 8A100
 Matrix,Version,1 GPU,2 GPUs,3 GPUs,4 GPUs,5 GPUs,6 GPUs,7 GPUs,8 GPUs
-tridiagonal,(Baseline) Discrete Standard,19.7869,20.135,4.0181,3.2096,2.8414,2.494,2.2673,2.075
-tridiagonal,(Baseline) Discrete Pipelined,26.0182,26.1759,5.0409,3.942,3.32,2.8766,2.5758,2.3455
-tridiagonal,(Ours) Persistent Standard,10.6928,5.5335,3.9954,3.0121,2.5519,2.2677,1.9331,1.7074
-tridiagonal,(Ours) Persistent Pipelined,14.8408,7.4733,5.1214,3.7905,3.0573,2.6239,2.2291,1.9564
-tridiagonal,(Ours) Persistent Pipelined Multi-Overlap,14.8428,7.4857,5.1514,3.8075,3.0937,2.6522,2.2644,1.9758
-tridiagonal,(Ours) Persistent Standard Saxpy Overlap,10.7124,5.5087,3.9259,2.939,2.4853,2.2381,1.9483,1.7588
-ecology2,(Baseline) Discrete Standard,1.9208,3.1879,0.8745,0.8115,0.8558,0.8769,0.8637,0.8597
-ecology2,(Baseline) Discrete Pipelined,2.2642,3.1747,0.7386,0.6612,0.63,0.6377,0.6272,0.6239
-ecology2,(Ours) Persistent Standard,0.6875,0.5073,0.5212,0.4334,0.4994,0.5208,0.5282,0.485
-ecology2,(Ours) Persistent Pipelined,0.8337,0.4312,0.3316,0.2762,0.2394,0.2308,0.2375,0.2256
-ecology2,(Ours) Persistent Pipelined Multi-Overlap,0.8516,0.4739,0.5116,0.48,0.5274,0.5522,0.5555,0.5476
-ecology2,(Ours) Persistent Standard Saxpy Overlap,0.6989,0.5934,0.6398,0.5551,0.5944,0.6355,0.6305,0.6002
-hood,(Baseline) Discrete Standard,6.8693,5.0769,1.4234,1.23,1.2768,1.2675,1.2584,1.2278
-hood,(Baseline) Discrete Pipelined,6.8583,4.5496,1.0543,0.9945,0.8898,0.8961,0.8949,0.8891
-hood,(Ours) Persistent Standard,1.4475,0.9643,0.9862,0.9359,1.0057,1.0209,1.027,0.9986
-hood,(Ours) Persistent Pipelined,1.6945,1.2552,0.7362,0.6961,0.6861,0.677,0.6903,0.6861
-hood,(Ours) Persistent Pipelined Multi-Overlap,1.7299,1.3701,0.895,0.8475,0.8897,0.8796,0.8943,0.8887
-hood,(Ours) Persistent Standard Saxpy Overlap,1.506,1.0414,1.0652,1.0148,1.0991,1.1138,1.1147,1.0935
-bmwcra_1,(Baseline) Discrete Standard,6.2564,8.8737,2.2111,1.9915,1.816,1.8477,1.9545,1.8757
-bmwcra_1,(Baseline) Discrete Pipelined,6.1851,8.428,1.8431,1.7232,1.4208,1.4169,1.5159,1.4277
-bmwcra_1,(Ours) Persistent Standard,2.5925,2.0144,1.9567,1.7111,1.724,1.7221,1.7998,1.8173
-bmwcra_1,(Ours) Persistent Pipelined,2.5746,1.8406,1.7054,1.5348,1.4202,1.3951,1.4542,1.4635
-bmwcra_1,(Ours) Persistent Pipelined Multi-Overlap,2.5964,1.9443,1.8277,1.7431,1.5793,1.5817,1.6273,1.6558
-bmwcra_1,(Ours) Persistent Standard Saxpy Overlap,2.5875,1.993,1.9831,1.8309,1.7673,1.7936,1.8741,1.8534
-consph,(Baseline) Discrete Standard,2.2649,4.5928,1.124,1.1021,1.1791,1.2217,1.2274,1.2346
-consph,(Baseline) Discrete Pipelined,2.125,3.8619,0.7812,0.7659,0.7583,0.7799,0.8085,0.8052
-consph,(Ours) Persistent Standard,0.8325,0.9308,0.9684,0.9591,1.0521,1.0693,1.082,1.0445
-consph,(Ours) Persistent Pipelined,0.7798,0.7526,0.7125,0.7301,0.7278,0.7334,0.7472,0.7395
-consph,(Ours) Persistent Pipelined Multi-Overlap,0.8368,0.8801,0.8652,0.8729,0.9056,0.9239,0.9435,0.9324
-consph,(Ours) Persistent Standard Saxpy Overlap,0.891,1.0003,1.03,1.0488,1.123,1.1576,1.1563,1.1258
-thermomech_dM,(Baseline) Discrete Standard,1.2879,2.9795,0.9278,0.9111,0.9751,1.0093,0.9912,0.9816
-thermomech_dM,(Baseline) Discrete Pipelined,1.1984,2.6327,0.7018,0.6966,0.6963,0.7231,0.726,0.6309
-thermomech_dM,(Ours) Persistent Standard,0.2626,0.4079,0.5205,0.5127,0.5871,0.6122,0.6145,0.5801
-thermomech_dM,(Ours) Persistent Pipelined,0.2417,0.2244,0.2636,0.2599,0.2478,0.2545,0.2483,0.2463
-thermomech_dM,(Ours) Persistent Pipelined Multi-Overlap,0.2674,0.3626,0.4629,0.4646,0.5417,0.5797,0.5752,0.5502
-thermomech_dM,(Ours) Persistent Standard Saxpy Overlap,0.33,0.4813,0.5988,0.6047,0.6691,0.7165,0.7159,0.6868
-tmt_sym,(Baseline) Discrete Standard,1.9495,4.0322,0.8873,0.8329,0.8904,0.9094,0.8962,0.8726
-tmt_sym,(Baseline) Discrete Pipelined,2.1356,3.2346,0.6973,0.6397,0.6233,0.6265,0.6357,0.6391
-tmt_sym,(Ours) Persistent Standard,0.662,0.5433,0.5101,0.4382,0.5296,0.5284,0.4959,0.4765
-tmt_sym,(Ours) Persistent Pipelined,0.7198,0.4452,0.3235,0.235,0.2349,0.2329,0.2134,0.2162
-tmt_sym,(Ours) Persistent Pipelined Multi-Overlap,0.7436,0.4908,0.4898,0.4431,0.5312,0.5408,0.5462,0.5171
-tmt_sym,(Ours) Persistent Standard Saxpy Overlap,0.7046,0.6008,0.6217,0.5264,0.6253,0.6438,0.6034,0.5583
-crankseg_1,(Baseline) Discrete Standard,16.2826,39.1001,11.8402,11.5595,11.4396,10.056,10.1962,10.1313
-crankseg_1,(Baseline) Discrete Pipelined,16.2425,35.4544,11.3696,11.2828,10.7477,9.7166,9.8077,9.8063
-crankseg_1,(Ours) Persistent Standard,9.1479,12.1093,12.3588,11.872,11.9502,10.6878,10.8674,10.7927
-crankseg_1,(Ours) Persistent Pipelined,8.9891,11.7858,11.905,11.5313,11.4509,10.4911,10.5582,10.4869
-crankseg_1,(Ours) Persistent Pipelined Multi-Overlap,8.9218,11.8914,11.8925,11.5414,11.6213,10.5515,10.5927,10.5132
-crankseg_1,(Ours) Persistent Standard Saxpy Overlap,8.6601,11.6643,11.6065,11.1578,11.5316,10.5497,10.6052,10.5841
-crankseg_2,(Baseline) Discrete Standard,18.8681,45.7924,14.4826,14.6073,14.6544,14.7815,14.8889,14.488
-crankseg_2,(Baseline) Discrete Pipelined,18.8166,40.9355,14.051,14.2311,14.3139,14.2641,14.2149,14.1702
-crankseg_2,(Ours) Persistent Standard,11.0632,14.4493,15.0157,15.1165,15.1806,15.3236,15.3781,14.84
-crankseg_2,(Ours) Persistent Pipelined,10.8438,14.2661,14.4562,14.5388,14.7001,14.6104,14.7625,14.5108
-crankseg_2,(Ours) Persistent Pipelined Multi-Overlap,10.8934,14.5268,14.6568,14.7434,14.8916,14.903,14.9743,14.779
-crankseg_2,(Ours) Persistent Standard Saxpy Overlap,10.8658,14.3971,14.7059,14.7922,14.8567,14.933,15.1099,14.6833
-Queen_4147,(Baseline) Discrete Standard,133.5003,127.2623,42.6735,31.8562,25.3909,21.1649,17.9778,16.1168
-Queen_4147,(Baseline) Discrete Pipelined,133.7621,130.9856,42.5395,31.6629,25.1133,20.8378,17.5917,15.7469
-Queen_4147,(Ours) Persistent Standard,35.5016,17.7423,12.1392,9.3978,7.6583,6.7335,5.8424,4.9559
-Queen_4147,(Ours) Persistent Pipelined,36.5703,18.1112,12.1695,9.3062,7.4602,6.489,5.5464,4.6732
-Queen_4147,(Ours) Persistent Pipelined Multi-Overlap,36.5613,18.1676,12.2538,9.359,7.5605,6.6309,5.687,4.8371
-Queen_4147,(Ours) Persistent Standard Saxpy Overlap,35.5898,17.8359,12.1197,9.3425,7.6811,6.7646,5.8771,4.9751
-Bump_2911,(Baseline) Discrete Standard,64.9717,63.7749,14.6029,11.0348,9.1382,7.685,6.9425,5.8118
-Bump_2911,(Baseline) Discrete Pipelined,64.5019,64.6364,14.4321,10.8049,8.8142,7.3035,6.5596,5.459
-Bump_2911,(Ours) Persistent Standard,14.4144,7.9613,5.6527,4.4712,3.9639,3.4461,2.9661,2.812
-Bump_2911,(Ours) Persistent Pipelined,14.998,8.0862,5.7057,4.2996,3.6515,3.2189,2.7023,2.553
-Bump_2911,(Ours) Persistent Pipelined Multi-Overlap,14.9933,8.0992,5.7329,4.3878,3.7838,3.3472,2.8866,2.7032
-Bump_2911,(Ours) Persistent Standard Saxpy Overlap,14.234,7.8663,5.4607,4.4299,3.846,3.4938,3.0188,2.8745
-G3_circuit,(Baseline) Discrete Standard,2.5626,3.9332,1.0456,0.9731,1.013,1.0052,1.0312,0.9864
-G3_circuit,(Baseline) Discrete Pipelined,3.1587,4.2332,0.8927,0.8066,0.775,0.7507,0.7529,0.7336
-G3_circuit,(Ours) Persistent Standard,1.0344,0.6729,0.6432,0.5634,0.5761,0.6155,0.6197,0.5651
-G3_circuit,(Ours) Persistent Pipelined,1.3114,0.6751,0.4587,0.3839,0.3195,0.3122,0.2893,0.2518
-G3_circuit,(Ours) Persistent Pipelined Multi-Overlap,1.3358,0.7139,0.5652,0.5279,0.573,0.5928,0.6011,0.5627
-G3_circuit,(Ours) Persistent Standard Saxpy Overlap,1.0702,0.7462,0.715,0.6695,0.6907,0.7213,0.7216,0.6773
-StocF-1465,(Baseline) Discrete Standard,5.7999,8.3311,2.1404,1.8074,1.8242,1.8769,1.5823,1.4397
-StocF-1465,(Baseline) Discrete Pipelined,6.1849,8.0466,1.8467,1.5413,1.452,1.5277,1.2093,1.0326
-StocF-1465,(Ours) Persistent Standard,2.5517,1.6093,1.3817,1.2556,1.1703,1.2543,1.0589,1.0138
-StocF-1465,(Ours) Persistent Pipelined,2.7284,1.5778,1.1991,1.0691,1.0062,0.9444,0.7529,0.7262
-StocF-1465,(Ours) Persistent Pipelined Multi-Overlap,2.7362,1.6342,1.3033,1.1874,1.1486,1.1011,0.9504,0.9121
-StocF-1465,(Ours) Persistent Standard Saxpy Overlap,2.4931,1.6327,1.4139,1.2947,1.2308,1.3439,1.1727,1.115
-Flan_1565,(Baseline) Discrete Standard,65.2201,67.2547,14.7546,10.4152,8.8562,7.9158,6.9873,5.4316
-Flan_1565,(Baseline) Discrete Pipelined,64.6946,66.2255,14.4506,10.1431,8.4549,7.4787,6.5312,5.0224
-Flan_1565,(Ours) Persistent Standard,12.5332,6.9023,4.6086,3.7205,3.0059,2.9238,2.9035,2.1189
-Flan_1565,(Ours) Persistent Pipelined,12.7408,6.8563,4.4326,3.5249,2.7419,2.6381,2.5865,1.8398
-Flan_1565,(Ours) Persistent Pipelined Multi-Overlap,12.7644,6.9042,4.549,3.6445,2.895,2.8034,2.7545,2.0123
-Flan_1565,(Ours) Persistent Standard Saxpy Overlap,12.4184,6.8713,4.6226,3.7422,3.0613,2.9801,2.9197,2.2009
-audikw_1,(Baseline) Discrete Standard,43.0592,47.6014,13.2821,10.8247,8.516,7.094,6.0271,5.5476
-audikw_1,(Baseline) Discrete Pipelined,43.0401,45.9575,12.9987,10.5371,8.1318,6.7176,5.616,5.1076
-audikw_1,(Ours) Persistent Standard,10.2215,7.7431,6.6034,6.7352,6.2559,6.2935,6.3296,6.2326
-audikw_1,(Ours) Persistent Pipelined,10.1805,7.5572,6.2192,6.3838,5.8142,5.8373,5.9123,5.8913
-audikw_1,(Ours) Persistent Pipelined Multi-Overlap,10.1827,7.5733,6.2911,6.4607,5.9989,5.9845,6.0771,6.0532
-audikw_1,(Ours) Persistent Standard Saxpy Overlap,9.826,7.4785,6.4607,6.5674,6.1655,6.2071,6.1714,6.1666
-Serena,(Baseline) Discrete Standard,26.2253,32.6414,7.0826,5.4137,4.8985,4.8557,4.1261,3.4654
-Serena,(Baseline) Discrete Pipelined,26.3103,31.0245,6.8334,5.0964,4.4923,4.4394,3.7078,3.0582
-Serena,(Ours) Persistent Standard,7.881,4.7903,3.8816,3.1903,2.732,2.7607,2.2583,2.2827
-Serena,(Ours) Persistent Pipelined,7.8766,4.6292,3.5498,3.0116,2.455,2.346,2.0037,1.9207
-Serena,(Ours) Persistent Pipelined Multi-Overlap,7.8655,4.6768,3.6415,3.1339,2.6078,2.5284,2.1714,2.1059
-Serena,(Ours) Persistent Standard Saxpy Overlap,7.5645,4.6446,3.8705,3.1762,2.7657,2.7478,2.3038,2.2929
-Geo_1438,(Baseline) Discrete Standard,33.1574,35.9752,7.3187,5.4193,4.891,4.5786,3.6614,3.1238
-Geo_1438,(Baseline) Discrete Pipelined,33.3188,36.469,7.0246,5.1248,4.5258,4.1574,3.2465,2.7152
-Geo_1438,(Ours) Persistent Standard,7.3301,4.0083,3.0384,2.4677,2.0442,2.0339,1.5803,1.5007
-Geo_1438,(Ours) Persistent Pipelined,7.6422,3.9632,2.8173,2.2925,1.7676,1.7471,1.2819,1.2147
-Geo_1438,(Ours) Persistent Pipelined Multi-Overlap,7.6412,3.9864,2.9394,2.4001,1.9277,1.9085,1.4626,1.3964
-Geo_1438,(Ours) Persistent Standard Saxpy Overlap,7.221,4.0171,3.0718,2.516,2.1078,2.115,1.6576,1.5937
-Hook_1498,(Baseline) Discrete Standard,25.7235,25.8759,5.8196,4.2992,4.0998,3.8987,3.2223,2.6627
-Hook_1498,(Baseline) Discrete Pipelined,25.9236,26.9447,5.5352,4.0045,3.7045,3.4715,2.7971,2.2555
-Hook_1498,(Ours) Persistent Standard,7.2783,3.9783,3.13,2.5352,2.1433,2.1031,1.659,1.605
-Hook_1498,(Ours) Persistent Pipelined,7.398,3.9226,2.8692,2.3175,1.8518,1.8257,1.3493,1.3036
-Hook_1498,(Ours) Persistent Pipelined Multi-Overlap,7.4026,3.9452,2.9799,2.4209,2.0172,1.9984,1.5233,1.4903
-Hook_1498,(Ours) Persistent Standard Saxpy Overlap,6.9714,3.8993,3.0807,2.5561,2.1811,2.1364,1.7337,1.6636
-ldoor,(Baseline) Discrete Standard,25.9588,27.6372,5.429,4.6084,3.338,2.5213,2.0003,1.808
-ldoor,(Baseline) Discrete Pipelined,25.9824,26.1995,5.1191,4.2788,2.9451,2.1075,1.5856,1.3803
-ldoor,(Ours) Persistent Standard,5.3288,3.3253,2.3485,2.2501,1.8054,1.7767,1.7645,1.7034
-ldoor,(Ours) Persistent Pipelined,5.4074,3.2622,2.1223,2.0198,1.5113,1.4483,1.4446,1.4125
-ldoor,(Ours) Persistent Pipelined Multi-Overlap,5.4243,3.3159,2.2359,2.1436,1.6868,1.6363,1.6338,1.5963
-ldoor,(Ours) Persistent Standard Saxpy Overlap,5.1844,3.3403,2.4058,2.2924,1.8715,1.8362,1.8129,1.7694
+tridiagonal,(Baseline) Discrete Standard,19.6922,20.1416,3.9922,3.1966,2.804,2.5,2.2601,2.0571
+tridiagonal,(Baseline) Discrete Pipelined,26.0091,25.3779,5.0327,3.9368,3.3074,2.8689,2.5667,2.3191
+tridiagonal,(Ours) Persistent Standard,10.667,5.5246,3.9853,3.013,2.5367,2.2669,1.9292,1.6985
+tridiagonal,(Ours) Persistent Pipelined,14.8021,7.4547,5.1203,3.789,3.0622,2.6186,2.226,1.9485
+ecology2,(Baseline) Discrete Standard,1.8278,3.1235,0.8509,0.7866,0.8344,0.8398,0.8482,0.8312
+ecology2,(Baseline) Discrete Pipelined,2.2354,3.1111,0.711,0.6226,0.6081,0.6,0.5949,0.5938
+ecology2,(Ours) Persistent Standard,0.652,0.4886,0.4937,0.4131,0.4743,0.4939,0.4976,0.4564
+ecology2,(Ours) Persistent Pipelined,0.8118,0.4026,0.3116,0.2367,0.198,0.1999,0.1974,0.192
+hood,(Baseline) Discrete Standard,6.8366,4.7046,1.3901,1.2119,1.2459,1.2263,1.2266,1.2029
+hood,(Baseline) Discrete Pipelined,6.8196,4.3237,1.0393,0.96,0.866,0.8673,0.8692,0.8623
+hood,(Ours) Persistent Standard,1.4431,0.9338,0.9696,0.9097,0.9852,1.0006,1.0124,0.9772
+hood,(Ours) Persistent Pipelined,1.6807,1.2,0.7225,0.68,0.6587,0.6592,0.663,0.6642
+bmwcra_1,(Baseline) Discrete Standard,6.4738,8.9163,2.1883,1.9342,1.8447,1.7749,1.9032,1.7983
+bmwcra_1,(Baseline) Discrete Pipelined,6.1843,7.1764,1.8407,1.5899,1.4553,1.3565,1.4805,1.3655
+bmwcra_1,(Ours) Persistent Standard,2.6364,1.9647,1.9323,1.6811,1.7174,1.7137,1.8022,1.7835
+bmwcra_1,(Ours) Persistent Pipelined,2.601,1.8097,1.6799,1.4646,1.4169,1.371,1.4489,1.4386
+consph,(Baseline) Discrete Standard,2.2285,4.2073,1.091,1.103,1.1547,1.1814,1.2058,1.1947
+consph,(Baseline) Discrete Pipelined,2.0907,3.7479,0.7375,0.7372,0.7299,0.7481,0.7701,0.7753
+consph,(Ours) Persistent Standard,0.8196,0.8725,0.9397,0.9459,1.0174,1.0506,1.0592,1.0118
+consph,(Ours) Persistent Pipelined,0.7572,0.7218,0.6896,0.7016,0.7078,0.7101,0.7206,0.7067
+thermomech_dM,(Baseline) Discrete Standard,1.2659,2.9148,0.9126,0.892,0.9704,0.9865,0.975,0.9557
+thermomech_dM,(Baseline) Discrete Pipelined,1.2041,2.006,0.676,0.6732,0.6853,0.7013,0.6966,0.6073
+thermomech_dM,(Ours) Persistent Standard,0.2425,0.3762,0.5,0.4947,0.56,0.594,0.5906,0.5503
+thermomech_dM,(Ours) Persistent Pipelined,0.2063,0.2112,0.2442,0.2432,0.2319,0.2354,0.2285,0.2242
+tmt_sym,(Baseline) Discrete Standard,1.8221,3.3365,0.8727,0.801,0.8648,0.8731,0.872,0.8309
+tmt_sym,(Baseline) Discrete Pipelined,1.9788,3.0315,0.67,0.597,0.6006,0.5944,0.5893,0.5889
+tmt_sym,(Ours) Persistent Standard,0.6418,0.5038,0.4824,0.4057,0.4901,0.5012,0.4689,0.4317
+tmt_sym,(Ours) Persistent Pipelined,0.699,0.4066,0.293,0.1964,0.193,0.1909,0.1805,0.1794
+crankseg_1,(Baseline) Discrete Standard,16.2366,38.2419,11.7565,11.5355,10.3249,9.7289,9.9093,9.9033
+crankseg_1,(Baseline) Discrete Pipelined,16.2009,34.8184,11.3414,11.2617,9.8653,9.4134,9.4138,9.5416
+crankseg_1,(Ours) Persistent Standard,9.2125,12.1848,12.4106,11.9239,10.849,10.7362,10.8954,10.8174
+crankseg_1,(Ours) Persistent Pipelined,9.0323,11.8754,11.9581,11.5644,10.5579,10.5016,10.5566,10.4752
+crankseg_2,(Baseline) Discrete Standard,18.8273,45.6425,14.5276,14.5476,14.7878,14.9261,14.7775,13.2554
+crankseg_2,(Baseline) Discrete Pipelined,18.7279,41.123,14.0657,14.189,14.4789,14.2913,14.1304,13.0261
+crankseg_2,(Ours) Persistent Standard,11.1072,14.5289,15.1799,15.2021,15.5417,15.6196,15.4842,14.2685
+crankseg_2,(Ours) Persistent Pipelined,10.8982,14.2723,14.5768,14.6091,14.8781,14.7987,14.8144,13.5453
+Queen_4147,(Baseline) Discrete Standard,133.2033,126.3184,42.6295,31.8399,25.3776,21.1334,18.0048,16.0789
+Queen_4147,(Baseline) Discrete Pipelined,133.0057,129.8952,42.5294,31.6715,25.0967,20.8447,17.6051,15.7203
+Queen_4147,(Ours) Persistent Standard,35.5426,17.8651,12.2533,9.3812,7.628,6.6746,5.7969,4.9055
+Queen_4147,(Ours) Persistent Pipelined,36.5662,18.1692,12.1996,9.2828,7.3788,6.3906,5.4872,4.6351
+Bump_2911,(Baseline) Discrete Standard,64.5055,63.5256,14.6461,11.0423,9.1137,7.6803,6.9185,5.7918
+Bump_2911,(Baseline) Discrete Pipelined,64.7334,64.3552,14.4672,10.7977,8.7759,7.3063,6.5479,5.449
+Bump_2911,(Ours) Persistent Standard,14.4235,7.9048,5.5046,4.4501,3.8372,3.4165,2.9279,2.7662
+Bump_2911,(Ours) Persistent Pipelined,14.7755,7.8834,5.4908,4.2796,3.7268,3.2109,2.6859,2.4905
+G3_circuit,(Baseline) Discrete Standard,2.5214,3.7164,1.0191,0.9519,0.9915,0.995,1.0213,0.9598
+G3_circuit,(Baseline) Discrete Pipelined,3.1198,3.942,0.8752,0.7885,0.744,0.7177,0.7286,0.7109
+G3_circuit,(Ours) Persistent Standard,1.0165,0.6533,0.6235,0.5407,0.5575,0.5907,0.5943,0.5368
+G3_circuit,(Ours) Persistent Pipelined,1.3069,0.6582,0.4381,0.3621,0.2962,0.2823,0.2637,0.2228
+StocF-1465,(Baseline) Discrete Standard,5.8891,8.1447,2.0823,1.8005,1.7919,1.8434,1.5334,1.3923
+StocF-1465,(Baseline) Discrete Pipelined,6.1777,7.7822,1.8262,1.5443,1.4204,1.4933,1.1532,1.0206
+StocF-1465,(Ours) Persistent Standard,2.5676,1.6296,1.4016,1.2733,1.1741,1.2652,1.042,0.9761
+StocF-1465,(Ours) Persistent Pipelined,2.7133,1.5652,1.2045,1.0802,0.9688,0.9496,0.7368,0.712
+Flan_1565,(Baseline) Discrete Standard,65.1945,65.8631,14.7315,10.3861,8.874,7.812,6.9119,5.3709
+Flan_1565,(Baseline) Discrete Pipelined,64.9434,65.6143,14.4531,10.1116,8.4666,7.4112,6.4879,4.9809
+Flan_1565,(Ours) Persistent Standard,12.549,6.8744,4.6031,3.6901,2.9708,2.8921,2.8677,2.0788
+Flan_1565,(Ours) Persistent Pipelined,12.7114,6.8285,4.4011,3.4828,2.705,2.6044,2.5561,1.7958
+audikw_1,(Baseline) Discrete Standard,42.8823,45.7432,13.3269,10.9064,8.5825,7.1268,6.0432,5.5013
+audikw_1,(Baseline) Discrete Pipelined,42.8565,45.5645,13.0067,10.5843,8.1886,6.7793,5.6419,5.0988
+audikw_1,(Ours) Persistent Standard,10.2345,7.7438,6.5812,6.722,6.2269,6.2746,6.3113,6.2194
+audikw_1,(Ours) Persistent Pipelined,10.1987,7.5596,6.2118,6.3242,5.7939,5.8575,5.9095,5.8653
+Serena,(Baseline) Discrete Standard,26.2366,32.2262,7.0682,5.4174,4.8762,4.8062,4.0899,3.4643
+Serena,(Baseline) Discrete Pipelined,26.1606,31.526,6.8039,5.1011,4.4584,4.4008,3.6789,3.051
+Serena,(Ours) Persistent Standard,7.8791,4.7574,3.9087,3.2282,2.7285,2.7134,2.2302,2.2622
+Serena,(Ours) Persistent Pipelined,7.8703,4.4892,3.4835,2.9949,2.4143,2.3116,1.9763,1.9181
+Geo_1438,(Baseline) Discrete Standard,32.9096,35.8108,7.3202,5.3945,4.8784,4.5742,3.6573,3.0911
+Geo_1438,(Baseline) Discrete Pipelined,33.1307,36.5046,7.0261,5.1013,4.5116,4.1514,3.2345,2.7071
+Geo_1438,(Ours) Persistent Standard,7.2332,3.9752,3.0162,2.4469,1.9992,2.0114,1.5524,1.469
+Geo_1438,(Ours) Persistent Pipelined,7.5677,3.8939,2.7977,2.2533,1.73,1.698,1.2516,1.1848
+Hook_1498,(Baseline) Discrete Standard,25.8966,27.8351,5.8175,4.2988,4.0753,3.8889,3.2189,2.6344
+Hook_1498,(Baseline) Discrete Pipelined,25.9185,27.2483,5.5238,4.0131,3.6865,3.4798,2.7944,2.2365
+Hook_1498,(Ours) Persistent Standard,7.2642,3.9652,3.0919,2.5357,2.0938,2.0762,1.6279,1.549
+Hook_1498,(Ours) Persistent Pipelined,7.3785,3.8864,2.8137,2.3244,1.8296,1.798,1.3186,1.265
+ldoor,(Baseline) Discrete Standard,25.6889,25.6944,5.4324,4.4898,3.3198,2.4962,1.9658,1.7631
+ldoor,(Baseline) Discrete Pipelined,25.9717,25.7551,5.1365,4.1814,2.9047,2.0845,1.5466,1.345
+ldoor,(Ours) Persistent Standard,5.2997,3.3132,2.3427,2.2135,1.7838,1.7509,1.7254,1.6787
+ldoor,(Ours) Persistent Pipelined,5.4032,3.22,2.116,1.9983,1.4895,1.4145,1.4129,1.3844
