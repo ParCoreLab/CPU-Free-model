@@ -60,15 +60,14 @@ namespace BaselineDiscreteStandardNVSHMEM {
 __global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, int chunk_size) {
     cg::thread_block cta = cg::this_thread_block();
 
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t grid_size = gridDim.x * blockDim.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
     extern __shared__ double tmp[];
 
     double temp_sum = 0.0;
 
-    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
-        temp_sum += (double)(vecA[i] * vecB[i]);
+    if (grid_rank < chunk_size) {
+        temp_sum += (double)(vecA[grid_rank] * vecB[grid_rank]);
     }
 
     cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
@@ -93,9 +92,9 @@ __global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, 
 }
 
 __global__ void resetLocalDotProduct(double *dot_result) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (grid_rank == 0) {
         *dot_result = 0.0;
     }
 }

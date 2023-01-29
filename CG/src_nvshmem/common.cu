@@ -133,32 +133,29 @@ void report_runtime(const int num_devices, const double single_gpu_runtime, cons
 // Common Single GPU kernels
 namespace SingleGPU {
 __global__ void initVectors(real *r, real *x, int num_rows) {
-    size_t grid_size = gridDim.x * blockDim.x;
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (size_t i = grid_rank; i < num_rows; i += grid_size) {
-        r[i] = 1.0;
-        x[i] = 0.0;
+    if (grid_rank < num_rows) {
+        r[grid_rank] = 1.0;
+        x[grid_rank] = 0.0;
     }
 }
 
 __global__ void gpuCopyVector(real *srcA, real *destB, int num_rows) {
-    size_t grid_size = gridDim.x * blockDim.x;
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (size_t i = grid_rank; i < num_rows; i += grid_size) {
-        destB[i] = srcA[i];
+    if (grid_rank < num_rows) {
+        destB[grid_rank] = srcA[grid_rank];
     }
 }
 
 __global__ void gpuSpMV(int *rowInd, int *colInd, real *val, int nnz, int num_rows, real alpha,
                         real *inputVecX, real *outputVecY, bool matrix_is_zero_indexed) {
-    size_t grid_size = gridDim.x * blockDim.x;
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (size_t i = grid_rank; i < num_rows; i += grid_size) {
-        int row_elem = rowInd[i] - int(!matrix_is_zero_indexed);
-        int next_row_elem = rowInd[i + 1] - int(!matrix_is_zero_indexed);
+    if (grid_rank < num_rows) {
+        int row_elem = rowInd[grid_rank] - int(!matrix_is_zero_indexed);
+        int next_row_elem = rowInd[grid_rank + 1] - int(!matrix_is_zero_indexed);
         int num_elems_this_row = next_row_elem - row_elem;
 
         real output = 0.0;
@@ -168,72 +165,70 @@ __global__ void gpuSpMV(int *rowInd, int *colInd, real *val, int nnz, int num_ro
             output += alpha * val[row_elem + j] * inputVecX[input_vec_elem_idx];
         }
 
-        outputVecY[i] = output;
+        outputVecY[grid_rank] = output;
     }
 }
 
 __global__ void gpuSaxpy(real *x, real *y, real a, int num_rows) {
-    size_t grid_size = gridDim.x * blockDim.x;
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (size_t i = grid_rank; i < num_rows; i += grid_size) {
-        y[i] = a * x[i] + y[i];
+    if (grid_rank < num_rows) {
+        y[grid_rank] = a * x[grid_rank] + y[grid_rank];
     }
 }
 
 __global__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int num_rows) {
-    size_t grid_size = gridDim.x * blockDim.x;
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (size_t i = grid_rank; i < num_rows; i += grid_size) {
-        y[i] = a * x[i] + scale * y[i];
+    if (grid_rank < num_rows) {
+        y[grid_rank] = a * x[grid_rank] + scale * y[grid_rank];
     }
 }
 
 __global__ void r1_div_x(real r1, real r0, real *b) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (grid_rank == 0) {
         *b = r1 / r0;
     }
 }
 
 __global__ void a_minus(real a, real *na) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (grid_rank == 0) {
         *na = -a;
     }
 }
 
 __global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (grid_rank == 0) {
         *a = dot_delta_1 / (dot_gamma_1 - (b / *a) * dot_delta_1);
     }
 }
 
 __global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (grid_rank == 0) {
         *b = dot_delta_1 / dot_delta_0;
     }
 }
 
 __global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (grid_rank == 0) {
         *a = dot_delta_1 / dot_gamma_1;
     }
 }
 
 __global__ void init_b_k(real *b) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (grid_rank == 0) {
         *b = 0.0;
     }
 }
@@ -243,14 +238,13 @@ __global__ void init_b_k(real *b) {
 namespace NVSHMEM {
 __global__ void initVectors(real *r, real *x, int row_start_idx, int chunk_size, int num_rows) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
 
-    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
-        int global_row_idx = row_start_idx + local_row_idx;
+    if (grid_rank < chunk_size) {
+        int global_row_idx = row_start_idx + grid_rank;
 
         if (global_row_idx < num_rows) {
-            r[local_row_idx] = 1.0;
-            x[local_row_idx] = 0.0;
+            r[grid_rank] = 1.0;
+            x[grid_rank] = 0.0;
         }
     }
 }
@@ -259,12 +253,11 @@ __global__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *i
                         real *outputVecY, int row_start_idx, int chunk_size, int num_rows,
                         bool matrix_is_zero_indexed) {
     int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    int grid_size = gridDim.x * blockDim.x;
 
     int mype = nvshmem_my_pe();
 
-    for (int local_row_idx = grid_rank; local_row_idx < chunk_size; local_row_idx += grid_size) {
-        int global_row_idx = row_start_idx + local_row_idx;
+    if (grid_rank < chunk_size) {
+        int global_row_idx = row_start_idx + grid_rank;
 
         if (global_row_idx < num_rows) {
             int row_elem = rowInd[global_row_idx] - int(!matrix_is_zero_indexed);
@@ -284,82 +277,79 @@ __global__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *i
                 output += alpha * val[row_elem + j] * elem_val;
             }
 
-            outputVecY[local_row_idx] = output;
+            outputVecY[grid_rank] = output;
         }
     }
 }
 
 __global__ void gpuSaxpy(real *x, real *y, real a, int chunk_size) {
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t grid_size = gridDim.x * blockDim.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
-        y[i] = a * x[i] + y[i];
+    if (grid_rank < chunk_size) {
+        y[grid_rank] = a * x[grid_rank] + y[grid_rank];
     }
 }
 
 __global__ void gpuCopyVector(real *srcA, real *destB, int chunk_size) {
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t grid_size = gridDim.x * blockDim.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
-        destB[i] = srcA[i];
+    if (grid_rank < chunk_size) {
+        destB[grid_rank] = srcA[grid_rank];
     }
 }
 
 __global__ void gpuScaleVectorAndSaxpy(real *x, real *y, real a, real scale, int chunk_size) {
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t grid_size = gridDim.x * blockDim.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
-        y[i] = a * x[i] + scale * y[i];
+    if (grid_rank < chunk_size) {
+        y[grid_rank] = a * x[grid_rank] + scale * y[grid_rank];
     }
 }
 
 __global__ void r1_div_x(real r1, real r0, real *b, const int gpu_idx) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gpu_idx == 0 && gid == 0) {
+    if (gpu_idx == 0 && grid_rank == 0) {
         *b = r1 / r0;
     }
 }
 
 __global__ void a_minus(real a, real *na, const int gpu_idx) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gpu_idx == 0 && gid == 0) {
+    if (gpu_idx == 0 && grid_rank == 0) {
         *na = -a;
     }
 }
 
 __global__ void update_a_k(real dot_delta_1, real dot_gamma_1, real b, real *a, const int gpu_idx) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gpu_idx == 0 && gid == 0) {
+    if (gpu_idx == 0 && grid_rank == 0) {
         *a = dot_delta_1 / (dot_gamma_1 - (b / *a) * dot_delta_1);
     }
 }
 
 __global__ void update_b_k(real dot_delta_1, real dot_delta_0, real *b, const int gpu_idx) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gpu_idx == 0 && gid == 0) {
+    if (gpu_idx == 0 && grid_rank == 0) {
         *b = dot_delta_1 / dot_delta_0;
     }
 }
 
 __global__ void init_a_k(real dot_delta_1, real dot_gamma_1, real *a, const int gpu_idx) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gpu_idx == 0 && gid == 0) {
+    if (gpu_idx == 0 && grid_rank == 0) {
         *a = dot_delta_1 / dot_gamma_1;
     }
 }
 
 __global__ void init_b_k(real *b, const int gpu_idx) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gpu_idx == 0 && gid == 0) {
+    if (gpu_idx == 0 && grid_rank == 0) {
         *b = 0.0;
     }
 }
@@ -369,15 +359,14 @@ namespace SingleGPUDiscreteStandard {
 __global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, int num_rows) {
     cg::thread_block cta = cg::this_thread_block();
 
-    size_t grid_size = gridDim.x * blockDim.x;
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
     extern __shared__ double tmp[];
 
     double temp_sum = 0.0;
 
-    for (size_t i = grid_rank; i < num_rows; i += grid_size) {
-        temp_sum += (double)(vecA[i] * vecB[i]);
+    if (grid_rank < num_rows) {
+        temp_sum += (double)(vecA[grid_rank] * vecB[grid_rank]);
     }
 
     cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
@@ -402,9 +391,9 @@ __global__ void gpuDotProduct(real *vecA, real *vecB, double *local_dot_result, 
 }
 
 __global__ void resetLocalDotProduct(double *dot_result) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (grid_rank == 0) {
         *dot_result = 0.0;
     }
 }
@@ -447,6 +436,8 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
     int threadsPerBlock = 1024;
     int sMemSize = sizeof(double) * ((threadsPerBlock / 32) + 1);
     int numBlocks = (num_rows + threadsPerBlock - 1) / threadsPerBlock;
+
+    CUDA_RT_CALL(cudaDeviceSynchronize());
 
     double start = omp_get_wtime();
 
@@ -565,8 +556,7 @@ __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
                                      const int sMemSize) {
     cg::thread_block cta = cg::this_thread_block();
 
-    size_t grid_size = gridDim.x * blockDim.x;
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
     extern __shared__ double tmp[];
 
@@ -576,9 +566,9 @@ __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
     double temp_sum_delta = 0.0;
     double temp_sum_gamma = 0.0;
 
-    for (size_t i = grid_rank; i < num_rows; i += grid_size) {
-        temp_sum_delta += (double)(vecA_delta[i] * vecB_delta[i]);
-        temp_sum_gamma += (double)(vecA_gamma[i] * vecB_gamma[i]);
+    if (grid_rank < num_rows) {
+        temp_sum_delta += (double)(vecA_delta[grid_rank] * vecB_delta[grid_rank]);
+        temp_sum_gamma += (double)(vecA_gamma[grid_rank] * vecB_gamma[grid_rank]);
     }
 
     cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
@@ -610,9 +600,9 @@ __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
 }
 
 __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_result_gamma) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (grid_rank == 0) {
         *dot_result_delta = 0.0;
         *dot_result_gamma = 0.0;
     }

@@ -62,8 +62,7 @@ __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
                                      const int sMemSize) {
     cg::thread_block cta = cg::this_thread_block();
 
-    size_t grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t grid_size = gridDim.x * blockDim.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
     extern __shared__ double tmp[];
 
@@ -73,9 +72,9 @@ __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
     double temp_sum_delta = 0.0;
     double temp_sum_gamma = 0.0;
 
-    for (size_t i = grid_rank; i < chunk_size; i += grid_size) {
-        temp_sum_delta += (double)(vecA_delta[i] * vecB_delta[i]);
-        temp_sum_gamma += (double)(vecA_gamma[i] * vecB_gamma[i]);
+    if (grid_rank < chunk_size) {
+        temp_sum_delta += (double)(vecA_delta[grid_rank] * vecB_delta[grid_rank]);
+        temp_sum_gamma += (double)(vecA_gamma[grid_rank] * vecB_gamma[grid_rank]);
     }
 
     cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
@@ -107,9 +106,9 @@ __global__ void gpuDotProductsMerged(real *vecA_delta, real *vecB_delta, real *v
 }
 
 __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_result_gamma) {
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int grid_rank = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (gid == 0) {
+    if (grid_rank == 0) {
         *dot_result_delta = 0.0;
         *dot_result_gamma = 0.0;
     }
