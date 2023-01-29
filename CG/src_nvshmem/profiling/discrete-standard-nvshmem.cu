@@ -170,20 +170,21 @@ int ProfilingDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *devic
     CUDA_RT_CALL(cudaDeviceSynchronize());
     nvshmem_barrier_all();
 
-    int sMemSize = sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
-    int numBlocks = (chunk_size + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+    int threadsPerBlock = 1024;
+    int sMemSize = sizeof(double) * ((threadsPerBlock / 32) + 1);
+    int numBlocks = (chunk_size + threadsPerBlock - 1) / threadsPerBlock;
 
     nvshmem_barrier_all();
 
     double start = MPI_Wtime();
 
-    NVSHMEM::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+    NVSHMEM::initVectors<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
         device_r, device_x, row_start_global_idx, chunk_size, num_rows);
 
     nvshmemx_barrier_all_on_stream(mainStream);
 
     // ax0 = Ax0
-    NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+    NVSHMEM::gpuSpMV<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
         device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, device_x,
         device_ax0, row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
@@ -191,17 +192,17 @@ int ProfilingDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *devic
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
-    NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
-        device_ax0, device_r, real_negative_one, chunk_size);
+    NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(device_ax0, device_r,
+                                                                     real_negative_one, chunk_size);
 
     // // p0 = r0
-    NVSHMEM::gpuCopyVector<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_r, device_p,
-                                                                            chunk_size);
+    NVSHMEM::gpuCopyVector<<<numBlocks, threadsPerBlock, 0, mainStream>>>(device_r, device_p,
+                                                                          chunk_size);
 
     // Do we need to reset the local dot here?
     resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_delta1);
 
-    gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
+    gpuDotProduct<<<numBlocks, threadsPerBlock, sMemSize, mainStream>>>(
         device_r, device_r, device_dot_gamma1, chunk_size);
 
     // Do global reduction to add up local dot products
@@ -223,7 +224,7 @@ int ProfilingDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *devic
         PUSH_RANGE("SpMV", 0);
 
         // SpMV
-        NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        NVSHMEM::gpuSpMV<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, device_p,
             device_s, row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
@@ -243,7 +244,7 @@ int ProfilingDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *devic
 
         resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_delta1);
 
-        gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
+        gpuDotProduct<<<numBlocks, threadsPerBlock, sMemSize, mainStream>>>(
             device_p, device_s, device_dot_delta1, chunk_size);
 
         CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
@@ -276,8 +277,8 @@ int ProfilingDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *devic
         PUSH_RANGE("Saxpy 1", 5);
 
         // x_(k+1) = x_k + alpha_k * p_k
-        NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_p, device_x,
-                                                                           alpha, chunk_size);
+        NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(device_p, device_x, alpha,
+                                                                         chunk_size);
 
         cudaStreamSynchronize(mainStream);
 
@@ -288,7 +289,7 @@ int ProfilingDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *devic
         PUSH_RANGE("Saxpy 2", 6);
 
         // r_(k+1) = r_k - alpha_k * s
-        NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_s, device_r, negative_alpha, chunk_size);
 
         cudaStreamSynchronize(mainStream);
@@ -299,7 +300,7 @@ int ProfilingDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *devic
 
         resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_gamma1);
 
-        gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
+        gpuDotProduct<<<numBlocks, threadsPerBlock, sMemSize, mainStream>>>(
             device_r, device_r, device_dot_gamma1, chunk_size);
 
         cudaStreamSynchronize(mainStream);
@@ -332,7 +333,7 @@ int ProfilingDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *devic
         PUSH_RANGE("Saxpy 3", 10);
 
         // p_(k+1) = r_(k+1) = beta_k * p_(k)
-        NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_r, device_p, real_positive_one, beta, chunk_size);
 
         cudaStreamSynchronize(mainStream);

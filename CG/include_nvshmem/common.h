@@ -10,7 +10,6 @@
 
 typedef double real;
 
-constexpr int THREADS_PER_BLOCK = 512;
 constexpr real tol = 1e-5f;
 
 namespace cg = cooperative_groups;

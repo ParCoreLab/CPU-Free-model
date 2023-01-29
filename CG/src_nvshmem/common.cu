@@ -444,31 +444,31 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
     CUDA_RT_CALL(cudaMemset(device_dot_delta1, 0, sizeof(double)));
     CUDA_RT_CALL(cudaMemset(device_dot_gamma1, 0, sizeof(double)));
 
-    int sMemSize = (sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1));
-
-    int numBlocks = (num_rows + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+    int threadsPerBlock = 1024;
+    int sMemSize = sizeof(double) * ((threadsPerBlock / 32) + 1);
+    int numBlocks = (num_rows + threadsPerBlock - 1) / threadsPerBlock;
 
     double start = omp_get_wtime();
 
-    SingleGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(device_r, device_x, num_rows);
+    SingleGPU::initVectors<<<numBlocks, threadsPerBlock, 0, 0>>>(device_r, device_x, num_rows);
 
     // ax0 = Ax0
-    SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
+    SingleGPU::gpuSpMV<<<numBlocks, threadsPerBlock, 0, 0>>>(
         device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows, real_positive_one,
         device_x, device_ax0, matrix_is_zero_indexed);
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
-    SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(device_ax0, device_r,
-                                                                real_negative_one, num_rows);
+    SingleGPU::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, 0>>>(device_ax0, device_r,
+                                                              real_negative_one, num_rows);
 
     // p0 = r0
-    SingleGPU::gpuCopyVector<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(device_r, device_p, num_rows);
+    SingleGPU::gpuCopyVector<<<numBlocks, threadsPerBlock, 0, 0>>>(device_r, device_p, num_rows);
 
     resetLocalDotProduct<<<1, 1, 0, 0>>>(device_dot_gamma1);
 
-    gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(device_r, device_r,
-                                                                 device_dot_gamma1, num_rows);
+    gpuDotProduct<<<numBlocks, threadsPerBlock, sMemSize, 0>>>(device_r, device_r,
+                                                               device_dot_gamma1, num_rows);
 
     CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
                                  cudaMemcpyDeviceToHost, 0));
@@ -481,14 +481,14 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
 
     while (k < iter_max) {
         // SpMV
-        SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
+        SingleGPU::gpuSpMV<<<numBlocks, threadsPerBlock, 0, 0>>>(
             device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows,
             real_positive_one, device_p, device_s, matrix_is_zero_indexed);
 
         resetLocalDotProduct<<<1, 1, 0, 0>>>(device_dot_delta1);
 
-        gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(device_p, device_s,
-                                                                     device_dot_delta1, num_rows);
+        gpuDotProduct<<<numBlocks, threadsPerBlock, sMemSize, 0>>>(device_p, device_s,
+                                                                   device_dot_delta1, num_rows);
 
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_delta1, device_dot_delta1, sizeof(double),
                                      cudaMemcpyDeviceToHost, 0));
@@ -498,19 +498,19 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
         alpha = tmp_dot_gamma0 / (real)host_dot_delta1;
 
         // x_(k+1) = x_k + alpha_k * p_k
-        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(device_p, device_x, alpha,
-                                                                    num_rows);
+        SingleGPU::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, 0>>>(device_p, device_x, alpha,
+                                                                  num_rows);
 
         negative_alpha = -alpha;
 
         // r_(k+1) = r_k - alpha_k * s
-        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(device_s, device_r,
-                                                                    negative_alpha, num_rows);
+        SingleGPU::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, 0>>>(device_s, device_r,
+                                                                  negative_alpha, num_rows);
 
         resetLocalDotProduct<<<1, 1, 0, 0>>>(device_dot_gamma1);
 
-        gpuDotProduct<<<numBlocks, THREADS_PER_BLOCK, sMemSize, 0>>>(device_r, device_r,
-                                                                     device_dot_gamma1, num_rows);
+        gpuDotProduct<<<numBlocks, threadsPerBlock, sMemSize, 0>>>(device_r, device_r,
+                                                                   device_dot_gamma1, num_rows);
 
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
                                      cudaMemcpyDeviceToHost, 0));
@@ -520,7 +520,7 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
         beta = (real)host_dot_gamma1 / tmp_dot_gamma0;
 
         // p_(k+1) = r_(k+1) = beta_k * p_(k)
-        SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, 0>>>(
+        SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, threadsPerBlock, 0, 0>>>(
             device_r, device_p, real_positive_one, beta, num_rows);
 
         tmp_dot_gamma0 = host_dot_gamma1;
@@ -666,9 +666,9 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
     CUDA_RT_CALL(cudaMalloc((void **)&device_q, num_rows * sizeof(real)));
     CUDA_RT_CALL(cudaMalloc((void **)&device_ax0, num_rows * sizeof(real)));
 
-    int sMemSize = 2 * (sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1));
-
-    int numBlocks = (num_rows + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+    int threadsPerBlock = 1024;
+    int sMemSize = 2 * sizeof(double) * ((threadsPerBlock / 32) + 1);
+    int numBlocks = (num_rows + threadsPerBlock - 1) / threadsPerBlock;
 
     CUDA_RT_CALL(cudaStreamCreate(&streamOtherOps));
     CUDA_RT_CALL(cudaStreamCreate(&streamDot));
@@ -679,21 +679,21 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
 
     double start = omp_get_wtime();
 
-    SingleGPU::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(device_r, device_x,
-                                                                                num_rows);
+    SingleGPU::initVectors<<<numBlocks, threadsPerBlock, 0, streamOtherOps>>>(device_r, device_x,
+                                                                              num_rows);
 
     // ax0 = Ax0
-    SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
+    SingleGPU::gpuSpMV<<<numBlocks, threadsPerBlock, 0, streamOtherOps>>>(
         device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows, real_positive_one,
         device_x, device_ax0, matrix_is_zero_indexed);
 
     // r0 = b0 - s0
     // NOTE: b is a unit vector.
-    SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
+    SingleGPU::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, streamOtherOps>>>(
         device_ax0, device_r, real_negative_one, num_rows);
 
     // w0 = Ar0
-    SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamOtherOps>>>(
+    SingleGPU::gpuSpMV<<<numBlocks, threadsPerBlock, 0, streamOtherOps>>>(
         device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows, real_positive_one,
         device_r, device_w, matrix_is_zero_indexed);
 
@@ -705,7 +705,7 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
         // Two dot products => <r, r> and <r, w>
         resetLocalDotProducts<<<1, 1, 0, streamDot>>>(device_dot_delta1, device_dot_gamma1);
 
-        gpuDotProductsMerged<<<numBlocks, THREADS_PER_BLOCK, sMemSize, streamDot>>>(
+        gpuDotProductsMerged<<<numBlocks, threadsPerBlock, sMemSize, streamDot>>>(
             device_r, device_r, device_r, device_w, device_dot_delta1, device_dot_gamma1, num_rows,
             sMemSize);
 
@@ -716,7 +716,7 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
                                      cudaMemcpyDeviceToHost, streamDot));
 
         // SpMV
-        SingleGPU::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, streamSpMV>>>(
+        SingleGPU::gpuSpMV<<<numBlocks, threadsPerBlock, 0, streamSpMV>>>(
             device_csrRowIndices, device_csrColIndices, device_csrVal, nnz, num_rows,
             real_positive_one, device_w, device_q, matrix_is_zero_indexed);
 
@@ -737,29 +737,29 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
         CUDA_RT_CALL(cudaStreamSynchronize(streamSpMV));
 
         // z_k = q_k + beta_k * z_(k-1)
-        SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+        SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, threadsPerBlock, 0, streamSaxpy>>>(
             device_q, device_z, real_positive_one, beta, num_rows);
 
         // s_k = w_k + beta_k * s_(k-1)
-        SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+        SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, threadsPerBlock, 0, streamSaxpy>>>(
             device_w, device_s, real_positive_one, beta, num_rows);
 
         // p_k = r_k = beta_k * p_(k-1)
-        SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+        SingleGPU::gpuScaleVectorAndSaxpy<<<numBlocks, threadsPerBlock, 0, streamSaxpy>>>(
             device_r, device_p, real_positive_one, beta, num_rows);
 
         // x_(i+1) = x_i + alpha_i * p_i
-        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(device_p, device_x,
-                                                                              alpha, num_rows);
+        SingleGPU::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, streamSaxpy>>>(device_p, device_x,
+                                                                            alpha, num_rows);
 
         negative_alpha = -alpha;
 
         // r_(i+1) = r_i - alpha_i * s_i
-        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+        SingleGPU::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, streamSaxpy>>>(
             device_s, device_r, negative_alpha, num_rows);
 
         // w_(i+1) = w_i - alpha_i * z_i
-        SingleGPU::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, streamSaxpy>>>(
+        SingleGPU::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, streamSaxpy>>>(
             device_z, device_w, negative_alpha, num_rows);
 
         tmp_dot_delta0 = host_dot_delta1;

@@ -199,20 +199,21 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
     CUDA_RT_CALL(cudaDeviceSynchronize());
     nvshmem_barrier_all();
 
-    int sMemSize = 2 * sizeof(double) * ((THREADS_PER_BLOCK / 32) + 1);
-    int numBlocks = (chunk_size + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+    int threadsPerBlock = 1024;
+    int sMemSize = 2 * sizeof(double) * ((threadsPerBlock / 32) + 1);
+    int numBlocks = (chunk_size + threadsPerBlock - 1) / threadsPerBlock;
 
     nvshmem_barrier_all();
 
     double start = MPI_Wtime();
 
-    NVSHMEM::initVectors<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+    NVSHMEM::initVectors<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
         device_r, device_x, row_start_global_idx, chunk_size, num_rows);
 
     nvshmemx_barrier_all_on_stream(mainStream);
 
     // ax0 = Ax0
-    NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+    NVSHMEM::gpuSpMV<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
         device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, device_x,
         device_ax0, row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
@@ -220,13 +221,13 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
-    NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
-        device_ax0, device_r, real_negative_one, chunk_size);
+    NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(device_ax0, device_r,
+                                                                     real_negative_one, chunk_size);
 
     nvshmemx_barrier_all_on_stream(mainStream);
 
     // w0 = Ar0
-    NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+    NVSHMEM::gpuSpMV<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
         device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, device_r,
         device_w, row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
@@ -239,14 +240,14 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
                                                        &device_merged_dots[1]);
 
         // Dot
-        gpuDotProductsMerged<<<numBlocks, THREADS_PER_BLOCK, sMemSize, mainStream>>>(
+        gpuDotProductsMerged<<<numBlocks, threadsPerBlock, sMemSize, mainStream>>>(
             device_r, device_r, device_r, device_w, &device_merged_dots[0], &device_merged_dots[1],
             chunk_size, sMemSize);
 
         CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         // SpMV
-        NVSHMEM::gpuSpMV<<<numBlocks, THREADS_PER_BLOCK, 0, SpMVStream>>>(
+        NVSHMEM::gpuSpMV<<<numBlocks, threadsPerBlock, 0, SpMVStream>>>(
             device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, device_w,
             device_q, row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
@@ -283,29 +284,29 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
         CUDA_RT_CALL(cudaStreamSynchronize(SpMVStream));
 
         // z_k = q_k + beta_k * z_(k-1)
-        NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_q, device_z, real_positive_one, beta, chunk_size);
 
         // s_k = w_k + beta_k * s_(k-1)
-        NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_w, device_s, real_positive_one, beta, chunk_size);
 
         // p_k = r_k = beta_k * p_(k-1)
-        NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_r, device_p, real_positive_one, beta, chunk_size);
 
         // x_(k+1) = x_k + alpha_k * p_k
-        NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(device_p, device_x,
-                                                                           alpha, chunk_size);
+        NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(device_p, device_x, alpha,
+                                                                         chunk_size);
 
         negative_alpha = -alpha;
 
         // r_(k+1) = r_k - alpha_k * s_k
-        NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_s, device_r, negative_alpha, chunk_size);
 
         // w_(k+1) = w_k - alpha_k * z_k
-        NVSHMEM::gpuSaxpy<<<numBlocks, THREADS_PER_BLOCK, 0, mainStream>>>(
+        NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_z, device_w, negative_alpha, chunk_size);
 
         tmp_dot_delta0 = real_tmp_dot_delta1;

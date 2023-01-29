@@ -356,10 +356,6 @@ int BaselinePersistentStandardNVSHMEM::init(int *device_csrRowIndices, int *devi
     CUDA_RT_CALL(cudaDeviceSynchronize());
     nvshmem_barrier_all();
 
-    // WARNING!!!
-    // This was causing issues for me
-    // Get rid of THREADS_PER_BLOCK
-    // Use per version threadsPerBlock variable
     int threadsPerBlock = 1024;
     int sMemSize = sizeof(double) * ((threadsPerBlock / 32) + 1);
 
