@@ -13,6 +13,7 @@ import subprocess
 import sys
 from functools import reduce
 from itertools import accumulate, cycle
+from pathlib import Path
 
 import pandas as pd
 
@@ -21,6 +22,7 @@ import pandas as pd
 BIN_MPI = ['mpirun', '-np', '1', '--timeout', str(5 * 60)]  # Timeout after 5 minutes
 BIN = ['./jacobi']
 PRE_ARGS = ['-s']  # No header output
+GIGA = 10**6
 
 LOG = True  # For debugging
 
@@ -29,7 +31,6 @@ NUM_REPEAT = 5  # Number of times to repeat the experiments
 REPEAT_REDUCE = min  # Function to reduce repetitions to a single number
 NUM_ITER = 10000
 STARTING_DIM = (1024, 1024)
-GCELL = False
 GPU_STEP = lambda x: x * 2  # How the next GPU count is calculated. Doubled by default
 
 OUT_FILE = '/dev/stdout'  # File to write csv to
@@ -85,8 +86,14 @@ def run_execution_time(args: []):
 
 
 def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_ITER, dim_func=DIM_FUNC,
-        out_file=OUT_FILE, pre_args=PRE_ARGS, gcell=GCELL,
+        out_file=OUT_FILE, pre_args=PRE_ARGS,
         gpu_step=GPU_STEP, num_repeat=NUM_REPEAT, repeat_reduce=REPEAT_REDUCE, log=LOG, mpi=False):
+
+    gcell_dir = Path(out_file).parent / 'gcell'
+    gcell_dir.mkdir(exist_ok=True)
+
+    out_file_gcell = gcell_dir / Path(out_file).name
+
     # Make sure it's a mutable list
     starting_dim = list(starting_dim)
 
@@ -118,6 +125,8 @@ def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_I
     results = pd.DataFrame(index=[version_names[v] for v in versions], columns=columns)
     results = results.rename_axis('Version')
 
+    results_gcell = results.copy(deep=True)
+
     for v in versions:
         name = version_names[v]
 
@@ -139,17 +148,17 @@ def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_I
             if log:
                 print(f'{name} on {num_gpus} GPUs {" ".join(args)} ->', end=' ', flush=True, file=sys.stderr)
 
-            result_out = repeat_reduce([run_execution_time(args) for _ in range(num_repeat)])
+            execution_sec = repeat_reduce([run_execution_time(args) for _ in range(num_repeat)])
+            execution_gcell = (reduce(lambda x, y: x * y, dim) * num_iter) / execution_sec / GIGA
 
             if log:
-                print(f'{result_out} seconds', file=sys.stderr)
+                print(f'{execution_sec} seconds ({execution_gcell} GCELLs/s)', file=sys.stderr)
 
-            if gcell:
-                result_out = reduce(lambda x, y: x * y, dim) / num_iter
-
-            results.loc[name].iloc[i] = result_out
+            results.loc[name].iloc[i] = execution_sec
+            results_gcell.loc[name].iloc[i] = execution_gcell
 
     results.to_csv(out_file, mode='a', header=not os.path.exists(out_file))
+    results_gcell.to_csv(out_file_gcell, mode='a', header=not os.path.exists(out_file_gcell))
 
 
 if __name__ == '__main__':
