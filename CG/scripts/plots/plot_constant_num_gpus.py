@@ -10,6 +10,7 @@ from common import get_files, markers, get_module_dir, wrap_labels, set_size, AC
 import matplotlib as mpl
 mpl.rcParams['hatch.linewidth'] = 0.3
 mpl.rcParams['path.simplify'] = True
+mpl.rcParams['figure.dpi'] = 300
 
 MATRIX_NAMES = [
     # 'tridiagonal',
@@ -130,6 +131,6 @@ for gpu_num_column_label in gpu_num_column_labels:
     plt.xticks(rotation=-20, ha='center', weight='bold')
     # plt.suptitle(per_gpu_num_title)
     plt.savefig(
-        MODULE_DIR / ('matrix_speedup_table_' + per_gpu_num_title + '.pdf'), format='pdf')
+        MODULE_DIR / ('matrix_speedup_table_' + per_gpu_num_title + '.pdf'), format='pdf', dpi=600)
 
 plt.show()
