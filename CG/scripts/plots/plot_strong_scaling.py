@@ -128,6 +128,6 @@ for file in files:
     y_label = fig.supylabel('Time (s)', weight='bold')
 
     plt.savefig(
-        MODULE_DIR / (title + '.pdf'), format='pdf', dpi=600)
+        MODULE_DIR / (title + '.pdf'), format='pdf')
 
     plt.show()

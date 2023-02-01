@@ -100,8 +100,11 @@ for gpu_num_column_label in gpu_num_column_labels:
     per_gpu_num_speedup = 1 / per_gpu_num_data.div(
         single_gpu_baseline_standard_runtimes, axis=0)
 
+    per_gpu_num_speedup.sort_values(
+        inplace=True, by='(Ours) Persistent Pipelined', ascending=False)
+
     axes = per_gpu_num_speedup.plot.bar(
-        color=colors, edgecolor='black', figsize=(15, 6))
+        color=colors, edgecolor='black', figsize=(12, 3))
 
     bars = axes.patches
     patterns = ('', '///', '', '///')
@@ -131,6 +134,6 @@ for gpu_num_column_label in gpu_num_column_labels:
     plt.xticks(rotation=-20, ha='center', weight='bold')
     # plt.suptitle(per_gpu_num_title)
     plt.savefig(
-        MODULE_DIR / ('matrix_speedup_table_' + per_gpu_num_title + '.pdf'), format='pdf', dpi=600)
+        MODULE_DIR / ('matrix_speedup_table_' + per_gpu_num_title + '.pdf'), format='pdf')
 
 plt.show()
