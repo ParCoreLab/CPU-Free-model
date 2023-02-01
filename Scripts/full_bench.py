@@ -88,7 +88,7 @@ default_args_strong = {
 weak_scaling = [
     {'starting_dim': (256, 256), 'num_iter': 1_000_000},
     {'starting_dim': (1024, 1024), 'num_iter': 1_000_000},
-    {'starting_dim': (2048, 1024), 'num_iter': 1_00_000},
+    {'starting_dim': (2048, 1024), 'num_iter': 1_000_000},
     {'starting_dim': (8192, 4096), 'num_iter': 10_000},
 ]
 
