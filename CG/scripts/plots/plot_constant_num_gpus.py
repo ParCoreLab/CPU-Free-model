@@ -5,10 +5,11 @@ import matplotlib.pyplot as plt
 from itertools import cycle
 from os.path import dirname, realpath
 
-from common import get_files, markers, get_module_dir, wrap_labels
+from common import get_files, markers, get_module_dir, wrap_labels, set_size, ACM_DOCUMENT_WIDTH
 
 import matplotlib as mpl
 mpl.rcParams['hatch.linewidth'] = 0.3
+mpl.rcParams['path.simplify'] = True
 
 MATRIX_NAMES = [
     # 'tridiagonal',
@@ -48,9 +49,7 @@ dir_path = dirname(realpath(__file__))
 
 plt.style.use(
     'https://github.com/dhaitz/matplotlib-stylesheets/raw/master/pitayasmoothie-light.mplstyle')
-
 plt.rcParams['figure.constrained_layout.use'] = True
-plt.rcParams['savefig.dpi'] = 300
 
 colors = [
     '#c6c9cb', '#64b8e5', '#ee7fb2', '#eae2b7'
@@ -104,7 +103,7 @@ for gpu_num_column_label in gpu_num_column_labels:
         color=colors, edgecolor='black', figsize=(15, 6))
 
     bars = axes.patches
-    patterns = ('/////', '.....', '/////', '.....')
+    patterns = ('', '///', '', '///')
     hatches = [p for p in patterns for i in range(
         len(per_gpu_num_speedup))]
 
@@ -131,6 +130,6 @@ for gpu_num_column_label in gpu_num_column_labels:
     plt.xticks(rotation=-20, ha='center', weight='bold')
     # plt.suptitle(per_gpu_num_title)
     plt.savefig(
-        MODULE_DIR / ('matrix_speedup_table_' + per_gpu_num_title + '.png'), format='png')
+        MODULE_DIR / ('matrix_speedup_table_' + per_gpu_num_title + '.pdf'), format='pdf')
 
 plt.show()

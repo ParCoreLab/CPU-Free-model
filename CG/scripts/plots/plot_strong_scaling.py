@@ -7,9 +7,12 @@ from pathlib import Path
 
 from common import get_files, markers, get_module_dir, wrap_labels
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+
+mpl.rcParams['path.simplify'] = True
 
 MATRIX_NAMES = [
     # 'tridiagonal',
@@ -21,19 +24,19 @@ MATRIX_NAMES = [
     # 'consph',
     # 'thermomech_dM',
     # 'tmt_sym',
-    'crankseg_1',
-    'crankseg_2',
-    # 'Queen_4147',
+    # 'crankseg_1',
+    # 'crankseg_2',
+    'Queen_4147',
     # 'Bump_2911',
-    'G3_circuit',
-    'StocF-1465',
-    'Flan_1565',
+    # 'G3_circuit',
+    # 'StocF-1465',
+    # 'Flan_1565',
     # 'audikw_1',
     # 'Serena',
     # 'Geo_1438',
     # 'Hook_1498',
     #   'bone010', Multi-part matrix, don't handle those for now
-    'ldoor'
+    # 'ldoor'
 ]
 
 LARGE_MATRICES_TO_PLOT = [
@@ -59,6 +62,12 @@ VERSIONS_TO_KEEP = [
 ]
 
 MATRICES_TO_PLOT = LARGE_MATRICES_TO_PLOT + MEDIUM_SMALL_MATRICES_TO_PLOT
+
+MATRICES_TO_PLOT = [
+    'Queen_4147',
+    'crankseg_2',
+    'G3_circuit'
+]
 
 MODULE_DIR = get_module_dir('Strong Scaling')
 
@@ -119,6 +128,6 @@ for file in files:
     y_label = fig.supylabel('Time (s)', weight='bold')
 
     plt.savefig(
-        MODULE_DIR / (title + '.png'), format='png')
+        MODULE_DIR / (title + '.pdf'), format='pdf')
 
     plt.show()

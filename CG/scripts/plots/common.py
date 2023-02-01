@@ -8,6 +8,8 @@ dir_path = dirname(realpath(__file__))
 BASE_DIR = Path(dir_path + '/../../img')
 BASE_DIR.mkdir(exist_ok=True)
 
+ACM_DOCUMENT_WIDTH = 506.295
+
 
 def get_files():
     parser = argparse.ArgumentParser()
@@ -28,6 +30,41 @@ def wrap_labels(ax, width, break_long_words=False):
         labels.append(textwrap.fill(text, width=width,
                                     break_long_words=break_long_words))
     ax.set_xticklabels(labels, rotation=0)
+
+
+def set_size(width, fraction=1):
+    """Set figure dimensions to avoid scaling in LaTeX.
+
+    Parameters
+    ----------
+    width: float
+            Document textwidth or columnwidth in pts
+    fraction: float, optional
+            Fraction of the width which you wish the figure to occupy
+
+    Returns
+    -------
+    fig_dim: tuple
+            Dimensions of figure in inches
+    """
+    # Width of figure (in pts)
+    fig_width_pt = width * fraction
+
+    # Convert from pt to inches
+    inches_per_pt = 1 / 72.27
+
+    # Golden ratio to set aesthetic figure height
+    # https://disq.us/p/2940ij3
+    golden_ratio = (5**.5 - 1) / 2
+
+    # Figure width in inches
+    fig_width_in = fig_width_pt * inches_per_pt
+    # Figure height in inches
+    fig_height_in = fig_width_in * golden_ratio
+
+    fig_dim = (fig_width_in, fig_height_in)
+
+    return fig_dim
 
 
 markers = [
