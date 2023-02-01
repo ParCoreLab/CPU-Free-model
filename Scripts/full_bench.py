@@ -32,7 +32,7 @@ VERSIONS = [
     1,  # Baseline Overlap
     2,  # Baseline P2P
     3,  # Design 1
-    4,  # Design 2
+    # 4,  # Design 2
     5  # PERKS
 ]
 VERSIONS_NO_COMPUTE = [
@@ -46,8 +46,10 @@ VERSIONS_NO_COMPUTE = [
 VERSIONS_NVSHMEM = [
     0,  # Baseline
     1,  # Design 1
-    2,  # Design 2
-    3  # PERKS
+    # 2,  # Design 2
+    3,  # Design 1 Partitioned
+    # 3  # PERKS
+    7,  # PERKS, possibly
 ]
 
 VERSIONS_NVSHMEM_NO_COMPUTE = [
@@ -84,9 +86,10 @@ default_args_strong = {
 }
 
 weak_scaling = [
-    {'starting_dim': (256, 256), 'num_iter': 100000},
-    {'starting_dim': (1024, 1024), 'num_iter': 100000},
-    {'starting_dim': (8192, 4096), 'num_iter': 10000},
+    {'starting_dim': (256, 256), 'num_iter': 1_000_000},
+    {'starting_dim': (1024, 1024), 'num_iter': 1_000_000},
+    {'starting_dim': (2048, 1024), 'num_iter': 1_00_000},
+    {'starting_dim': (8192, 4096), 'num_iter': 10_000},
 ]
 
 strong_scaling = [
@@ -111,11 +114,11 @@ def run_experiment(name: str, args):
 
 def run(args, version=''):
     run_experiment(version, {**args, 'versions': VERSIONS, 'bin': BIN})
-    run_experiment(version, {**args, 'versions': VERSIONS_NVSHMEM, 'bin': BIN_NVSHMEM, 'mpi': True})
+    # run_experiment(version, {**args, 'versions': VERSIONS_NVSHMEM, 'bin': BIN_NVSHMEM, 'mpi': True})
 
-    run_experiment(f'{version}_No_Compute', {**args, 'versions': VERSIONS_NO_COMPUTE, 'bin': BIN})
-    run_experiment(f'{version}_No_Compute',
-                   {**args, 'versions': VERSIONS_NVSHMEM_NO_COMPUTE, 'bin': BIN_NVSHMEM, 'mpi': True})
+    # run_experiment(f'{version}_No_Compute', {**args, 'versions': VERSIONS_NO_COMPUTE, 'bin': BIN})
+    # run_experiment(f'{version}_No_Compute',
+    #                {**args, 'versions': VERSIONS_NVSHMEM_NO_COMPUTE, 'bin': BIN_NVSHMEM, 'mpi': True})
 
 
 if __name__ == '__main__':
@@ -123,11 +126,11 @@ if __name__ == '__main__':
     for args in weak_scaling:
         run({**default_args, **args}, version='2D_Weak_Scaling')
 
-    for args in weak_scaling_3D:
-        run({**default_args, **args}, version='3D_Weak_Scaling')
+    # for args in weak_scaling_3D:
+    #     run({**default_args, **args}, version='3D_Weak_Scaling')
 
-    for args in strong_scaling:
-        run({**default_args_strong, **args}, version='2D_Strong_Scaling')
+    # for args in strong_scaling:
+    #     run({**default_args_strong, **args}, version='2D_Strong_Scaling')
 
-    for args in strong_scaling_3D:
-        run({**default_args_strong, **args}, version='3D_Strong_Scaling')
+    # for args in strong_scaling_3D:
+    #     run({**default_args_strong, **args}, version='3D_Strong_Scaling')
