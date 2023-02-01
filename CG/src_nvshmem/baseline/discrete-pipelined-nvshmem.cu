@@ -154,9 +154,14 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
     cudaStream_t SpMVStream;
     cudaStream_t communicationStream;
 
-    CUDA_RT_CALL(cudaStreamCreateWithFlags(&mainStream, cudaStreamNonBlocking));
-    CUDA_RT_CALL(cudaStreamCreateWithFlags(&SpMVStream, cudaStreamNonBlocking));
-    CUDA_RT_CALL(cudaStreamCreateWithFlags(&communicationStream, cudaStreamNonBlocking));
+    int leastPriority = 0;
+    int greatestPriority = leastPriority;
+    CUDA_RT_CALL(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
+
+    CUDA_RT_CALL(cudaStreamCreateWithPriority(&mainStream, cudaStreamDefault, leastPriority));
+    CUDA_RT_CALL(cudaStreamCreateWithPriority(&SpMVStream, cudaStreamDefault, leastPriority));
+    CUDA_RT_CALL(
+        cudaStreamCreateWithPriority(&communicationStream, cudaStreamDefault, greatestPriority));
 
     nvshmem_barrier_all();
 
