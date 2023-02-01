@@ -61,70 +61,76 @@ colors = [
 # - '#eae2b7' => Yellow
 
 
+# First file should be the full CSV file
+# Second should be the SingleGPU runtimes
 files = get_files()
 
+full_runtimes_csv = files[0]
+single_gpu_runtimes_csv = files[1]
 
-for file in files:
-    title = file.readline().strip()
+title = full_runtimes_csv.readline().strip()
 
-    data = pd.read_csv(file, index_col='Matrix')
-    data = data.sort_index()
+data = pd.read_csv(full_runtimes_csv, index_col='Matrix')
+data = data.sort_index()
 
-    matrix_names = np.unique(
-        [matrix_name for matrix_name, _ in data.iterrows()])
+single_gpu_baseline_standard_runtimes = pd.read_csv(
+    single_gpu_runtimes_csv, index_col='Matrix')['Runtime']
+single_gpu_baseline_standard_runtimes = single_gpu_baseline_standard_runtimes.sort_index()
 
-    gpu_num_column_labels = [column_label
-                             for column_label in data.columns if 'GPU' in column_label]
+matrix_names = np.unique(
+    [matrix_name for matrix_name, _ in data.iterrows()])
 
-    for matrix_name in matrix_names:
-        if matrix_name not in MATRIX_NAMES:
-            data.drop(matrix_name, inplace=True)
+gpu_num_column_labels = [column_label
+                         for column_label in data.columns if 'GPU' in column_label]
 
-    single_gpu_baseline_standard_runtimes = data.loc[data['Version']
-                                                     == '(Baseline) Discrete Standard']['1 GPU']
+for matrix_name in matrix_names:
+    if matrix_name not in MATRIX_NAMES:
+        data.drop(matrix_name, inplace=True)
+        single_gpu_baseline_standard_runtimes.drop(matrix_name, inplace=True)
 
-    for gpu_num_column_label in gpu_num_column_labels:
-        per_gpu_num_data = data[['Version', gpu_num_column_label]]
-        per_gpu_num_data = per_gpu_num_data.pivot_table(
-            gpu_num_column_label, 'Matrix', 'Version')
 
-        per_gpu_num_data = pd.DataFrame(
-            per_gpu_num_data, columns=VERSIONS_TO_KEEP)
+for gpu_num_column_label in gpu_num_column_labels:
+    per_gpu_num_data = data[['Version', gpu_num_column_label]]
+    per_gpu_num_data = per_gpu_num_data.pivot_table(
+        gpu_num_column_label, 'Matrix', 'Version')
 
-        per_gpu_num_speedup = 1 / per_gpu_num_data.div(
-            single_gpu_baseline_standard_runtimes, axis=0)
+    per_gpu_num_data = pd.DataFrame(
+        per_gpu_num_data, columns=VERSIONS_TO_KEEP)
 
-        axes = per_gpu_num_speedup.plot.bar(
-            color=colors, edgecolor='black', figsize=(15, 6))
+    per_gpu_num_speedup = 1 / per_gpu_num_data.div(
+        single_gpu_baseline_standard_runtimes, axis=0)
 
-        bars = axes.patches
-        patterns = ('/////', '.....', '/////', '.....')
-        hatches = [p for p in patterns for i in range(
-            len(per_gpu_num_speedup))]
+    axes = per_gpu_num_speedup.plot.bar(
+        color=colors, edgecolor='black', figsize=(15, 6))
 
-        for bar, hatch in zip(bars, hatches):
-            bar.set_hatch(hatch)
+    bars = axes.patches
+    patterns = ('/////', '.....', '/////', '.....')
+    hatches = [p for p in patterns for i in range(
+        len(per_gpu_num_speedup))]
 
-        axes.set_ylabel('Speedup', weight='bold')
-        axes.set_xlabel(None)
-        # axes.set_title(f'Speedup per matrix on {gpu_num_column_label}')
-        axes.legend(fancybox=True, prop={'weight': 'bold', 'size': 'large'})
+    for bar, hatch in zip(bars, hatches):
+        bar.set_hatch(hatch)
 
-        # axes.set(xlabel=None)
-        axes.set(title=None)
-        # wrap_labels(axes, 10)
+    axes.set_ylabel('Speedup', weight='bold')
+    axes.set_xlabel(None)
+    # axes.set_title(f'Speedup per matrix on {gpu_num_column_label}')
+    axes.legend(fancybox=True, prop={'weight': 'bold', 'size': 'large'})
 
-        # axes.legend(loc='upper center',
-        #             bbox_to_anchor=(0.5,  # horizontal
-        #                             1.09),  # vertical
-        #             ncol=2, fancybox=True)
+    # axes.set(xlabel=None)
+    axes.set(title=None)
+    # wrap_labels(axes, 10)
 
-        # per_gpu_num_title = f'{title} ({matrix_name})'
-        per_gpu_num_title = gpu_num_column_label
+    # axes.legend(loc='upper center',
+    #             bbox_to_anchor=(0.5,  # horizontal
+    #                             1.09),  # vertical
+    #             ncol=2, fancybox=True)
 
-        plt.xticks(rotation=-20, ha='center', weight='bold')
-        # plt.suptitle(per_gpu_num_title)
-        plt.savefig(
-            MODULE_DIR / ('matrix_speedup_table_' + per_gpu_num_title + '.png'), format='png')
+    # per_gpu_num_title = f'{title} ({matrix_name})'
+    per_gpu_num_title = gpu_num_column_label
 
-    plt.show()
+    plt.xticks(rotation=-20, ha='center', weight='bold')
+    # plt.suptitle(per_gpu_num_title)
+    plt.savefig(
+        MODULE_DIR / ('matrix_speedup_table_' + per_gpu_num_title + '.png'), format='png')
+
+plt.show()
