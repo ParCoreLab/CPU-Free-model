@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+from functools import reduce
 from itertools import accumulate, cycle
 
 import pandas as pd
@@ -28,6 +29,7 @@ NUM_REPEAT = 5  # Number of times to repeat the experiments
 REPEAT_REDUCE = min  # Function to reduce repetitions to a single number
 NUM_ITER = 10000
 STARTING_DIM = (1024, 1024)
+GCELL = False
 GPU_STEP = lambda x: x * 2  # How the next GPU count is calculated. Doubled by default
 
 OUT_FILE = '/dev/stdout'  # File to write csv to
@@ -83,7 +85,7 @@ def run_execution_time(args: []):
 
 
 def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_ITER, dim_func=DIM_FUNC,
-        out_file=OUT_FILE, pre_args=PRE_ARGS,
+        out_file=OUT_FILE, pre_args=PRE_ARGS, gcell=GCELL,
         gpu_step=GPU_STEP, num_repeat=NUM_REPEAT, repeat_reduce=REPEAT_REDUCE, log=LOG, mpi=False):
     # Make sure it's a mutable list
     starting_dim = list(starting_dim)
@@ -129,20 +131,23 @@ def run(*, bin=BIN, versions=VERSIONS, starting_dim=STARTING_DIM, num_iter=NUM_I
                 os.environ["CUDA_VISIBLE_DEVICES"] = gpu_setting
 
             # Get dimensions in -nx x form
-            dim = dim_to_dim(dim)
+            dim_arg = dim_to_dim(dim)
 
             # Make sure all the args are string
-            args = list(map(str, [*bin, *pre_args, '-v', v, '-niter', num_iter, *dim]))
+            args = list(map(str, [*bin, *pre_args, '-v', v, '-niter', num_iter, *dim_arg]))
 
             if log:
                 print(f'{name} on {num_gpus} GPUs {" ".join(args)} ->', end=' ', flush=True, file=sys.stderr)
 
-            execution_time = repeat_reduce([run_execution_time(args) for _ in range(num_repeat)])
+            result_out = repeat_reduce([run_execution_time(args) for _ in range(num_repeat)])
 
             if log:
-                print(f'{execution_time} seconds', file=sys.stderr)
+                print(f'{result_out} seconds', file=sys.stderr)
 
-            results.loc[name].iloc[i] = execution_time
+            if gcell:
+                result_out = reduce(lambda x, y: x * y, dim) / num_iter
+
+            results.loc[name].iloc[i] = result_out
 
     results.to_csv(out_file, mode='a', header=not os.path.exists(out_file))
 
