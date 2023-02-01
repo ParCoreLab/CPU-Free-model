@@ -660,10 +660,10 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
     int sMemSize = 2 * sizeof(double) * ((threadsPerBlock / 32) + 1);
     int numBlocks = (num_rows + threadsPerBlock - 1) / threadsPerBlock;
 
-    CUDA_RT_CALL(cudaStreamCreate(&streamOtherOps));
-    CUDA_RT_CALL(cudaStreamCreate(&streamDot));
-    CUDA_RT_CALL(cudaStreamCreate(&streamSaxpy));
-    CUDA_RT_CALL(cudaStreamCreate(&streamSpMV));
+    CUDA_RT_CALL(cudaStreamCreateWithFlags(&streamOtherOps, cudaStreamDefault));
+    CUDA_RT_CALL(cudaStreamCreateWithFlags(&streamDot, cudaStreamDefault));
+    CUDA_RT_CALL(cudaStreamCreateWithFlags(&streamSaxpy, cudaStreamDefault));
+    CUDA_RT_CALL(cudaStreamCreateWithFlags(&streamSpMV, cudaStreamDefault));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 

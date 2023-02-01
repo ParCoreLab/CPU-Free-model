@@ -133,7 +133,7 @@ int ProfilingDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *devic
     nvshmem_barrier_all();
 
     cudaStream_t mainStream;
-    CUDA_RT_CALL(cudaStreamCreateWithFlags(&mainStream, cudaStreamNonBlocking));
+    CUDA_RT_CALL(cudaStreamCreateWithFlags(&mainStream, cudaStreamDefault));
 
     nvshmem_barrier_all();
 
