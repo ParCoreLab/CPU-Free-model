@@ -32,12 +32,12 @@ GPU_MODEL = None
 USING_NVSHMEM = True
 
 VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
-    '(Baseline) Discrete Standard NVSHMEM': 0,
-    '(Baseline) Discrete Pipelined NVSHMEM': 1,
-    '(Ours) Persistent Standard NVSHMEM': 2,
-    '(Ours) Persistent Pipelined NVSHMEM': 3,
-    '(Ours) Persistent Pipelined Multi-Overlap NVSHMEM': 4,
-    '(Ours) Persistent Standard Saxpy Overlap NVSHMEM': 5
+    '(Baseline) Discrete Standard': 0,
+    '(Baseline) Discrete Pipelined': 1,
+    '(Ours) Persistent Standard': 2,
+    '(Ours) Persistent Pipelined': 3,
+    '(Ours) Persistent Pipelined Multi-Overlap': 4,
+    '(Ours) Persistent Standard Saxpy Overlap': 5
 }
 
 VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
@@ -91,8 +91,17 @@ def measure_runtime(save_result_to_path, executable_dir):
     execution_time_regex_pattern = re.compile(EXECUTION_TIME_REGEX)
 
     matrix_to_version_to_result_map = dict.fromkeys(MATRIX_NAMES)
+
+    filtered_version_name_to_idx_map = dict((version_name, version_idx) for (
+        version_name, version_idx) in VERSION_NAME_TO_IDX_MAP.items() if version_idx in VERSION_INDICES_TO_RUN)
+    filtered_version_indices = [
+        str(version_idx) for version_idx in filtered_version_name_to_idx_map.values()]
+    filtered_versions_string = ','.join(filtered_version_indices)
+
+    filtered_version_labels = filtered_version_name_to_idx_map.keys()
+
     version_to_matrix_to_result_map = dict.fromkeys(
-        VERSION_LABELS)
+        filtered_version_labels)
 
     for matrix_name in MATRIX_NAMES:
         matrix_path = MATRICES_FOLDER_PATH + '/' + matrix_name + '.mtx'
@@ -102,19 +111,12 @@ def measure_runtime(save_result_to_path, executable_dir):
 
         version_to_result_map = defaultdict(list)
 
-        filtered_version_name_to_idx_map = dict((version_name, version_idx) for (
-            version_name, version_idx) in VERSION_NAME_TO_IDX_MAP.items() if version_idx in VERSION_INDICES_TO_RUN)
-        filter_version_indices = [
-            str(version_idx) for version_idx in filtered_version_name_to_idx_map.values()]
-
-        filted_versions_string = ','.join(filter_version_indices)
-
         for num_gpus in GPU_NUMS_TO_RUN:
             cuda_string = CUDA_VISIBLE_DEVICES_SETTING[num_gpus]
             os.environ['CUDA_VISIBLE_DEVICES'] = cuda_string
 
             executable_path = executable_dir + '/' + EXECUTABLE_NAME
-            command = f'{executable_path} -s 1 -v {filted_versions_string} -niter {NUM_ITERATIONS} -num_runs {NUM_RUNS}'
+            command = f'{executable_path} -s 1 -v {filtered_versions_string} -niter {NUM_ITERATIONS} -num_runs {NUM_RUNS}'
 
             if matrix_path:
                 command += f' -matrix_path {matrix_path}'
@@ -129,7 +131,7 @@ def measure_runtime(save_result_to_path, executable_dir):
 
             runtimes = output.splitlines()
 
-            for cur_idx, version_name in enumerate(filtered_version_name_to_idx_map.keys()):
+            for cur_idx, version_name in enumerate(filtered_version_labels):
                 print(
                     f'Running version {version_name} on matrix {matrix_name} with {num_gpus} GPUs for {NUM_RUNS} runs')
 
@@ -154,7 +156,7 @@ def measure_runtime(save_result_to_path, executable_dir):
 
             matrix_to_version_to_result_map[matrix_name] = version_to_result_map
 
-    for version_name in VERSION_LABELS:
+    for version_name in filtered_version_labels:
         matrix_to_result_map = dict()
 
         for matrix_name in MATRIX_NAMES:

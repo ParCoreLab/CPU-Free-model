@@ -19,10 +19,10 @@ EXECUTABLE_NAME = 'cg'
 GPU_MODEL = None
 USING_NVSHMEM = True
 
-SINGLE_GPU_VERSION = Version("Single GPU Discrete Standard NVSHMEM", 8)
+SINGLE_GPU_VERSION = Version("Single GPU Discrete Standard", 8)
 
 MATRIX_NAMES = [
-    '(generated)_tridiagonal',
+    'tridiagonal',
     'ecology2',
     #   'shallow_water2', Too little non-zeros
     #   'Trefethen_2000', Too little non-zeros
