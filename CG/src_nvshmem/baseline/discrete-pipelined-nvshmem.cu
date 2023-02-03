@@ -151,7 +151,6 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
     nvshmem_barrier_all();
 
     cudaStream_t mainStream;
-    cudaStream_t SpMVStream;
     cudaStream_t communicationStream;
 
     int leastPriority = 0;
@@ -159,7 +158,6 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
     CUDA_RT_CALL(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
 
     CUDA_RT_CALL(cudaStreamCreateWithPriority(&mainStream, cudaStreamDefault, leastPriority));
-    CUDA_RT_CALL(cudaStreamCreateWithPriority(&SpMVStream, cudaStreamDefault, leastPriority));
     CUDA_RT_CALL(
         cudaStreamCreateWithPriority(&communicationStream, cudaStreamDefault, greatestPriority));
 
@@ -211,9 +209,13 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
 
     double start = MPI_Wtime();
 
+    // r = (1.0, ..., 1.0) - unit vector
+    // x = (0.0, ..., 0.0) - zero vector
     NVSHMEM::initVectors<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
         device_r, device_x, row_start_global_idx, chunk_size, num_rows);
 
+    // Need barrier here so x is initialized before it's used for SpMV
+    // SpMV on neighbor GPUs may read my x before initVectors is done
     nvshmemx_barrier_all_on_stream(mainStream);
 
     // ax0 = Ax0
@@ -221,13 +223,13 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
         device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, device_x,
         device_ax0, row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
-    nvshmemx_barrier_all_on_stream(mainStream);
-
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
     NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(device_ax0, device_r,
                                                                      real_negative_one, chunk_size);
 
+    // Need barrier here so Saxpy before finishes updating r
+    // SpMV on neighbor GPUs may read my r before gpuSaxpy is done
     nvshmemx_barrier_all_on_stream(mainStream);
 
     // w0 = Ar0
@@ -243,29 +245,21 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
         resetLocalDotProducts<<<1, 1, 0, mainStream>>>(&device_merged_dots[0],
                                                        &device_merged_dots[1]);
 
-        // Dot
+        // delta = r * r
+        // gammma = r * w
         gpuDotProductsMerged<<<numBlocks, threadsPerBlock, sMemSize, mainStream>>>(
             device_r, device_r, device_r, device_w, &device_merged_dots[0], &device_merged_dots[1],
             chunk_size, sMemSize);
 
         CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
-        // SpMV
-        NVSHMEM::gpuSpMV<<<numBlocks, threadsPerBlock, 0, SpMVStream>>>(
+        // q_k = Aw_k
+        NVSHMEM::gpuSpMV<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, device_w,
             device_q, row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
-        // NOTE: Instead of doing this could have the local dots be in contiguous locations
-        // And the use the same NVSHMEM call to do both at the same time
-
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_merged_dots,
                                              device_merged_dots, 2, communicationStream);
-
-        // Using nvshmem_barrier_all() here seems to cause a deadlock
-        // Wonder why?
-        // Because two reductions are enqued to same stream back to back?
-        // In any case, should use one contiguous array for reductions
-        nvshmemx_barrier_all_on_stream(communicationStream);
 
         CUDA_RT_CALL(cudaMemcpyAsync(host_merged_dots, device_merged_dots, 2 * sizeof(double),
                                      cudaMemcpyDeviceToHost, communicationStream));
@@ -284,8 +278,7 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
             alpha = real_tmp_dot_delta1 / real_tmp_dot_gamma1;
         }
 
-        nvshmemx_barrier_all_on_stream(SpMVStream);
-        CUDA_RT_CALL(cudaStreamSynchronize(SpMVStream));
+        CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         // z_k = q_k + beta_k * z_(k-1)
         NVSHMEM::gpuScaleVectorAndSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
@@ -308,6 +301,10 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
         // r_(k+1) = r_k - alpha_k * s_k
         NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_s, device_r, negative_alpha, chunk_size);
+
+        // Need barrier here so SpMV finishes before updating w
+        // SpMV on neighbor GPUs may read my w while it is being updated
+        nvshmemx_barrier_all_on_stream(mainStream);
 
         // w_(k+1) = w_k - alpha_k * z_k
         NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
@@ -360,7 +357,6 @@ int BaselineDiscretePipelinedNVSHMEM::init(int *device_csrRowIndices, int *devic
     nvshmem_free(device_merged_dots);
 
     CUDA_RT_CALL(cudaStreamDestroy(mainStream));
-    CUDA_RT_CALL(cudaStreamDestroy(SpMVStream));
     CUDA_RT_CALL(cudaStreamDestroy(communicationStream));
 
     free(host_merged_dots);

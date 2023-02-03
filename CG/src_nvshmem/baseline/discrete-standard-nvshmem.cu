@@ -178,9 +178,13 @@ int BaselineDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *device
 
     double start = MPI_Wtime();
 
+    // r = (1.0, ..., 1.0) - unit vector
+    // x = (0.0, ..., 0.0) - zero vector
     NVSHMEM::initVectors<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
         device_r, device_x, row_start_global_idx, chunk_size, num_rows);
 
+    // Need barrier here so x is initialized before it's used for SpMV
+    // SpMV on neighbor GPUs may read my x before initVectors is done
     nvshmemx_barrier_all_on_stream(mainStream);
 
     // ax0 = Ax0
@@ -188,28 +192,24 @@ int BaselineDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *device
         device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, device_x,
         device_ax0, row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
-    nvshmemx_barrier_all_on_stream(mainStream);
-
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
     NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(device_ax0, device_r,
                                                                      real_negative_one, chunk_size);
 
-    // // p0 = r0
+    // p0 = r0
     NVSHMEM::gpuCopyVector<<<numBlocks, threadsPerBlock, 0, mainStream>>>(device_r, device_p,
                                                                           chunk_size);
 
-    // Do we need to reset the local dot here?
     resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_gamma1);
 
+    // gamma = r * r
     gpuDotProduct<<<numBlocks, threadsPerBlock, sMemSize, mainStream>>>(
         device_r, device_r, device_dot_gamma1, chunk_size);
 
     // Do global reduction to add up local dot products
     nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1, device_dot_gamma1,
                                          1, mainStream);
-
-    nvshmemx_barrier_all_on_stream(mainStream);
 
     CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
                                  cudaMemcpyDeviceToHost, mainStream));
@@ -221,23 +221,20 @@ int BaselineDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *device
     int k = 0;
 
     while (k < iter_max) {
-        // SpMV
+        // s_k = Ap_k
         NVSHMEM::gpuSpMV<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, device_p,
             device_s, row_start_global_idx, chunk_size, num_rows, matrix_is_zero_indexed);
 
-        nvshmemx_barrier_all_on_stream(mainStream);
-
         resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_delta1);
 
+        // delta = p * s
         gpuDotProduct<<<numBlocks, threadsPerBlock, sMemSize, mainStream>>>(
             device_p, device_s, device_dot_delta1, chunk_size);
 
         // Do global reduction to add up local dot products
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_delta1,
                                              device_dot_delta1, 1, mainStream);
-
-        nvshmemx_barrier_all_on_stream(mainStream);
 
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_delta1, device_dot_delta1, sizeof(double),
                                      cudaMemcpyDeviceToHost, mainStream));
@@ -246,18 +243,19 @@ int BaselineDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *device
 
         alpha = tmp_dot_gamma0 / ((real)host_dot_delta1);
 
-        // x_(k+1) = x_k + alpha_k * p_k
+        // x_(k+1) = x_k + alpha * p_k
         NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(device_p, device_x, alpha,
                                                                          chunk_size);
 
         negative_alpha = -alpha;
 
-        // r_(k+1) = r_k - alpha_k * s
+        // r_(k+1) = r_k - alpha * s
         NVSHMEM::gpuSaxpy<<<numBlocks, threadsPerBlock, 0, mainStream>>>(
             device_s, device_r, negative_alpha, chunk_size);
 
         resetLocalDotProduct<<<1, 1, 0, mainStream>>>(device_dot_gamma1);
 
+        // gamma = r * r
         gpuDotProduct<<<numBlocks, threadsPerBlock, sMemSize, mainStream>>>(
             device_r, device_r, device_dot_gamma1, chunk_size);
 
@@ -265,11 +263,11 @@ int BaselineDiscreteStandardNVSHMEM::init(int *device_csrRowIndices, int *device
         nvshmemx_double_sum_reduce_on_stream(NVSHMEM_TEAM_WORLD, device_dot_gamma1,
                                              device_dot_gamma1, 1, mainStream);
 
-        nvshmemx_barrier_all_on_stream(mainStream);
-
         CUDA_RT_CALL(cudaMemcpyAsync(&host_dot_gamma1, device_dot_gamma1, sizeof(double),
                                      cudaMemcpyDeviceToHost, mainStream));
 
+        // Need this here so SpMV is done before we update p
+        nvshmemx_barrier_all_on_stream(mainStream);
         CUDA_RT_CALL(cudaStreamSynchronize(mainStream));
 
         beta = ((real)host_dot_gamma1) / tmp_dot_gamma0;

@@ -177,8 +177,12 @@ __global__ void __launch_bounds__(1024, 1)
     real alpha;
     real negative_alpha;
 
+    // r = (1.0, ..., 1.0) - unit vector
+    // x = (0.0, ..., 0.0) - zero vector
     initVectors(r, x, row_start_idx, chunk_size, num_rows, grid);
 
+    // Need barrier here so x is initialized before it's used for SpMV
+    // SpMV on neighbor GPUs may read my x before initVectors is done
     if (grid.thread_rank() == last_thread_idx) {
         nvshmem_barrier_all();
     }
@@ -188,10 +192,6 @@ __global__ void __launch_bounds__(1024, 1)
     // ax0 = AX0
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, x, ax0,
             row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
-
-    if (grid.thread_rank() == last_thread_idx) {
-        nvshmem_barrier_all();
-    }
 
     cg::sync(grid);
 
@@ -206,19 +206,12 @@ __global__ void __launch_bounds__(1024, 1)
 
     cg::sync(grid);
 
-    if (grid.thread_rank() == last_thread_idx) {
-        *dot_gamma1 = 0.0;
-    }
-
-    cg::sync(grid);
-
     gpuDotProduct(r, r, dot_gamma1, cta, chunk_size, grid);
 
     cg::sync(grid);
 
     if (grid.thread_rank() == last_thread_idx) {
         nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
-        nvshmem_barrier_all();
     }
 
     cg::sync(grid);
@@ -232,12 +225,6 @@ __global__ void __launch_bounds__(1024, 1)
                 row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 
         if (grid.thread_rank() == last_thread_idx) {
-            nvshmem_barrier_all();
-        }
-
-        cg::sync(grid);
-
-        if (grid.thread_rank() == last_thread_idx) {
             *dot_delta1 = 0.0;
         }
 
@@ -249,7 +236,6 @@ __global__ void __launch_bounds__(1024, 1)
 
         if (grid.thread_rank() == last_thread_idx) {
             nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_delta1, dot_delta1, 1);
-            nvshmem_barrier_all();
         }
 
         cg::sync(grid);
@@ -274,7 +260,6 @@ __global__ void __launch_bounds__(1024, 1)
 
         if (grid.thread_rank() == last_thread_idx) {
             nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
-            nvshmem_barrier_all();
         }
 
         cg::sync(grid);
@@ -282,6 +267,12 @@ __global__ void __launch_bounds__(1024, 1)
         real_tmp_dot_gamma1 = (real)*dot_gamma1;
 
         beta = real_tmp_dot_gamma1 / tmp_dot_gamma0;
+
+        if (grid.thread_rank() == last_thread_idx) {
+            nvshmem_barrier_all();
+        }
+
+        cg::sync(grid);
 
         gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, chunk_size, grid);
 
