@@ -30,10 +30,10 @@ MATRIX_NAMES = [
 ]
 
 VERSIONS_TO_KEEP = [
-    '(Baseline) Discrete Standard',
-    '(Baseline) Discrete Pipelined',
-    '(Ours) Persistent Standard',
-    '(Ours) Persistent Pipelined'
+    'CPU-Controlled Standard CG (Baseline)',
+    'CPU-Controlled Pipelined CG (Baseline)',
+    'CPU-Free Standard CG (Ours)',
+    'CPU-Free Pipelined CG (Ours)'
 ]
 
 dir_path = dirname(realpath(__file__))
@@ -84,11 +84,11 @@ if __name__ == "__main__":
 
         per_gpu_num_speedup = 1 / per_gpu_num_data.div(
             single_gpu_baseline_standard_runtimes, axis=0)
-
-        pipelined_cg_speedup = per_gpu_num_speedup['(Ours) Persistent Pipelined'] / \
-            per_gpu_num_speedup['(Baseline) Discrete Pipelined']
-        standard_cg_speedup = per_gpu_num_speedup['(Ours) Persistent Standard'] / \
-            per_gpu_num_speedup['(Baseline) Discrete Standard']
+            
+        pipelined_cg_speedup = per_gpu_num_speedup['CPU-Free Pipelined CG (Ours)'] / \
+            per_gpu_num_speedup['CPU-Controlled Pipelined CG (Baseline)']
+        standard_cg_speedup = per_gpu_num_speedup['CPU-Free Standard CG (Ours)'] / \
+            per_gpu_num_speedup['CPU-Controlled Standard CG (Baseline)']
 
         pipelined_cg_geo_mean_spedup = np.exp(
             np.log(pipelined_cg_speedup).mean())

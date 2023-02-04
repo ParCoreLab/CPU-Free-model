@@ -89,56 +89,70 @@ colors = rotate(colors, 1)
 
 plots = len(MATRICES_TO_PLOT)
 fig, axes = plt.subplots(math.ceil(plots / 3), 3, layout='constrained')
-fig.set_size_inches(17, 3 * math.ceil(plots / 3))
+fig.set_size_inches(18, 3 * math.ceil(plots / 3))
 
 files = get_files()
 
-for file in files:
-    title = file.readline().strip()
+full_runtimes_csv = files[0]
+single_gpu_runtimes_csv = files[1]
 
-    data = pd.read_csv(file, index_col='Version')
-    data = data.sort_index()
+title = full_runtimes_csv.readline().strip()
 
-    for ax, matrix_name in zip(axes.flatten(), MATRICES_TO_PLOT):
-        per_matrix_data = data.loc[data['Matrix'] == matrix_name]
-        per_matrix_data = per_matrix_data.drop(columns=['Matrix'])
-        per_matrix_data = per_matrix_data.T
-        per_matrix_data = pd.DataFrame(
+data = pd.read_csv(full_runtimes_csv, index_col='Version')
+data = data.sort_index()
+
+single_gpu_baseline_standard_runtimes = pd.read_csv(
+        single_gpu_runtimes_csv, index_col='Matrix')['Runtime']
+single_gpu_baseline_standard_runtimes = single_gpu_baseline_standard_runtimes.sort_index()
+
+for ax, matrix_name in zip(axes.flatten(), MATRICES_TO_PLOT):
+    per_matrix_data = data.loc[data['Matrix'] == matrix_name]
+    per_matrix_data = per_matrix_data.drop(columns=['Matrix', '1 GPU'])
+    per_matrix_data = per_matrix_data.T
+    per_matrix_data = pd.DataFrame(
             per_matrix_data, columns=VERSIONS_TO_KEEP)
 
-        tmp_axes = per_matrix_data.plot(
+    per_matrix_data['Single GPU Standard CG'] = single_gpu_baseline_standard_runtimes[matrix_name]
+
+    tmp_axes = per_matrix_data.plot(
             ax=ax, linewidth=1.5, logy=False, color=colors)
-        tmp_axes.set_title(matrix_name, weight='bold')
+    tmp_axes.set_title(matrix_name, weight='bold')
 
-        markers_cycle = cycle(markers)
+    markers_cycle = cycle(markers)
 
-        # Skip first few markers since they are underwhelming
-        offset_markers_cycle = islice(markers_cycle, 0, None)
+    # Skip first few markers since they are underwhelming
+    offset_markers_cycle = islice(markers_cycle, 0, None)
 
-        for line in tmp_axes.get_lines():
-            line.set_marker(next(offset_markers_cycle))
+    for line in tmp_axes.get_lines():
+        line.set_marker(next(offset_markers_cycle))
 
-            # If baseline version
-            if '(baseline)' in line.get_label().lower():
-                line.set_linestyle('dashed')
+        # If baseline version
+        if '(baseline)' in line.get_label().lower():
+            line.set_linestyle('dashed')
 
-        tmp_axes.get_legend().remove()
-        wrap_labels(tmp_axes, 10)
+        if 'single gpu' in line.get_label().lower():
+            line.set_linestyle('dashdot')
+            line.set_color('black')
+            line.set_marker('x')
+            line.set_linewidth(1.5)
 
-        # per_matrix_title = f'{title} ({matrix_name})'
-        per_matrix_title = matrix_name
+    tmp_axes.get_legend().remove()
+    wrap_labels(tmp_axes, 10)
 
-    handles, labels = tmp_axes.get_legend_handles_labels()
+    # per_matrix_title = f'{title} ({matrix_name})'
+    per_matrix_title = matrix_name
 
-    handles, labels = ax.get_legend_handles_labels()
-    axes.flatten()[2].legend(loc='best',
+handles, labels = tmp_axes.get_legend_handles_labels()
+
+handles, labels = ax.get_legend_handles_labels()
+axes.flatten()[2].legend(loc='best',
                              fancybox=True, prop={'weight': 'bold', 'size': 'large'})
 
-    title = Path(files[0].name).stem
+title = Path(files[0].name).stem
 
-    y_label = fig.supylabel('Time (s)', weight='bold')
+y_label = fig.supylabel('Time (s)', weight='bold')
 
-    plt.savefig(
+plt.savefig(
         MODULE_DIR / (title + '.pdf'), format='pdf')
 
-    plt.show()
+plt.show()
