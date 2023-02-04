@@ -89,7 +89,7 @@ colors = rotate(colors, 1)
 
 plots = len(MATRICES_TO_PLOT)
 fig, axes = plt.subplots(math.ceil(plots / 3), 3, layout='constrained')
-fig.set_size_inches(18, 3 * math.ceil(plots / 3))
+fig.set_size_inches(15, 3 * math.ceil(plots / 3))
 
 files = get_files()
 
@@ -116,7 +116,7 @@ for ax, matrix_name in zip(axes.flatten(), MATRICES_TO_PLOT):
 
     tmp_axes = per_matrix_data.plot(
             ax=ax, linewidth=1.5, logy=False, color=colors)
-    tmp_axes.set_title(matrix_name, weight='bold')
+    tmp_axes.set_title(matrix_name, weight='bold', fontdict={'fontsize': 15.0})
 
     markers_cycle = cycle(markers)
 
@@ -150,7 +150,7 @@ axes.flatten()[2].legend(loc='best',
 
 title = Path(files[0].name).stem
 
-y_label = fig.supylabel('Time (s)', weight='bold')
+y_label = fig.supylabel('Time (s)')
 
 plt.savefig(
         MODULE_DIR / (title + '.pdf'), format='pdf')
