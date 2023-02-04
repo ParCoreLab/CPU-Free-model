@@ -209,12 +209,6 @@ __global__ void __launch_bounds__(1024, 1)
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, x, ax0,
             row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, false, grid);
 
-    if (grid.thread_rank() == last_thread_idx) {
-        nvshmem_barrier_all();
-    }
-
-    cg::sync(grid);
-
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
     gpuSaxpy(ax0, r, real_negative_one, chunk_size, grid);
@@ -226,12 +220,6 @@ __global__ void __launch_bounds__(1024, 1)
     cg::sync(grid);
 
     // w0 = Ar0
-    // Technically we are wasting a bit of computation here
-    // Giving away one thread block for nothing
-    // Tiny optimization idea =>
-    //    1) Pass bool checking whether we are overlapping
-    //    2) If no, use all thread blocks for SpMV computation
-    // Whatever we waste is probably amortized anyway but still
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, r, w,
             row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, false, grid);
 
@@ -251,6 +239,8 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
+        // delta = r * r
+        // gammma = r * w
         gpuDotProductsMerged(r, r, r, w, &device_merged_dots[0], &device_merged_dots[1], cta,
                              chunk_size, sMemSize, grid);
 
@@ -258,17 +248,12 @@ __global__ void __launch_bounds__(1024, 1)
 
         // Allocate one thread block for dot global reduction (`atomicAdd`s)
         // Rest are for SpMV
-
         if (cta.group_index().x == (grid.num_blocks() - 1)) {
             nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, device_merged_dots,
                                              device_merged_dots, 2);
         } else {
             gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, w,
                     q, row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, true, grid);
-        }
-
-        if (grid.thread_rank() == last_thread_idx) {
-            nvshmem_barrier_all();
         }
 
         cg::sync(grid);
@@ -303,6 +288,12 @@ __global__ void __launch_bounds__(1024, 1)
 
         // r_(k+1) = r_k - alpha_k * s_k
         gpuSaxpy(s, r, negative_alpha, chunk_size, grid);
+
+        if (grid.thread_rank() == last_thread_idx) {
+            nvshmem_barrier_all();
+        }
+
+        cg::sync(grid);
 
         // w_(k+1) = w_k - alpha_k * z_k
         gpuSaxpy(z, w, negative_alpha, chunk_size, grid);
@@ -344,7 +335,7 @@ int SingleStreamPipelinedNVSHMEM::init(int *device_csrRowIndices, int *device_cs
     nvshmem_barrier_all();
 
     cudaStream_t mainStream;
-    CUDA_RT_CALL(cudaStreamCreateWithFlags(&mainStream, cudaStreamNonBlocking));
+    CUDA_RT_CALL(cudaStreamCreateWithFlags(&mainStream, cudaStreamDefault));
 
     nvshmem_barrier_all();
 
@@ -386,10 +377,6 @@ int SingleStreamPipelinedNVSHMEM::init(int *device_csrRowIndices, int *device_cs
     CUDA_RT_CALL(cudaDeviceSynchronize());
     nvshmem_barrier_all();
 
-    // WARNING!!!
-    // This was causing issues for me
-    // Get rid of THREADS_PER_BLOCK
-    // Use per version threadsPerBlock variable
     int threadsPerBlock = 1024;
     int sMemSize = 2 * sizeof(double) * ((threadsPerBlock / 32) + 1);
 

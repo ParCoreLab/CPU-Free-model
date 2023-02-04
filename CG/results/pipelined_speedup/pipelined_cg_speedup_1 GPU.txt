@@ -1,0 +1,19 @@
+Bump_2911        4.375819
+Flan_1565        5.052174
+G3_circuit       2.200405
+Geo_1438         4.382149
+Hook_1498        3.484535
+Queen_4147       3.664555
+Serena           3.355091
+StocF-1465       2.192997
+audikw_1         4.212806
+bmwcra_1         2.354507
+consph           2.495528
+crankseg_1       1.872879
+crankseg_2       1.814216
+ecology2         2.404500
+hood             4.038322
+ldoor            4.695067
+thermomech_dM    4.532305
+tmt_sym          2.508903
+Persistent vs Discrete Pipelined CG geo mean speedup on 1 GPU: 3.1385564179041943

@@ -5,33 +5,36 @@ from os.path import dirname, realpath
 
 from pathlib import Path
 
-from common import get_files, markers, get_module_dir, wrap_labels
+from common import get_files, markers, get_module_dir, wrap_labels, rotate
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
+mpl.rcParams['path.simplify'] = True
+
 MATRIX_NAMES = [
     # 'tridiagonal',
-    # 'ecology2',
+    'ecology2',
     #   'shallow_water2', Too little non-zeros
     #   'Trefethen_2000', Too little non-zeros
-    # 'hood',
-    # 'bmwcra_1',
-    # 'consph',
-    # 'thermomech_dM',
-    # 'tmt_sym',
+    'hood',
+    'bmwcra_1',
+    'consph',
+    'thermomech_dM',
+    'tmt_sym',
     'crankseg_1',
     'crankseg_2',
-    # 'Queen_4147',
-    # 'Bump_2911',
+    'Queen_4147',
+    'Bump_2911',
     'G3_circuit',
     'StocF-1465',
     'Flan_1565',
-    # 'audikw_1',
-    # 'Serena',
-    # 'Geo_1438',
-    # 'Hook_1498',
+    'audikw_1',
+    'Serena',
+    'Geo_1438',
+    'Hook_1498',
     #   'bone010', Multi-part matrix, don't handle those for now
     'ldoor'
 ]
@@ -52,13 +55,25 @@ MEDIUM_SMALL_MATRICES_TO_PLOT = [
 ]
 
 VERSIONS_TO_KEEP = [
-    '(Baseline) Discrete Standard',
-    '(Baseline) Discrete Pipelined',
-    '(Ours) Persistent Standard',
-    '(Ours) Persistent Pipelined'
+    'CPU-Controlled Standard CG (Baseline)',
+    'CPU-Controlled Pipelined CG (Baseline)',
+    'CPU-Free Standard CG (Ours)',
+    'CPU-Free Pipelined CG (Ours)'
 ]
 
 MATRICES_TO_PLOT = LARGE_MATRICES_TO_PLOT + MEDIUM_SMALL_MATRICES_TO_PLOT
+
+# MATRICES_TO_PLOT = [
+#     'Queen_4147',
+#     'crankseg_2',
+#     'G3_circuit'
+# ]
+
+MATRICES_TO_PLOT = [
+    'G3_circuit',
+    'Queen_4147',
+    'crankseg_2',
+]
 
 MODULE_DIR = get_module_dir('Strong Scaling')
 
@@ -66,11 +81,15 @@ dir_path = dirname(realpath(__file__))
 
 plt.style.use(
     'https://github.com/dhaitz/matplotlib-stylesheets/raw/master/pitayasmoothie-light.mplstyle')
-plt.rcParams['savefig.dpi'] = 300
+plt.rcParams.update({
+    "axes.facecolor":    (0.5, 0.5, 0.5, 0.1),
+})
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+colors = rotate(colors, 1)
 
 plots = len(MATRICES_TO_PLOT)
 fig, axes = plt.subplots(math.ceil(plots / 3), 3, layout='constrained')
-fig.set_size_inches(18, 4 * math.ceil(plots / 3))
+fig.set_size_inches(17, 3 * math.ceil(plots / 3))
 
 files = get_files()
 
@@ -87,19 +106,20 @@ for file in files:
         per_matrix_data = pd.DataFrame(
             per_matrix_data, columns=VERSIONS_TO_KEEP)
 
-        tmp_axes = per_matrix_data.plot(ax=ax, linewidth=2.0)
+        tmp_axes = per_matrix_data.plot(
+            ax=ax, linewidth=1.5, logy=False, color=colors)
         tmp_axes.set_title(matrix_name, weight='bold')
 
         markers_cycle = cycle(markers)
 
         # Skip first few markers since they are underwhelming
-        offset_markers_cycle = islice(markers_cycle, 10, None)
+        offset_markers_cycle = islice(markers_cycle, 0, None)
 
         for line in tmp_axes.get_lines():
             line.set_marker(next(offset_markers_cycle))
 
             # If baseline version
-            if line.get_label().lower().startswith('(baseline)'):
+            if '(baseline)' in line.get_label().lower():
                 line.set_linestyle('dashed')
 
         tmp_axes.get_legend().remove()
@@ -119,6 +139,6 @@ for file in files:
     y_label = fig.supylabel('Time (s)', weight='bold')
 
     plt.savefig(
-        MODULE_DIR / (title + '.png'), format='png')
+        MODULE_DIR / (title + '.pdf'), format='pdf')
 
     plt.show()

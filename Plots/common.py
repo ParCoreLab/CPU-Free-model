@@ -6,6 +6,10 @@ BASE_DIR = Path('Images')
 BASE_DIR.mkdir(exist_ok=True)
 
 
+def rotate(l, n):
+    return l[-n:] + l[:-n]
+
+
 def get_files():
     parser = argparse.ArgumentParser()
     parser.add_argument('files', type=argparse.FileType('r'), nargs='+')
