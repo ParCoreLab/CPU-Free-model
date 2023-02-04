@@ -11,6 +11,10 @@ BASE_DIR.mkdir(exist_ok=True)
 ACM_DOCUMENT_WIDTH = 506.295
 
 
+def rotate(l, n):
+    return l[-n:] + l[:-n]
+
+
 def get_files():
     parser = argparse.ArgumentParser()
     parser.add_argument('files', type=argparse.FileType('r'), nargs='+')
@@ -70,8 +74,8 @@ def set_size(width, fraction=1):
 markers = [
     '.',  # point
     ',',  # pixel
-    'o',  # circle
-    'v',  # triangle down
+    # 'o',  # circle
+    # 'v',  # triangle down
     '^',  # triangle up
     '<',  # triangle_left
     '>',  # triangle_right

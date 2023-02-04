@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from itertools import cycle
 from os.path import dirname, realpath
 
-from common import get_files, markers, get_module_dir, wrap_labels, set_size, ACM_DOCUMENT_WIDTH
+from common import get_files, markers, get_module_dir, wrap_labels, set_size, ACM_DOCUMENT_WIDTH, rotate
 
 import matplotlib as mpl
 mpl.rcParams['hatch.linewidth'] = 0.3
@@ -38,10 +38,10 @@ MATRIX_NAMES = [
 ]
 
 VERSIONS_TO_KEEP = [
-    '(Baseline) Discrete Standard',
-    '(Baseline) Discrete Pipelined',
-    '(Ours) Persistent Standard',
-    '(Ours) Persistent Pipelined'
+    'CPU-Controlled Standard CG (Baseline)',
+    'CPU-Controlled Pipelined CG (Baseline)',
+    'CPU-Free Standard CG (Ours)',
+    'CPU-Free Pipelined CG (Ours)'
 ]
 
 MODULE_DIR = get_module_dir('Constant Number of GPUs')
@@ -51,10 +51,15 @@ dir_path = dirname(realpath(__file__))
 plt.style.use(
     'https://github.com/dhaitz/matplotlib-stylesheets/raw/master/pitayasmoothie-light.mplstyle')
 plt.rcParams['figure.constrained_layout.use'] = True
+plt.rcParams.update({
+    "axes.facecolor":    (0.5, 0.5, 0.5, 0.1),
+})
+# colors = [
+#     '#c6c9cb', '#64b8e5', '#ee7fb2', '#eae2b7'
+# ]
 
-colors = [
-    '#c6c9cb', '#64b8e5', '#ee7fb2', '#eae2b7'
-]
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+colors = rotate(colors, 1)
 
 # Color candidates =>
 # - '#30becd' => Maximum Blue Green
@@ -100,8 +105,20 @@ for gpu_num_column_label in gpu_num_column_labels:
     per_gpu_num_speedup = 1 / per_gpu_num_data.div(
         single_gpu_baseline_standard_runtimes, axis=0)
 
+    pipelined_cg_speedup = per_gpu_num_speedup['CPU-Free Pipelined CG (Ours)'] / \
+        per_gpu_num_speedup['CPU-Controlled Pipelined CG (Baseline)']
+    standard_cg_speedup = per_gpu_num_speedup['CPU-Free Standard CG (Ours)'] / \
+        per_gpu_num_speedup['CPU-Controlled Standard CG (Baseline)']
+
+    pipelined_cg_geo_mean_spedup = np.exp(np.log(pipelined_cg_speedup).mean())
+    standard_cg_geo_mean_spedup = np.exp(np.log(standard_cg_speedup).mean())
+
+    print(
+        f'Pipelined CG geo mean speedup  for {gpu_num_column_label}: {pipelined_cg_geo_mean_spedup}')
+    print(
+        f'Standard CG geo mean speedup  for {gpu_num_column_label}: {standard_cg_geo_mean_spedup}')
     per_gpu_num_speedup.sort_values(
-        inplace=True, by='(Ours) Persistent Pipelined', ascending=False)
+        inplace=True, by='CPU-Free Pipelined CG (Ours)', ascending=False)
 
     axes = per_gpu_num_speedup.plot.bar(
         color=colors, edgecolor='black', figsize=(12, 3))

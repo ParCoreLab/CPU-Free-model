@@ -1,0 +1,19 @@
+Bump_2911        2.596158
+Flan_1565        3.203920
+G3_circuit       1.603297
+Geo_1438         2.490385
+Hook_1498        1.937174
+Queen_4147       3.445680
+Serena           1.830493
+StocF-1465       1.493452
+audikw_1         1.998953
+bmwcra_1         1.196542
+consph           1.373582
+crankseg_1       1.000050
+crankseg_2       1.005493
+ecology2         1.731788
+hood             1.398411
+ldoor            2.288784
+thermomech_dM    1.791408
+tmt_sym          1.774122
+Persistent vs Discrete Standard CG geo mean speedup on 3 GPUs: 1.789093534511638
