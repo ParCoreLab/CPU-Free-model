@@ -10,7 +10,8 @@ __pycache__/
 cg
 jacobi
 jacobi_nvshmem
-*/obj/
+*/obj/*
+!obj/.gitkeep
 */obj_nvshmem/
 
 # Benchmarking artifacts
