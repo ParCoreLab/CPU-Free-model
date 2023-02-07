@@ -70,9 +70,9 @@ MATRICES_TO_PLOT = LARGE_MATRICES_TO_PLOT + MEDIUM_SMALL_MATRICES_TO_PLOT
 # ]
 
 MATRICES_TO_PLOT = [
-    'G3_circuit',
     'Queen_4147',
     'crankseg_2',
+    'G3_circuit',
 ]
 
 MODULE_DIR = get_module_dir('Strong Scaling')
@@ -89,7 +89,7 @@ colors = rotate(colors, 1)
 
 plots = len(MATRICES_TO_PLOT)
 fig, axes = plt.subplots(math.ceil(plots / 3), 3, layout='constrained')
-fig.set_size_inches(15, 3 * math.ceil(plots / 3))
+fig.set_size_inches(18, 3 * math.ceil(plots / 3))
 
 files = get_files()
 
@@ -102,7 +102,7 @@ data = pd.read_csv(full_runtimes_csv, index_col='Version')
 data = data.sort_index()
 
 single_gpu_baseline_standard_runtimes = pd.read_csv(
-        single_gpu_runtimes_csv, index_col='Matrix')['Runtime']
+    single_gpu_runtimes_csv, index_col='Matrix')['Runtime']
 single_gpu_baseline_standard_runtimes = single_gpu_baseline_standard_runtimes.sort_index()
 
 for ax, matrix_name in zip(axes.flatten(), MATRICES_TO_PLOT):
@@ -110,12 +110,12 @@ for ax, matrix_name in zip(axes.flatten(), MATRICES_TO_PLOT):
     per_matrix_data = per_matrix_data.drop(columns=['Matrix', '1 GPU'])
     per_matrix_data = per_matrix_data.T
     per_matrix_data = pd.DataFrame(
-            per_matrix_data, columns=VERSIONS_TO_KEEP)
+        per_matrix_data, columns=VERSIONS_TO_KEEP)
 
     per_matrix_data['Single GPU Standard CG'] = single_gpu_baseline_standard_runtimes[matrix_name]
 
     tmp_axes = per_matrix_data.plot(
-            ax=ax, linewidth=1.5, logy=False, color=colors)
+        ax=ax, linewidth=1.5, logy=False, color=colors)
     tmp_axes.set_title(matrix_name, weight='bold', fontdict={'fontsize': 15.0})
 
     markers_cycle = cycle(markers)
@@ -145,14 +145,14 @@ for ax, matrix_name in zip(axes.flatten(), MATRICES_TO_PLOT):
 handles, labels = tmp_axes.get_legend_handles_labels()
 
 handles, labels = ax.get_legend_handles_labels()
-axes.flatten()[2].legend(loc='best',
+axes.flatten()[1].legend(loc='upper center',
                              fancybox=True, prop={'weight': 'bold', 'size': 'large'})
 
 title = Path(files[0].name).stem
 
-y_label = fig.supylabel('Time (s)')
+y_label = fig.supylabel('Time (s)', weight='bold')
 
 plt.savefig(
-        MODULE_DIR / (title + '.pdf'), format='pdf')
+    MODULE_DIR / (title + '.pdf'), format='pdf')
 
 plt.show()
