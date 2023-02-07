@@ -3,12 +3,12 @@
 
 #include "../include/baseline/discrete-pipelined.cuh"
 #include "../include/baseline/discrete-standard.cuh"
-#include "../include/baseline/persistent-standard.cuh"
 #include "../include/profiling/discrete-pipelined.cuh"
 #include "../include/profiling/discrete-standard.cuh"
 #include "../include/single-stream/pipelined-multi-overlap.cuh"
 #include "../include/single-stream/pipelined.cuh"
 #include "../include/single-stream/standard-saxpy-overlap.cuh"
+#include "../include/single-stream/standard.cuh"
 
 #include "../include/common.h"
 
@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
     const std::array versions{
         make_pair("Baseline Discrete Standard", BaselineDiscreteStandard::init),
         make_pair("Baseline Discrete Pipelined", BaselineDiscretePipelined::init),
-        make_pair("Baseline Persistent Standard", BaselinePersistentStandard::init),
+        make_pair("Single Stream Standard", SingleStreamStandard::init),
         make_pair("Single Stream Pipelined", SingleStreamPipelined::init),
         make_pair("Single Stream Pipelined Multi Overlap", SingleStreamPipelinedMultiOverlap::init),
         make_pair("Single Stream Standard Saxpy Overlap", SingleStreamStandardSaxpyOverlap::init),

@@ -42,8 +42,8 @@
 
 #include <omp.h>
 
-#include "../../include/baseline/persistent-standard.cuh"
 #include "../../include/common.h"
+#include "../../include/single-stream/standard.cuh"
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
@@ -54,7 +54,7 @@
 
 namespace cg = cooperative_groups;
 
-namespace BaselinePersistentStandard {
+namespace SingleStreamStandard {
 
 __device__ void gpuSpMV(int *rowInd, int *colInd, real *val, real alpha, real *inputVecX,
                         real *outputVecY, int row_start_idx, int chunk_size, int num_rows,
@@ -287,14 +287,14 @@ __global__ void __launch_bounds__(1024, 1)
         k++;
     }
 }
-}  // namespace BaselinePersistentStandard
+}  // namespace SingleStreamStandard
 
-int BaselinePersistentStandard::init(int *device_csrRowIndices, int *device_csrColIndices,
-                                     real *device_csrVal, const int num_rows, const int nnz,
-                                     bool matrix_is_zero_indexed, const int num_devices,
-                                     const int iter_max, real *x_final_result,
-                                     const double single_gpu_runtime, bool compare_to_single_gpu,
-                                     bool compare_to_cpu, real *x_ref_single_gpu, real *x_ref_cpu) {
+int SingleStreamStandard::init(int *device_csrRowIndices, int *device_csrColIndices,
+                               real *device_csrVal, const int num_rows, const int nnz,
+                               bool matrix_is_zero_indexed, const int num_devices,
+                               const int iter_max, real *x_final_result,
+                               const double single_gpu_runtime, bool compare_to_single_gpu,
+                               bool compare_to_cpu, real *x_ref_single_gpu, real *x_ref_cpu) {
     real *device_x;
     real *device_r;
     real *device_p;
