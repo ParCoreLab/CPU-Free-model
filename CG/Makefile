@@ -12,19 +12,19 @@ ifndef UCX_HOME
 $(error UCX_HOME is not set)
 endif
 
-NV_SRCDIR := src_nvshmem
-NV_OBJDIR := obj_nvshmem
+NV_SRCDIR := src
+NV_OBJDIR := obj
 NV_DEPDIR := $(NV_OBJDIR)/.deps
 
 GENCODE_SM70    := -gencode arch=compute_70,code=sm_70
 GENCODE_SM80    := -gencode arch=compute_80,code=sm_80 -gencode arch=compute_80,code=compute_80
 GENCODE_FLAGS	:= $(GENCODE_SM70) $(GENCODE_SM80)
 
-.DEFAULT_GOAL := cg_nvshmem
+.DEFAULT_GOAL := cg
 
 NV_DEPFLAGS = -MT $@ -MMD -MP -MF $(NV_DEPDIR)/$*.d
 
-NVCC_NV_FLAGS = -dc -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(MPICCX) -I$(NVSHMEM_HOME)/include -I$(MPI_HOME)/include -I./include_nvshmem
+NVCC_NV_FLAGS = -dc -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(MPICCX) -I$(NVSHMEM_HOME)/include -I$(MPI_HOME)/include -I./include
 NVCC_NV_LDFLAGS = -ccbin=$(MPICCX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart -lnvidia-ml -L$(NVSHMEM_HOME)/lib -lnvshmem -L$(MPI_HOME)/lib -lmpi -L$(UCX_HOME)/lib -lucp -lucs -luct -lucm -lmlx5
 
 ifdef PROFILE
@@ -44,10 +44,10 @@ NV_SRCS = $(call rwildcard,$(NV_SRCDIR),*.cu)
 NV_OBJS := $(patsubst $(NV_SRCDIR)/%.cu, $(NV_OBJDIR)/%.o, $(NV_SRCS))
 NV_DEPS := $(patsubst $(NV_SRCDIR)/%.cu, $(NV_DEPDIR)/%.d, $(NV_SRCS))
 
-obj_nvshmem/mmio.c.o: src_nvshmem/mmio.c
+obj/mmio.c.o: src/mmio.c
 	$(NVCC) -o $@ -c $<
 
-obj_nvshmem/mmio_wrapper.o: src_nvshmem/mmio_wrapper.cpp
+obj/mmio_wrapper.o: src/mmio_wrapper.cpp
 	$(NVCC) -o $@ -c $<
 
 $(NV_OBJS) : $(NV_OBJDIR)/%.o : $(NV_SRCDIR)/%.cu $(NV_DEPDIR)/%.d | $(NV_DEPDIR)
@@ -55,15 +55,15 @@ $(NV_OBJS) : $(NV_OBJDIR)/%.o : $(NV_SRCDIR)/%.cu $(NV_DEPDIR)/%.d | $(NV_DEPDIR
 	@mkdir -p $(@D)
 	$(NVCC) $(NVCC_NV_FLAGS) $(NV_DEPFLAGS) -o $@ $<
 
-cg_nvshmem: $(NV_OBJS) obj_nvshmem/mmio.c.o obj_nvshmem/mmio_wrapper.o
+cg: $(NV_OBJS) obj/mmio.c.o obj/mmio_wrapper.o
 	$(NVCC) $(GENCODE_FLAGS) -o $@ $^ $(NVCC_NV_LDFLAGS)
 
-run_nvshmem: cg_nvshmem
-	./cg_nvshmem
+run: cg
+	./cg
 
 clean:
-	$(RM) ./cg_nvshmem
-	$(RM) -rd ./obj_nvshmem
+	$(RM) ./cg
+	$(RM) -rd ./obj
 
 $(NV_DEPDIR): 
 	@mkdir -p $(NV_DEPDIR)

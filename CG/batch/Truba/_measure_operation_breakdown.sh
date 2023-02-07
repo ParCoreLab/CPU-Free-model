@@ -45,7 +45,7 @@ cd ~/ismayil/multi-perks/CG
 echo "--- RUNNING ---"
 date
 
-python3 ./scripts/measure_operation_breakdown.py --num_iter $NUM_ITER --matrices_folder $MATRICES_FOLDER --num_gpus $NUM_GPUS --versions_to_run $VERSIONS_TO_RUN --gpu_model $GPU_MODEL -use_nvshmem
+python3 ./scripts/measure_operation_breakdown.py --num_iter $NUM_ITER --matrices_folder $MATRICES_FOLDER --num_gpus $NUM_GPUS --versions_to_run $VERSIONS_TO_RUN --gpu_model $GPU_MODEL
 rm ./nsys_reports/*
 
 echo ""

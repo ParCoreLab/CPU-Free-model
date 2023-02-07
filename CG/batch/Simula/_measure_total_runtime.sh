@@ -43,7 +43,7 @@ cd ~/multi-perks/CG
 echo "--- RUNNING ---"
 date
 
-python3 ./scripts/measure_runtime.py --num_iter $NUM_ITER --num_runs $NUM_RUNS --filename $FILENAME --matrices_folder $MATRICES_FOLDER --num_gpus $NUM_GPUS --versions_to_run $VERSIONS_TO_RUN --gpu_model $GPU_MODEL -use_nvshmem
+python3 ./scripts/measure_runtime.py --num_iter $NUM_ITER --num_runs $NUM_RUNS --filename $FILENAME --matrices_folder $MATRICES_FOLDER --num_gpus $NUM_GPUS --versions_to_run $VERSIONS_TO_RUN --gpu_model $GPU_MODEL
 
 echo ""
 
