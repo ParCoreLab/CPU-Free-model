@@ -17,7 +17,6 @@ NUM_RUNS = 5
 NUM_ITERATIONS = 1000
 EXECUTABLE_NAME = 'cg'
 GPU_MODEL = None
-USING_NVSHMEM = True
 
 SINGLE_GPU_VERSION = Version("Single GPU Discrete Standard", 8)
 
@@ -71,7 +70,7 @@ def measure_runtime(save_result_to_path, executable_dir):
     for matrix_name in MATRIX_NAMES:
         matrix_path = MATRICES_FOLDER_PATH + '/' + matrix_name + '.mtx'
 
-        if 'generated' in matrix_name:
+        if 'tridiagonal' in matrix_name:
             matrix_path = None
 
         # Only run on the first GPU
@@ -84,10 +83,7 @@ def measure_runtime(save_result_to_path, executable_dir):
         if matrix_path:
             command += f' -matrix_path {matrix_path}'
 
-        if USING_NVSHMEM:
-            command = f'mpirun -np 1' + ' ' + command
-
-        print(command)
+        command = f'mpirun -np 1' + ' ' + command
 
         output = subprocess.run(
             command.split(), capture_output=True)
@@ -155,23 +151,15 @@ if __name__ == "__main__":
 
             NUM_RUNS = int(sys.argv[arg_idx])
 
-        if sys.argv[arg_idx] == '-use_nvshmem':
-            USING_NVSHMEM = True
-
         arg_idx += 1
 
-    BASE_FILENAME = 'cg_runtime'
-
-    if USING_NVSHMEM:
-        EXECUTABLE_NAME = 'cg_nvshmem'
-        BASE_FILENAME = 'cg_nvshmem_runtime_single_gpu'
+    EXECUTABLE_NAME = 'cg'
+    BASE_FILENAME = 'cg_runtime_single_gpu'
 
     if FILENAME == None:
         FILENAME = BASE_FILENAME + '-' + datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + \
             f'-{GPU_MODEL}' + '.csv'
 
     SAVE_RESULT_TO_FILE_PATH = SAVE_RESULT_TO_DIR_PATH + '/' + FILENAME
-
-    print(SAVE_RESULT_TO_FILE_PATH)
 
     measure_runtime(SAVE_RESULT_TO_FILE_PATH, EXECUTABLE_DIR)

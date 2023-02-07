@@ -29,28 +29,27 @@ SAVE_NSYS_REPORTS_TO_DIR_PATH = None
 NUM_ITERATIONS = 5000
 EXECUTABLE_NAME = 'cg_nvtx'
 GPU_MODEL = None
-USING_NVSHMEM = True
 
-VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
-    'Profiling Discrete Standard NVSHMEM': 6,
-    'Profiling Discrete Pipelined NVSHMEM (No Overlap)': 7,
+VERSION_NAME_TO_IDX_MAP = {
+    'Profiling Discrete Standard': 6,
+    'Profiling Discrete Pipelined (No Overlap)': 7,
 }
 
-VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
-VERSION_INDICES_TO_RUN = list(VERSION_NAME_TO_IDX_MAP_NVSHMEM.values())
+VERSION_INDICES_TO_RUN = list(VERSION_NAME_TO_IDX_MAP.values())
+VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
 
 MATRIX_NAMES = [
-    # '(generated)_tridiagonal',
-    # 'ecology2',
+    'tridiagonal',
+    'ecology2',
     #   'shallow_water2', Too little non-zeros
     #   'Trefethen_2000', Too little non-zeros
-    # 'hood',
-    # 'bmwcra_1',
-    # 'consph',
-    # 'thermomech_dM',
-    # 'tmt_sym',
-    # 'crankseg_1',
-    # 'crankseg_2',
+    'hood',
+    'bmwcra_1',
+    'consph',
+    'thermomech_dM',
+    'tmt_sym',
+    'crankseg_1',
+    'crankseg_2',
     'Queen_4147',
     'Bump_2911',
     'G3_circuit',
@@ -138,7 +137,7 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
             for matrix_name in MATRIX_NAMES:
                 matrix_path = MATRICES_FOLDER_PATH + '/' + matrix_name + '.mtx'
 
-                if 'generated' in matrix_name:
+                if 'tridiagonal' in matrix_name:
                     matrix_path = None
 
                 executable_path = executable_dir + '/' + EXECUTABLE_NAME
@@ -150,17 +149,13 @@ def measure_operation_breakdown(save_result_to_path, executable_dir):
                 nsys_report_output_filename = SAVE_NSYS_REPORTS_TO_DIR_PATH + \
                     f'/report-{num_gpus}{GPU_MODEL}-version{version_idx}-{matrix_name}'
 
-                if USING_NVSHMEM:
-                    nsys_report_output_filename += '-NVSHMEM'
-
                 nsys_report_output_filename += '.nsys-rep'
 
                 nsys_profile_command = 'nsys profile'
                 nsys_profile_command += ' '
 
-                if USING_NVSHMEM:
-                    nsys_profile_command = f'mpirun -np {num_gpus}' + \
-                        ' ' + nsys_profile_command
+                nsys_profile_command = f'mpirun -np {num_gpus}' + \
+                    ' ' + nsys_profile_command
 
                 # Trace only NVTX ranges
                 nsys_profile_command += '--trace nvtx'
@@ -263,9 +258,6 @@ if __name__ == "__main__":
 
             GPU_MODEL = sys.argv[arg_idx]
 
-        if sys.argv[arg_idx] == '-use_nvshmem':
-            USING_NVSHMEM = True
-
         arg_idx += 1
 
     BASE_FILENAME = 'cg_operation_breakdown'
@@ -276,10 +268,6 @@ if __name__ == "__main__":
 
     SAVE_RESULT_TO_FILE_PATH = SAVE_RESULT_TO_DIR_PATH + '/' + FILENAME
 
-    if USING_NVSHMEM:
-        VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
-        EXECUTABLE_NAME = 'cg_nvshmem_nvtx'
-
-    VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
+    EXECUTABLE_NAME = 'cg_nvtx'
 
     measure_operation_breakdown(SAVE_RESULT_TO_FILE_PATH, EXECUTABLE_DIR)

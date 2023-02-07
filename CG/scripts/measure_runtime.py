@@ -29,9 +29,8 @@ NUM_RUNS = 5
 NUM_ITERATIONS = 1000
 EXECUTABLE_NAME = 'cg'
 GPU_MODEL = None
-USING_NVSHMEM = True
 
-VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
+VERSION_NAME_TO_IDX_MAP = {
     '(Baseline) Discrete Standard': 0,
     '(Baseline) Discrete Pipelined': 1,
     '(Ours) Persistent Standard': 2,
@@ -40,8 +39,8 @@ VERSION_NAME_TO_IDX_MAP_NVSHMEM = {
     '(Ours) Persistent Standard Saxpy Overlap': 5
 }
 
-VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
-VERSION_INDICES_TO_RUN = list(VERSION_NAME_TO_IDX_MAP_NVSHMEM.values())
+VERSION_INDICES_TO_RUN = list(VERSION_NAME_TO_IDX_MAP.values())
+VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
 
 MATRIX_NAMES = [
     'tridiagonal',
@@ -69,7 +68,6 @@ MATRIX_NAMES = [
 ]
 
 EXECUTION_TIME_REGEX = 'Execution time:\s+(?P<exec_time>[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) s'
-VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
 GPU_COLUMN_NAMES = None
 
 
@@ -121,8 +119,7 @@ def measure_runtime(save_result_to_path, executable_dir):
             if matrix_path:
                 command += f' -matrix_path {matrix_path}'
 
-            if USING_NVSHMEM:
-                command = f'mpirun -np {num_gpus}' + ' ' + command
+            command = f'mpirun -np {num_gpus}' + ' ' + command
 
             output = subprocess.run(
                 command.split(), capture_output=True)
@@ -228,23 +225,14 @@ if __name__ == "__main__":
 
             NUM_RUNS = int(sys.argv[arg_idx])
 
-        if sys.argv[arg_idx] == '-use_nvshmem':
-            USING_NVSHMEM = True
-
         arg_idx += 1
 
+    EXECUTABLE_NAME = 'cg'
     BASE_FILENAME = 'cg_runtime'
-
-    if USING_NVSHMEM:
-        VERSION_NAME_TO_IDX_MAP = VERSION_NAME_TO_IDX_MAP_NVSHMEM.copy()
-        EXECUTABLE_NAME = 'cg_nvshmem'
-        BASE_FILENAME = 'cg_nvshmem_runtime'
 
     if FILENAME == None:
         FILENAME = BASE_FILENAME + '-' + datetime.now().strftime('%d-%m-%Y_%H-%M-%S') + \
             f'-{GPU_MODEL}' + '.csv'
-
-    VERSION_LABELS = VERSION_NAME_TO_IDX_MAP.keys()
 
     GPU_COLUMN_NAMES = [str(num_gpus) + ' GPU' + ('s' if num_gpus != 1 else '')
                         for num_gpus in GPU_NUMS_TO_RUN]
