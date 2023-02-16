@@ -54,7 +54,7 @@
 //    // printf("code is run in %d\n",PERKS_ARCH);
 //    result[0] = PERKS_ARCH;
 //}
-// void host_printptx(int& result) {
+//void host_printptx(int& result) {
 //    int* d_r;
 //    cudaMalloc((void**)&d_r, sizeof(int));
 //    printptx<<<1, 1>>>(d_r);
@@ -62,8 +62,8 @@
 //    cudaDeviceSynchronize();
 //}
 //
-// template <class REAL>
-// int getMinWidthY(int width_x, int width_y, int global_bdimx, bool isDoubleTile) {
+//template <class REAL>
+//int getMinWidthY(int width_x, int width_y, int global_bdimx, bool isDoubleTile) {
 //    int minwidthy1 = j3d_iterative<REAL>(nullptr, 100000, width_y, width_x, nullptr, global_bdimx,
 //                                         1, 1, false, false, 0, isDoubleTile, true);
 //
@@ -80,11 +80,11 @@
 //    return result;
 //}
 //
-// template int getMinWidthY<float>(int, int, int, bool);
-// template int getMinWidthY<double>(int, int, int, bool);
+//template int getMinWidthY<float>(int, int, int, bool);
+//template int getMinWidthY<double>(int, int, int, bool);
 //
-// template <class REAL>
-// int j3d_iterative(REAL* h_input, int height, int width_y, int width_x, REAL* __var_0__,
+//template <class REAL>
+//int j3d_iterative(REAL* h_input, int height, int width_y, int width_x, REAL* __var_0__,
 //                  int global_bdimx, int blkpsm, int iteration, bool useSM, bool usewarmup,
 //                  int warmupiteration, bool isDoubleTile, bool getminHeight) {
 //    const int LOCAL_ITEM_PER_THREAD = isDoubleTile ? ITEM_PER_THREAD * 2 : ITEM_PER_THREAD;
@@ -127,8 +127,7 @@
 //                   ? kernel3d_persistent<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X, 128>
 //                   : kernel3d_persistent<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X, 256>)
 //            : (global_bdimx == 128 ? kernel3d_persistent<REAL, HALO, ITEM_PER_THREAD, TILE_X, 128>
-//                                   : kernel3d_persistent<REAL, HALO, ITEM_PER_THREAD, TILE_X,
-//                                   256>);
+//                                   : kernel3d_persistent<REAL, HALO, ITEM_PER_THREAD, TILE_X, 256>);
 //#endif
 //#ifdef GEN
 //    auto execute_kernel =
@@ -169,16 +168,14 @@
 //                          ? (isDoubleTile
 //                                 ? kernel3d_general<
 //                                       REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X, REG_FOLDER_Z,
-//                                       getminblocks<REAL, 2, 2 * ITEM_PER_THREAD>::val, false,
-//                                       128>
+//                                       getminblocks<REAL, 2, 2 * ITEM_PER_THREAD>::val, false, 128>
 //                                 : kernel3d_general<
 //                                       REAL, HALO, ITEM_PER_THREAD, TILE_X, REG_FOLDER_Z,
 //                                       getminblocks<REAL, 2, ITEM_PER_THREAD>::val, false, 128>)
 //                          : (isDoubleTile
 //                                 ? kernel3d_general<
 //                                       REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X, REG_FOLDER_Z,
-//                                       getminblocks<REAL, 1, 2 * ITEM_PER_THREAD>::val, false,
-//                                       128>
+//                                       getminblocks<REAL, 1, 2 * ITEM_PER_THREAD>::val, false, 128>
 //                                 : kernel3d_general<
 //                                       REAL, HALO, ITEM_PER_THREAD, TILE_X, REG_FOLDER_Z,
 //                                       getminblocks<REAL, 1, ITEM_PER_THREAD>::val, false, 128>))
@@ -186,20 +183,17 @@
 //                          ? (isDoubleTile
 //                                 ? kernel3d_general<
 //                                       REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X, REG_FOLDER_Z,
-//                                       getminblocks<REAL, 2, 2 * ITEM_PER_THREAD>::val, false,
-//                                       256>
+//                                       getminblocks<REAL, 2, 2 * ITEM_PER_THREAD>::val, false, 256>
 //                                 : kernel3d_general<
 //                                       REAL, HALO, ITEM_PER_THREAD, TILE_X, REG_FOLDER_Z,
 //                                       getminblocks<REAL, 2, ITEM_PER_THREAD>::val, false, 256>)
 //                          : (isDoubleTile
 //                                 ? kernel3d_general<
 //                                       REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X, REG_FOLDER_Z,
-//                                       getminblocks<REAL, 1, 2 * ITEM_PER_THREAD>::val, false,
-//                                       256>
+//                                       getminblocks<REAL, 1, 2 * ITEM_PER_THREAD>::val, false, 256>
 //                                 : kernel3d_general<
 //                                       REAL, HALO, ITEM_PER_THREAD, TILE_X, REG_FOLDER_Z,
-//                                       getminblocks<REAL, 1, ITEM_PER_THREAD>::val, false,
-//                                       256>)));
+//                                       getminblocks<REAL, 1, ITEM_PER_THREAD>::val, false, 256>)));
 //    int lreg_folder_z = 0;
 //    // if(isDoubleTile)
 //    bool ifspill = false;
@@ -229,11 +223,9 @@
 //            } else {
 //                if (isDoubleTile) {
 //                    if (ptx == 800) {
-//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 128, 2 *
-//                        ITEM_PER_THREAD,
+//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
 //                                                          256, 800, true, REAL>::val
-//                                              : regfolder<HALO, curshape, 128, 2 *
-//                                              ITEM_PER_THREAD,
+//                                              : regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
 //                                                          256, 800, false, REAL>::val;
 //                        ifspill = useSM ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD, 256,
 //                                                    800, true, REAL>::spill
@@ -241,11 +233,9 @@
 //                                                    800, false, REAL>::spill;
 //                    }
 //                    if (ptx == 700) {
-//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 128, 2 *
-//                        ITEM_PER_THREAD,
+//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
 //                                                          256, 700, true, REAL>::val
-//                                              : regfolder<HALO, curshape, 128, 2 *
-//                                              ITEM_PER_THREAD,
+//                                              : regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD,
 //                                                          256, 700, false, REAL>::val;
 //                        ifspill = useSM ? regfolder<HALO, curshape, 128, 2 * ITEM_PER_THREAD, 256,
 //                                                    700, true, REAL>::spill
@@ -254,31 +244,23 @@
 //                    }
 //                } else {
 //                    if (ptx == 800) {
-//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-//                        256,
+//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
 //                                                          800, true, REAL>::val
-//                                              : regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-//                                              256,
+//                                              : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
 //                                                          800, false, REAL>::val;
-//                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-//                        800,
+//                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 800,
 //                                                    true, REAL>::spill
-//                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-//                                        800,
+//                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 800,
 //                                                    false, REAL>::spill;
 //                    }
 //                    if (ptx == 700) {
-//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-//                        256,
+//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
 //                                                          700, true, REAL>::val
-//                                              : regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-//                                              256,
+//                                              : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
 //                                                          700, false, REAL>::val;
-//                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-//                        700,
+//                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 700,
 //                                                    true, REAL>::spill
-//                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-//                                        700,
+//                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 700,
 //                                                    false, REAL>::spill;
 //                    }
 //                }
@@ -308,11 +290,9 @@
 //            } else {
 //                if (isDoubleTile) {
 //                    if (ptx == 800) {
-//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 256, 2 *
-//                        ITEM_PER_THREAD,
+//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
 //                                                          256, 800, true, REAL>::val
-//                                              : regfolder<HALO, curshape, 256, 2 *
-//                                              ITEM_PER_THREAD,
+//                                              : regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
 //                                                          256, 800, false, REAL>::val;
 //                        ifspill = useSM ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD, 256,
 //                                                    800, true, REAL>::spill
@@ -320,11 +300,9 @@
 //                                                    800, false, REAL>::spill;
 //                    }
 //                    if (ptx == 700) {
-//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 256, 2 *
-//                        ITEM_PER_THREAD,
+//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
 //                                                          256, 700, true, REAL>::val
-//                                              : regfolder<HALO, curshape, 256, 2 *
-//                                              ITEM_PER_THREAD,
+//                                              : regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD,
 //                                                          256, 700, false, REAL>::val;
 //                        ifspill = useSM ? regfolder<HALO, curshape, 256, 2 * ITEM_PER_THREAD, 256,
 //                                                    700, true, REAL>::spill
@@ -333,31 +311,23 @@
 //                    }
 //                } else {
 //                    if (ptx == 800) {
-//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-//                        256,
+//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
 //                                                          800, true, REAL>::val
-//                                              : regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-//                                              256,
+//                                              : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
 //                                                          800, false, REAL>::val;
-//                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-//                        800,
+//                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 800,
 //                                                    true, REAL>::spill
-//                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-//                                        800,
+//                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 800,
 //                                                    false, REAL>::spill;
 //                    }
 //                    if (ptx == 700) {
-//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-//                        256,
+//                        lreg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
 //                                                          700, true, REAL>::val
-//                                              : regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-//                                              256,
+//                                              : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
 //                                                          700, false, REAL>::val;
-//                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-//                        700,
+//                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 700,
 //                                                    true, REAL>::spill
-//                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-//                                        700,
+//                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 700,
 //                                                    false, REAL>::spill;
 //                    }
 //                }
@@ -375,30 +345,22 @@
 //
 //            (global_bdimx == 128
 //                 ? (blkpsm >= 4
-//                        ? (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD,
-//                        TILE_X,
+//                        ? (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
 //                                                            256, true, 128, curshape>
-//                                 : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD,
-//                                 TILE_X,
+//                                 : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
 //                                                            256, false, 128, curshape>)
-//                        : (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD,
-//                        TILE_X,
+//                        : (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
 //                                                            256, true, 128, curshape>
-//                                 : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD,
-//                                 TILE_X,
+//                                 : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
 //                                                            256, false, 128, curshape>))
 //                 : (blkpsm >= 2
-//                        ? (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD,
-//                        TILE_X,
+//                        ? (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
 //                                                            256, true, 256, curshape>
-//                                 : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD,
-//                                 TILE_X,
+//                                 : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
 //                                                            256, false, 256, curshape>)
-//                        : (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD,
-//                        TILE_X,
+//                        : (useSM ? kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
 //                                                            256, true, 256, curshape>
-//                                 : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD,
-//                                 TILE_X,
+//                                 : kernel3d_general_wrapper<REAL, HALO, 2 * ITEM_PER_THREAD, TILE_X,
 //                                                            256, false, 256, curshape>)))
 //            : (global_bdimx == 128
 //                   ? (blkpsm >= 4
@@ -426,11 +388,9 @@
 //        if (global_bdimx == 128) {
 //            if (blkpsm >= 4) {
 //                if (ptx == 800) {
-//                    reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128,
-//                    800,
+//                    reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 800,
 //                                                     true, REAL>::val
-//                                         : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128,
-//                                         800,
+//                                         : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 800,
 //                                                     false, REAL>::val;
 //                    ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 800,
 //                                                true, REAL>::spill
@@ -438,11 +398,9 @@
 //                                                false, REAL>::spill;
 //                }
 //                if (ptx == 700) {
-//                    reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128,
-//                    700,
+//                    reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 700,
 //                                                     true, REAL>::val
-//                                         : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128,
-//                                         700,
+//                                         : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 700,
 //                                                     false, REAL>::val;
 //                    ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 128, 700,
 //                                                true, REAL>::spill
@@ -473,31 +431,23 @@
 //                    }
 //                } else {
 //                    if (ptx == 800) {
-//                        reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-//                        256,
+//                        reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
 //                                                         800, true, REAL>::val
-//                                             : regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-//                                             256,
+//                                             : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
 //                                                         800, false, REAL>::val;
-//                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-//                        800,
+//                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 800,
 //                                                    true, REAL>::spill
-//                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-//                                        800,
+//                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 800,
 //                                                    false, REAL>::spill;
 //                    }
 //                    if (ptx == 700) {
-//                        reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-//                        256,
+//                        reg_folder_z = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
 //                                                         700, true, REAL>::val
-//                                             : regfolder<HALO, curshape, 128, ITEM_PER_THREAD,
-//                                             256,
+//                                             : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
 //                                                         700, false, REAL>::val;
-//                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-//                        700,
+//                        ifspill = useSM ? regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 700,
 //                                                    true, REAL>::spill
-//                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256,
-//                                        700,
+//                                        : regfolder<HALO, curshape, 128, ITEM_PER_THREAD, 256, 700,
 //                                                    false, REAL>::spill;
 //                    }
 //                }
@@ -505,11 +455,9 @@
 //        } else {
 //            if (blkpsm >= 2) {
 //                if (ptx == 800) {
-//                    reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128,
-//                    800,
+//                    reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 800,
 //                                                     true, REAL>::val
-//                                         : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128,
-//                                         800,
+//                                         : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 800,
 //                                                     false, REAL>::val;
 //                    ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 800,
 //                                                true, REAL>::spill
@@ -517,11 +465,9 @@
 //                                                false, REAL>::spill;
 //                }
 //                if (ptx == 700) {
-//                    reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128,
-//                    700,
+//                    reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 700,
 //                                                     true, REAL>::val
-//                                         : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128,
-//                                         700,
+//                                         : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 700,
 //                                                     false, REAL>::val;
 //                    ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 128, 700,
 //                                                true, REAL>::spill
@@ -552,31 +498,23 @@
 //                    }
 //                } else {
 //                    if (ptx == 800) {
-//                        reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-//                        256,
+//                        reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
 //                                                         800, true, REAL>::val
-//                                             : regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-//                                             256,
+//                                             : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
 //                                                         800, false, REAL>::val;
-//                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-//                        800,
+//                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 800,
 //                                                    true, REAL>::spill
-//                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-//                                        800,
+//                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 800,
 //                                                    false, REAL>::spill;
 //                    }
 //                    if (ptx == 700) {
-//                        reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-//                        256,
+//                        reg_folder_z = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
 //                                                         700, true, REAL>::val
-//                                             : regfolder<HALO, curshape, 256, ITEM_PER_THREAD,
-//                                             256,
+//                                             : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
 //                                                         700, false, REAL>::val;
-//                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-//                        700,
+//                        ifspill = useSM ? regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 700,
 //                                                    true, REAL>::spill
-//                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256,
-//                                        700,
+//                                        : regfolder<HALO, curshape, 256, ITEM_PER_THREAD, 256, 700,
 //                                                    false, REAL>::spill;
 //                    }
 //                }
@@ -628,8 +566,7 @@
 //
 //    // dim3 block_dim3(TILE_X, 1, 1);
 //    // dim3 grid_dim3(MIN(width_x*width_y/TILE_X/TILE_Y,sm_count*numBlocksPerSm_current), 1,
-//    //
-//    sm_count*numBlocksPerSm_current/MIN(width_x*width_y/TILE_X/TILE_Y,sm_count*numBlocksPerSm_current));
+//    // sm_count*numBlocksPerSm_current/MIN(width_x*width_y/TILE_X/TILE_Y,sm_count*numBlocksPerSm_current));
 //
 //    dim3 executeBlockDim = block_dim_2;
 //    dim3 executeGridDim = grid_dim_2;
@@ -640,8 +577,7 @@
 //    //   width_y/TILE_Y,max(2,(sm_count*8)*TILE_X*TILE_Y/width_x/width_y));
 //    //   // dim3 block_dim3(TILE_X, 1, 1);
 //    //   // dim3 grid_dim3(MIN(width_x*width_y/TILE_X/TILE_Y,sm_count*numBlocksPerSm_current), 1,
-//    //
-//    sm_count*numBlocksPerSm_current/MIN(width_x*width_y/TILE_X/TILE_Y,sm_count*numBlocksPerSm_current));
+//    //   sm_count*numBlocksPerSm_current/MIN(width_x*width_y/TILE_X/TILE_Y,sm_count*numBlocksPerSm_current));
 //
 //    //   dim3 executeBlockDim=block_dim_2;
 //    //   dim3 executeGridDim=grid_dim_2;
@@ -696,10 +632,8 @@
 //    max_sm_flder = (perSMValsRemaind - reg_boundary) /
 //                   (2 * HALO * (TILE_Y + TILE_X + 2 * isBOX) + TILE_X * TILE_Y);
 //    // printf(">>%ld,%ld\n",perSMUsable/1024,perSMValsRemaind/1024);
-//    //
-//    printf(">>%ld,%ld\n",(perSMValsRemaind-reg_boundary),(2*HALO*(TILE_Y+TILE_X*2*isBOX)+TILE_X*TILE_Y));
-//    //
-//    printf(">>%ld\n",(max_sm_flder*(2*HALO*(TILE_Y+TILE_X*2*isBOX)+TILE_X*TILE_Y))*sizeof(REAL)/1024);
+//    // printf(">>%ld,%ld\n",(perSMValsRemaind-reg_boundary),(2*HALO*(TILE_Y+TILE_X*2*isBOX)+TILE_X*TILE_Y));
+//    // printf(">>%ld\n",(max_sm_flder*(2*HALO*(TILE_Y+TILE_X*2*isBOX)+TILE_X*TILE_Y))*sizeof(REAL)/1024);
 //    // return 0;
 //    if (!useSM) max_sm_flder = 0;
 //    if (useSM && max_sm_flder == 0) return -1;
@@ -729,8 +663,7 @@
 //    Check_CUDA_Error("Allocation Error!! : input\n");
 //
 //    cudaGetLastError();
-////    cudaMemcpy(input, h_input, sizeof(REAL) * (height * width_x * width_y),
-/// cudaMemcpyHostToDevice);
+////    cudaMemcpy(input, h_input, sizeof(REAL) * (height * width_x * width_y), cudaMemcpyHostToDevice);
 //    REAL* __var_1__;
 //    cudaMalloc(&__var_1__, sizeof(REAL) * (height * width_x * width_y));
 //    Check_CUDA_Error("Allocation Error!! : __var_1__\n");
@@ -759,8 +692,7 @@
 //    // #ifdef __PRINT__
 //    void* KernelArgsNULL[] = {(void**)&__var_2__, (void*)&__var_1__,         (void**)&height,
 //                              (void**)&width_y,   (void*)&width_x,           (void**)&l2_cache1,
-//                              (void**)&l2_cache2, (void*)&l_warmupiteration,
-//                              (void*)&max_sm_flder};
+//                              (void**)&l2_cache2, (void*)&l_warmupiteration, (void*)&max_sm_flder};
 //    // #endif
 //#endif
 //    cudaCheckError();
@@ -819,8 +751,7 @@
 //            int nowwarmup = warmelapsedTime;
 //            int nowiter = (350 + nowwarmup - 1) / nowwarmup;
 //            for (int i = 0; i < nowiter; i++) {
-//                cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim,
-//                executeBlockDim,
+//                cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim, executeBlockDim,
 //                                            KernelArgsNULL, executeSM, 0);
 //            }
 //        }
@@ -839,8 +770,7 @@
 //                                                                   width_y, width_x);
 //
 //    for (int i = 1; i < iteration; i++) {
-//        execute_kernel<<<executeGridDim, executeBlockDim, executeSM>>>(__var_2__, __var_1__,
-//        height,
+//        execute_kernel<<<executeGridDim, executeBlockDim, executeSM>>>(__var_2__, __var_1__, height,
 //                                                                       width_y, width_x);
 //        REAL* tmp = __var_2__;
 //        __var_2__ = __var_1__;
@@ -849,11 +779,9 @@
 //#endif
 //#ifdef PERSISTENTLAUNCH
 //    printf("executeGridDim: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
-//    printf("executeBlockDim: %d %d %d\n", executeBlockDim.x, executeBlockDim.y,
-//    executeBlockDim.z);
+//    printf("executeBlockDim: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
 //
-//    cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim, executeBlockDim,
-//    KernelArgs,
+//    cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim, executeBlockDim, KernelArgs,
 //                                executeSM, 0);
 //#endif
 //    cudaDeviceSynchronize();
@@ -927,8 +855,8 @@
 //    return 0;
 //}
 //
-// PERKS_INITIALIZE_ALL_TYPE(PERKS_DECLARE_INITIONIZATION_ITERATIVE);
+//PERKS_INITIALIZE_ALL_TYPE(PERKS_DECLARE_INITIONIZATION_ITERATIVE);
 //
-//// template void j3d_iterative<float>(float * h_input, int height, int width_y, int width_x, float
-///* / __var_0__, int iteration); template void j3d_iterative<double>(float * h_input, int height,
-/// int / width_y, int width_x, float * __var_0__, int iteration);
+//// template void j3d_iterative<float>(float * h_input, int height, int width_y, int width_x, float *
+//// __var_0__, int iteration); template void j3d_iterative<double>(float * h_input, int height, int
+//// width_y, int width_x, float * __var_0__, int iteration);

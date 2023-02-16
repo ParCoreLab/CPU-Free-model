@@ -151,8 +151,6 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     double runtime_serial_non_persistent = 0.0;
 
-//#define isUseSM (true)
-
     // PERKS config
 #define ITEM_PER_THREAD (8)
 #define REG_FOLDER_Z (0)
@@ -678,10 +676,6 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
     double start = MPI_Wtime();
-
-//    printf("Grid: %d %d %d\n", executeGridDim.x, executeGridDim.y, executeGridDim.z);
-//    printf("Block: %d %d %d\n", executeBlockDim.x, executeBlockDim.y, executeBlockDim.z);
-//    printf("SM: %d\n", executeSM);
 
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) execute_kernel, executeGridDim,
                                              executeBlockDim, KernelArgs, executeSM,

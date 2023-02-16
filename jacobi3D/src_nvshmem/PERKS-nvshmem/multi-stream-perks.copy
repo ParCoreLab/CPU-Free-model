@@ -12,12 +12,12 @@
 
 // perks stuff
 //#include "./common/common.hpp"
+#include "./config.cuh"
 #include "./common/cuda_common.cuh"
 #include "./common/cuda_computation.cuh"
 #include "./common/jacobi_cuda.cuh"
 #include "./common/jacobi_reference.hpp"
 #include "./common/types.hpp"
-#include "./config.cuh"
 #include "./perksconfig.cuh"
 #include "config.cuh"
 
@@ -226,7 +226,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
     int num_devices = 0;
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
-    //    num_devices = 1;
+//    num_devices = 1;
 
     // ------------------------------------
     // PERKS config
@@ -238,10 +238,10 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
     //    real(*output_gold)[nx] = (real(*)[nx])getZero2DArray(ny, nx);
 
 #define ITEM_PER_THREAD (8)
-    //#define TILE_X 256
+//#define TILE_X 256
 
     // damnit
-    //    if (blkpsm <= 0) blkpsm = 100;
+//    if (blkpsm <= 0) blkpsm = 100;
 
     bool useSM = true;
     bool isDoubleTile = true;
@@ -263,17 +263,17 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
 #undef __PRINT__
 #define PERSISTENTLAUNCH
-    //    return j3d_iterative<float>(nullptr,
-    //                         nx, ny, nx,
-    //                         nullptr,
-    //                         bdimx,
-    //                         blkpsm,
-    //                         1,
-    //                         useSM,
-    //                         false,
-    //                         0,
-    //                         isDoubleTile,
-    //                         false);
+//    return j3d_iterative<float>(nullptr,
+//                         nx, ny, nx,
+//                         nullptr,
+//                         bdimx,
+//                         blkpsm,
+//                         1,
+//                         useSM,
+//                         false,
+//                         0,
+//                         isDoubleTile,
+//                         false);
 
     int TILE_Y = LOCAL_ITEM_PER_THREAD * bdimx / TILE_X;
     if (blkpsm <= 0) blkpsm = 100;
@@ -553,48 +553,39 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         int *iteration_done_flags[2];
 
-        //        CUDA_RT_CALL(cudaMalloc(iteration_done_flags, 2 * sizeof(int)));
-        //        CUDA_RT_CALL(cudaMalloc(iteration_done_flags, 2 * sizeof(int)));
-        //
-        //        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + 1, 2 * sizeof(int)));
-        //        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + 1, 2 * sizeof(int)));
-        //
-        //        CUDA_RT_CALL(cudaMemset(iteration_done_flags[0], 0, 2 * sizeof(int)));
-        //        CUDA_RT_CALL(cudaMemset(iteration_done_flags[1], 0, 2 * sizeof(int)));
-        //
-        //        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * ny * (chunk_size + 2) * sizeof(real)));
-        //        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * ny * (chunk_size + 2) *
-        //        sizeof(real)));
-        //
-        //        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
-        //        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * ny * (chunk_size + 2) *
-        //        sizeof(real)));
-        //
-        //        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * ny *
-        //        sizeof(real))); CUDA_RT_CALL(
-        //            cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * ny *
-        //            sizeof(real)));
-        //
-        //        CUDA_RT_CALL(
-        //            cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, 2 * nx * ny *
-        //            sizeof(real)));
-        //        CUDA_RT_CALL(
-        //            cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx * ny *
-        //            sizeof(real)));
-        //
-        //        CUDA_RT_CALL(
-        //            cudaMalloc(is_top_done_computing_flags + dev_id, total_num_flags *
-        //            sizeof(int)));
-        //        CUDA_RT_CALL(
-        //            cudaMalloc(is_bottom_done_computing_flags + dev_id, total_num_flags *
-        //            sizeof(int)));
-        //
-        //        CUDA_RT_CALL(
-        //            cudaMemset(is_top_done_computing_flags[dev_id], 0, total_num_flags *
-        //            sizeof(int)));
-        //        CUDA_RT_CALL(
-        //            cudaMemset(is_bottom_done_computing_flags[dev_id], 0, total_num_flags *
-        //            sizeof(int)));
+//        CUDA_RT_CALL(cudaMalloc(iteration_done_flags, 2 * sizeof(int)));
+//        CUDA_RT_CALL(cudaMalloc(iteration_done_flags, 2 * sizeof(int)));
+//
+//        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + 1, 2 * sizeof(int)));
+//        CUDA_RT_CALL(cudaMalloc(iteration_done_flags + 1, 2 * sizeof(int)));
+//
+//        CUDA_RT_CALL(cudaMemset(iteration_done_flags[0], 0, 2 * sizeof(int)));
+//        CUDA_RT_CALL(cudaMemset(iteration_done_flags[1], 0, 2 * sizeof(int)));
+//
+//        CUDA_RT_CALL(cudaMalloc(a + dev_id, nx * ny * (chunk_size + 2) * sizeof(real)));
+//        CUDA_RT_CALL(cudaMalloc(a_new + dev_id, nx * ny * (chunk_size + 2) * sizeof(real)));
+//
+//        CUDA_RT_CALL(cudaMemset(a[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+//        CUDA_RT_CALL(cudaMemset(a_new[dev_id], 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+//
+//        CUDA_RT_CALL(cudaMalloc(halo_buffer_for_top_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
+//        CUDA_RT_CALL(
+//            cudaMalloc(halo_buffer_for_bottom_neighbor + dev_id, 2 * nx * ny * sizeof(real)));
+//
+//        CUDA_RT_CALL(
+//            cudaMemset(halo_buffer_for_top_neighbor[dev_id], 0, 2 * nx * ny * sizeof(real)));
+//        CUDA_RT_CALL(
+//            cudaMemset(halo_buffer_for_bottom_neighbor[dev_id], 0, 2 * nx * ny * sizeof(real)));
+//
+//        CUDA_RT_CALL(
+//            cudaMalloc(is_top_done_computing_flags + dev_id, total_num_flags * sizeof(int)));
+//        CUDA_RT_CALL(
+//            cudaMalloc(is_bottom_done_computing_flags + dev_id, total_num_flags * sizeof(int)));
+//
+//        CUDA_RT_CALL(
+//            cudaMemset(is_top_done_computing_flags[dev_id], 0, total_num_flags * sizeof(int)));
+//        CUDA_RT_CALL(
+//            cudaMemset(is_bottom_done_computing_flags[dev_id], 0, total_num_flags * sizeof(int)));
 
         // Calculate local domain boundaries
         int iz_start_global;  // My start index in the global array
@@ -610,59 +601,58 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         iz_end[dev_id] = (iz_end_global - iz_start_global + 1) + iz_start;
 
         // Set diriclet boundary conditions on left and right border
-        //        initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
-        //            a[dev_id], a_new[dev_id], PI, iz_start_global - 1, nx, ny, chunk_size + 2,
-        //            nz);
-        //        CUDA_RT_CALL(cudaGetLastError());
+//        initialize_boundaries<<<(nz / num_devices) / 128 + 1, 128>>>(
+//            a[dev_id], a_new[dev_id], PI, iz_start_global - 1, nx, ny, chunk_size + 2, nz);
+//        CUDA_RT_CALL(cudaGetLastError());
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
         dim3 dim_grid(numSms - 2, 1, 1);
         dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
 
-        //        void *kernelArgsInner[] = {(void *)&a_new[dev_id],
-        //                                   (void *)&a[dev_id],
-        //                                   (void *)&iz_start,
-        //                                   (void *)&iz_end[dev_id],
-        //                                   (void *)&ny,
-        //                                   (void *)&nx,
-        //                                   (void *)&comp_tile_size_x,
-        //                                   (void *)&comp_tile_size_y,
-        //                                   (void *)&comp_tile_size_z,
-        //                                   (void *)&num_comp_tiles_x,
-        //                                   (void *)&num_comp_tiles_y,
-        //                                   (void *)&num_comp_tiles_z,
-        //                                   (void *)&iter_max,
-        //                                   (void *)&halo_buffer_for_top_neighbor[dev_id],
-        //                                   (void *)&halo_buffer_for_bottom_neighbor[dev_id],
-        //                                   (void *)&halo_buffer_for_bottom_neighbor[top],
-        //                                   (void *)&halo_buffer_for_top_neighbor[bottom],
-        //                                   (void *)&is_top_done_computing_flags[dev_id],
-        //                                   (void *)&is_bottom_done_computing_flags[dev_id],
-        //                                   (void *)&is_bottom_done_computing_flags[top],
-        //                                   (void *)&is_top_done_computing_flags[bottom],
-        //                                   (void *)&iteration_done_flags[0]};
-        //
-        //        void *kernelArgsBoundary[] = {(void *)&a_new[dev_id],
-        //                                      (void *)&a[dev_id],
-        //                                      (void *)&iz_start,
-        //                                      (void *)&iz_end[dev_id],
-        //                                      (void *)&ny,
-        //                                      (void *)&nx,
-        //                                      (void *)&comm_tile_size_x,
-        //                                      (void *)&comm_tile_size_y,
-        //                                      (void *)&num_comm_tiles_x,
-        //                                      (void *)&num_comm_tiles_y,
-        //                                      (void *)&iter_max,
-        //                                      (void *)&halo_buffer_for_top_neighbor[dev_id],
-        //                                      (void *)&halo_buffer_for_bottom_neighbor[dev_id],
-        //                                      (void *)&halo_buffer_for_bottom_neighbor[top],
-        //                                      (void *)&halo_buffer_for_top_neighbor[bottom],
-        //                                      (void *)&is_top_done_computing_flags[dev_id],
-        //                                      (void *)&is_bottom_done_computing_flags[dev_id],
-        //                                      (void *)&is_bottom_done_computing_flags[top],
-        //                                      (void *)&is_top_done_computing_flags[bottom],
-        //                                      (void *)&iteration_done_flags[0]};
+//        void *kernelArgsInner[] = {(void *)&a_new[dev_id],
+//                                   (void *)&a[dev_id],
+//                                   (void *)&iz_start,
+//                                   (void *)&iz_end[dev_id],
+//                                   (void *)&ny,
+//                                   (void *)&nx,
+//                                   (void *)&comp_tile_size_x,
+//                                   (void *)&comp_tile_size_y,
+//                                   (void *)&comp_tile_size_z,
+//                                   (void *)&num_comp_tiles_x,
+//                                   (void *)&num_comp_tiles_y,
+//                                   (void *)&num_comp_tiles_z,
+//                                   (void *)&iter_max,
+//                                   (void *)&halo_buffer_for_top_neighbor[dev_id],
+//                                   (void *)&halo_buffer_for_bottom_neighbor[dev_id],
+//                                   (void *)&halo_buffer_for_bottom_neighbor[top],
+//                                   (void *)&halo_buffer_for_top_neighbor[bottom],
+//                                   (void *)&is_top_done_computing_flags[dev_id],
+//                                   (void *)&is_bottom_done_computing_flags[dev_id],
+//                                   (void *)&is_bottom_done_computing_flags[top],
+//                                   (void *)&is_top_done_computing_flags[bottom],
+//                                   (void *)&iteration_done_flags[0]};
+//
+//        void *kernelArgsBoundary[] = {(void *)&a_new[dev_id],
+//                                      (void *)&a[dev_id],
+//                                      (void *)&iz_start,
+//                                      (void *)&iz_end[dev_id],
+//                                      (void *)&ny,
+//                                      (void *)&nx,
+//                                      (void *)&comm_tile_size_x,
+//                                      (void *)&comm_tile_size_y,
+//                                      (void *)&num_comm_tiles_x,
+//                                      (void *)&num_comm_tiles_y,
+//                                      (void *)&iter_max,
+//                                      (void *)&halo_buffer_for_top_neighbor[dev_id],
+//                                      (void *)&halo_buffer_for_bottom_neighbor[dev_id],
+//                                      (void *)&halo_buffer_for_bottom_neighbor[top],
+//                                      (void *)&halo_buffer_for_top_neighbor[bottom],
+//                                      (void *)&is_top_done_computing_flags[dev_id],
+//                                      (void *)&is_bottom_done_computing_flags[dev_id],
+//                                      (void *)&is_bottom_done_computing_flags[top],
+//                                      (void *)&is_top_done_computing_flags[bottom],
+//                                      (void *)&iteration_done_flags[0]};
 
 #pragma omp barrier
         double start = omp_get_wtime();
@@ -673,81 +663,78 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
         CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-        size_t executeSM = 0;
-        int basic_sm_space =
-            ((TILE_Y + 2 * HALO) * (TILE_X + HALO + isBOX) * (1 + HALO * 2) + 1) * sizeof(real);
-        executeSM = basic_sm_space;
+        size_t executeSM=0;
+        int basic_sm_space=((TILE_Y+2*HALO)*(TILE_X+HALO+isBOX)*(1+HALO*2)+1)*sizeof(real);
+        executeSM=basic_sm_space;
 
         int maxSharedMemory;
-        CUDA_RT_CALL(cudaDeviceGetAttribute(&maxSharedMemory,
-                                            cudaDevAttrMaxSharedMemoryPerMultiprocessor, 0));
-        int SharedMemoryUsed = maxSharedMemory - 2048;
-        CUDA_RT_CALL(cudaFuncSetAttribute(
-            execute_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, SharedMemoryUsed));
+        CUDA_RT_CALL(cudaDeviceGetAttribute (&maxSharedMemory, cudaDevAttrMaxSharedMemoryPerMultiprocessor,0 ));
+        int SharedMemoryUsed=maxSharedMemory-2048;
+        CUDA_RT_CALL(cudaFuncSetAttribute(execute_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, SharedMemoryUsed));
 
         int numBlocksPerSm_current = 100;
-        //        cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        //            &numBlocksPerSm_current, execute_kernel, bdimx, executeSM);
-        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &numBlocksPerSm_current, execute_kernel, bdimx, executeSM));
-        if (blkpsm <= 0) blkpsm = numBlocksPerSm_current;
-        numBlocksPerSm_current = min(blkpsm, numBlocksPerSm_current);
+//        cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+//            &numBlocksPerSm_current, execute_kernel, bdimx, executeSM);
+        CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm_current, execute_kernel,
+                                                      bdimx, executeSM));
+        if(blkpsm<=0)blkpsm=numBlocksPerSm_current;
+        numBlocksPerSm_current=min(blkpsm,numBlocksPerSm_current);
         // numBlocksPerSm_current=1;
 
-        int perSMUsable = SharedMemoryUsed / numBlocksPerSm_current;
-        int perSMValsRemaind = (perSMUsable - basic_sm_space) / sizeof(real);
-        int reg_boundary = reg_folder_z * 2 * HALO * (TILE_Y + TILE_X + 2 * isBOX);
-        int max_sm_flder = (perSMValsRemaind - reg_boundary) /
-                           (2 * HALO * (TILE_Y + TILE_X + 2 * isBOX) + TILE_X * TILE_Y);
+        int perSMUsable=SharedMemoryUsed/numBlocksPerSm_current;
+        int perSMValsRemaind=(perSMUsable-basic_sm_space)/sizeof(real);
+        int reg_boundary=reg_folder_z*2*HALO*(TILE_Y+TILE_X+2*isBOX);
+        int max_sm_flder=(perSMValsRemaind-reg_boundary)/(2*HALO*(TILE_Y+TILE_X+2*isBOX)+TILE_X*TILE_Y);
 
-        real *input;
-        CUDA_RT_CALL(cudaMalloc(&input, sizeof(real) * (nz * nx * ny)));
-        //        CUDA_RT_CALL(cudaMemcpy(input,h_input,sizeof(real)*(nz*nx*ny),
-        //        cudaMemcpyHostToDevice));
+        real * input;
+        CUDA_RT_CALL(cudaMalloc(&input,sizeof(real)*(nz*nx*ny)));
+//        CUDA_RT_CALL(cudaMemcpy(input,h_input,sizeof(real)*(nz*nx*ny), cudaMemcpyHostToDevice));
 
-        //        real *__var_1__;
-        //        CUDA_RT_CALL(cudaMalloc(&__var_1__,sizeof(real)*(nz*nx*ny)));
+//        real *__var_1__;
+//        CUDA_RT_CALL(cudaMalloc(&__var_1__,sizeof(real)*(nz*nx*ny)));
         real *__var_2__;
-        CUDA_RT_CALL(cudaMalloc(&__var_2__, sizeof(real) * (nz * nx * ny)));
+        CUDA_RT_CALL(cudaMalloc(&__var_2__,sizeof(real)*(nz*nx*ny)));
 
-        size_t L2_utage = ny * nz * sizeof(real) * HALO * (nx / TILE_X) * 2 +
-                          nx * nz * sizeof(real) * HALO * (ny / TILE_Y) * 2;
+        size_t L2_utage = ny*nz*sizeof(real)*HALO*(nx/TILE_X)*2+
+                          nx*nz*sizeof(real)*HALO*(ny/TILE_Y)*2  ;
 
         real *l2_cache1;
         real *l2_cache2;
-        CUDA_RT_CALL(cudaMalloc(&l2_cache1, L2_utage));
-        CUDA_RT_CALL(cudaMalloc(&l2_cache2, L2_utage));
+        CUDA_RT_CALL(cudaMalloc(&l2_cache1,L2_utage));
+        CUDA_RT_CALL(cudaMalloc(&l2_cache2,L2_utage));
 
-        int l_iteration = iter_max;
-        void *KernelArgs[] = {(void **)&input,     (void *)&__var_2__,   (void **)&nx,
-                              (void **)&ny,        (void *)&nx,          (void **)&l2_cache1,
-                              (void **)&l2_cache2, (void *)&l_iteration, (void *)&max_sm_flder};
+        int l_iteration=iter_max;
+        void* KernelArgs[] ={(void**)&input,
+                              (void*)&__var_2__,
+                              (void**)&nx,
+                              (void**)&ny,
+                              (void*)&nx,
+                              (void**)&l2_cache1,
+                              (void**)&l2_cache2,
+                              (void*)&l_iteration,
+                              (void*)&max_sm_flder};
 
-        //        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void
-        //        *)MultiStreamPERKS::boundary_sync_kernel, 2,
-        //                                                 dim_block, kernelArgsBoundary, 0,
-        //                                                 boundary_sync_stream));
+//        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiStreamPERKS::boundary_sync_kernel, 2,
+//                                                 dim_block, kernelArgsBoundary, 0,
+//                                                 boundary_sync_stream));
 
         dim3 block_dim_3(bdimx, 1, 1);
-        dim3 grid_dim_3(
-            nx / TILE_X, ny / TILE_Y,
-            MIN(nz, MAX(1, numSms * numBlocksPerSm_current / (nx * ny / TILE_X / TILE_Y))));
-        dim3 executeBlockDim = block_dim_3;
-        dim3 executeGridDim = grid_dim_3;
+        dim3 grid_dim_3(nx/TILE_X, ny/TILE_Y, MIN(nz, MAX(1,numSms*numBlocksPerSm_current/(nx*ny/TILE_X/TILE_Y))));
+        dim3 executeBlockDim=block_dim_3;
+        dim3 executeGridDim=grid_dim_3;
 
         executeSM = 0;
 
-        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)execute_kernel, executeGridDim,
-                                                 executeBlockDim, KernelArgs, executeSM, 0));
+        CUDA_RT_CALL(cudaLaunchCooperativeKernel((void*)execute_kernel, executeGridDim, executeBlockDim, KernelArgs, executeSM,0));
 
         CUDA_RT_CALL(cudaDeviceSynchronize());
 
         // Need to swap pointers on CPU if iteration count is odd
         // Technically, we don't know the iteration number (since we'll be doing l2-norm)
         // Could write iter to CPU when kernel is done
-        //        if (iter_max % 2 == 1) {
-        //            std::swap(a_new[dev_id], a[dev_id]);
-        //        }
+//        if (iter_max % 2 == 1) {
+//            std::swap(a_new[dev_id], a[dev_id]);
+//        }
 
 #pragma omp barrier
         double stop = omp_get_wtime();

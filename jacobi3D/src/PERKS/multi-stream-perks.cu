@@ -14,9 +14,9 @@
 #include "config.cuh"
 #include "./common/cuda_common.cuh"
 #include "./common/cuda_computation.cuh"
-#include "./common/jacobi_cuda.cuh"
-#include "./common/jacobi_reference.hpp"
-#include "./common/types.hpp"
+//#include "./common/jacobi_cuda.cuh"
+//#include "./common/jacobi_reference.hpp"
+//#include "./common/types.hpp"
 #include "./perksconfig.cuh"
 
 #include "../../include/PERKS/multi-stream-perks.cuh"
@@ -263,7 +263,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         if (bdimx == 128) blkpsm = min(blkpsm, 2);
     }
 
-    const int LOCAL_ITEM_PER_THREAD = isDoubleTile ? ITEM_PER_THREAD * 2 : ITEM_PER_THREAD;
+//    const int LOCAL_ITEM_PER_THREAD = isDoubleTile ? ITEM_PER_THREAD * 2 : ITEM_PER_THREAD;
 
 #undef __PRINT__
 #define PERSISTENTLAUNCH
@@ -314,10 +314,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         int max_thread_blocks_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
         comp_tile_size_z = dim_block_z * max_thread_blocks_z;
-
-        int num_comp_tiles_x = nx / comp_tile_size_x + (nx % comp_tile_size_x != 0);
-        int num_comp_tiles_y = ny / comp_tile_size_y + (ny % comp_tile_size_y != 0);
-        int num_comp_tiles_z = nz_per_gpu / comp_tile_size_z + (nz_per_gpu % comp_tile_size_z != 0);
 
         int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
         int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
@@ -414,29 +410,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         dim3 dim_grid(numSms - 2, 1, 1);
         dim3 dim_block(dim_block_x, dim_block_y, dim_block_z);
-
-        //        void *kernelArgsInner[] = {(void *)&a_new[dev_id],
-        //                                   (void *)&a[dev_id],
-        //                                   (void *)&iz_start,
-        //                                   (void *)&iz_end[dev_id],
-        //                                   (void *)&ny,
-        //                                   (void *)&nx,
-        //                                   (void *)&comp_tile_size_x,
-        //                                   (void *)&comp_tile_size_y,
-        //                                   (void *)&comp_tile_size_z,
-        //                                   (void *)&num_comp_tiles_x,
-        //                                   (void *)&num_comp_tiles_y,
-        //                                   (void *)&num_comp_tiles_z,
-        //                                   (void *)&iter_max,
-        //                                   (void *)&halo_buffer_for_top_neighbor[dev_id],
-        //                                   (void *)&halo_buffer_for_bottom_neighbor[dev_id],
-        //                                   (void *)&halo_buffer_for_bottom_neighbor[top],
-        //                                   (void *)&halo_buffer_for_top_neighbor[bottom],
-        //                                   (void *)&is_top_done_computing_flags[dev_id],
-        //                                   (void *)&is_bottom_done_computing_flags[dev_id],
-        //                                   (void *)&is_bottom_done_computing_flags[top],
-        //                                   (void *)&is_top_done_computing_flags[bottom],
-        //                                   (void *)&iteration_done_flags[0]};
 
         void *kernelArgsBoundary[] = {(void *)&a_new[dev_id],
                                       (void *)&a[dev_id],
@@ -711,8 +684,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
         if (numBlocksPerSm_current == 0) printf("JESSE 3\n");
 
-        int minHeight = 0;
-
         int perSMUsable = SharedMemoryUsed / numBlocksPerSm_current;
         int perSMValsRemaind = (perSMUsable - basic_sm_space) / sizeof(REAL);
         int reg_boundary = reg_folder_z * 2 * HALO * (TILE_Y + TILE_X + 2 * isBOX);
@@ -727,7 +698,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         int sharememory2 = sharememory1 + sizeof(REAL) * (max_sm_flder) * (TILE_Y)*TILE_X;
         executeSM = sharememory2 + basic_sm_space;
 
-        minHeight = (max_sm_flder + reg_folder_z + 2 * NOCACHE_Z) * executeGridDim.z;
+        int minHeight = (max_sm_flder + reg_folder_z + 2 * NOCACHE_Z) * executeGridDim.z;
 
         if (executeGridDim.z * (2 * HALO + 1) > nz) printf("JESSE 4\n");
 
