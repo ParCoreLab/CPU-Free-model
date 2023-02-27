@@ -32,7 +32,8 @@ int main(int argc, char *argv[]) {
         make_pair("PERKS", MultiStreamPERKS::init),
 
         make_pair("Baseline Copy (No computation)", BaselineMultiThreadedCopyNoCompute::init),
-        make_pair("Baseline Overlap (No Computation)", BaselineMultiThreadedCopyOverlapNoCompute::init),
+        make_pair("Baseline Overlap (No Computation)",
+                  BaselineMultiThreadedCopyOverlapNoCompute::init),
         make_pair("Baseline P2P (No Computation)", BaselineMultiThreadedP2PNoCompute::init),
 
         make_pair("Design 1 (No Computation)", MultiGPUPeerTilingNoCompute::init),
@@ -47,15 +48,15 @@ int main(int argc, char *argv[]) {
         //                 SSMultiThreadedOneBlockCommNoCompute::init),
     };
 
-    const int  selection = get_argval<int>(argv, argv + argc, "-v", 0);
-    const bool silent    = get_arg(argv, argv + argc, "-s");
+    const int selection = get_argval<int>(argv, argv + argc, "-v", 0);
+    const bool silent = get_arg(argv, argv + argc, "-s");
 
     auto &selected = versions[selection];
 
     if (!silent) {
         std::cout << "Versions (select with -v):"
                   << "\n";
-        for (int i = 0; i < versions.size(); ++i) {
+        for (size_t i = 0; i < versions.size(); ++i) {
             auto &v = versions[i];
             std::cout << i << ":\t" << v.first << "\n";
         }

@@ -203,8 +203,8 @@ __global__ void __launch_bounds__(1024, 1)
 }
 }  // namespace MultiStreamPERKS
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "openmp-use-default-none"
+//#pragma clang diagnostic push
+//#pragma ide diagnostic ignored "openmp-use-default-none"
 int MultiStreamPERKS::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -291,8 +291,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         int chunk_size_low = (nz - 2) / num_devices;
         int chunk_size_high = chunk_size_low + 1;
 
-        int nz_per_gpu = nz / num_devices;
-
         cudaDeviceProp deviceProp{};
         CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, dev_id));
         int numSms = deviceProp.multiProcessorCount;
@@ -301,19 +299,16 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         constexpr int dim_block_y = 32;
         constexpr int dim_block_z = 1;
 
-        constexpr int comp_tile_size_x = dim_block_x;
-        constexpr int comp_tile_size_y = dim_block_y;
-        int comp_tile_size_z;
+//        constexpr int comp_tile_size_x = dim_block_x;
+//        constexpr int comp_tile_size_y = dim_block_y;
 
         constexpr int comm_tile_size_x = dim_block_x;
         constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
 
-        constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
-        constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
+//        constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
+//        constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
 
-        int max_thread_blocks_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
-
-        comp_tile_size_z = dim_block_z * max_thread_blocks_z;
+//        int max_thread_blocks_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
         int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
         int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
@@ -698,9 +693,9 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         int sharememory2 = sharememory1 + sizeof(REAL) * (max_sm_flder) * (TILE_Y)*TILE_X;
         executeSM = sharememory2 + basic_sm_space;
 
-        int minHeight = (max_sm_flder + reg_folder_z + 2 * NOCACHE_Z) * executeGridDim.z;
+//        int minHeight = (max_sm_flder + reg_folder_z + 2 * NOCACHE_Z) * executeGridDim.z;
 
-        if (executeGridDim.z * (2 * HALO + 1) > nz) printf("JESSE 4\n");
+        if (executeGridDim.z * (2 * HALO + 1) > unsigned(nz)) printf("JESSE 4\n");
 
         REAL *input;
         CUDA_RT_CALL(cudaMalloc(&input, sizeof(REAL) * (nz * nx * ny)));
@@ -771,4 +766,4 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
     return 0;
 }
-#pragma clang diagnostic pop
+//#pragma clang diagnostic pop

@@ -274,15 +274,15 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     cudaDeviceProp deviceProp{};
     CUDA_RT_CALL(cudaGetDeviceProperties(&deviceProp, mype));
-    int numSms = deviceProp.multiProcessorCount;
+//    int numSms = deviceProp.multiProcessorCount;
 
     constexpr int dim_block_x = 32;
     constexpr int dim_block_y = 8;
     constexpr int dim_block_z = 4;
 
-    constexpr int grid_dim_x = 2;
-    constexpr int grid_dim_y = 4;
-    const int grid_dim_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
+//    constexpr int grid_dim_x = 2;
+//    constexpr int grid_dim_y = 4;
+//    const int grid_dim_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
     int total_num_flags = 4;
 
@@ -359,8 +359,8 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
 
-    dim3 comp_dim_grid(grid_dim_x, grid_dim_y, grid_dim_z);
-    dim3 comp_dim_block(dim_block_x, dim_block_y, dim_block_z);
+//    dim3 comp_dim_grid(grid_dim_x, grid_dim_y, grid_dim_z);
+//    dim3 comp_dim_block(dim_block_x, dim_block_y, dim_block_z);
 
     dim3 comm_dim_grid(2);
     dim3 comm_dim_block(dim_block_x, dim_block_y * dim_block_z);
@@ -600,7 +600,7 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     if (numBlocksPerSm_current == 0) printf("JESSE 3\n");
 
-    int minHeight = 0;
+//    int minHeight = 0;
 
     int perSMUsable = SharedMemoryUsed / numBlocksPerSm_current;
     int perSMValsRemaind = (perSMUsable - basic_sm_space) / sizeof(REAL);
@@ -616,9 +616,9 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     int sharememory2 = sharememory1 + sizeof(REAL) * (max_sm_flder) * (TILE_Y) *TILE_X;
     executeSM = sharememory2 + basic_sm_space;
 
-    minHeight = (max_sm_flder + reg_folder_z + 2 * NOCACHE_Z) * executeGridDim.z;
+//    minHeight = (max_sm_flder + reg_folder_z + 2 * NOCACHE_Z) * executeGridDim.z;
 
-    if (executeGridDim.z * (2 * HALO + 1) > nz) printf("JESSE 4\n");
+    if (executeGridDim.z * (2 * HALO + 1) > unsigned(nz)) printf("JESSE 4\n");
 
     //    cudaMemcpy(input, h_input, sizeof(REAL) * (height * width_x * width_y),
     //    cudaMemcpyHostToDevice);

@@ -31,8 +31,8 @@ __global__ void __launch_bounds__(1024, 1)
         (((comm_block_id * comm_block_count_per_sm) / tile_count_x) * blockDim.y);
     const int comm_start_block_x =
         ((comm_block_id * comm_block_count_per_sm) % tile_count_x) * blockDim.x;
-    const int comm_start_iy = comm_start_block_y + (threadIdx.y + 1);
-    const int comm_start_ix = comm_start_block_x + threadIdx.x + 1;
+//    const int comm_start_iy = comm_start_block_y + (threadIdx.y + 1);
+//    const int comm_start_ix = comm_start_block_x + threadIdx.x + 1;
 
     while (iter < iter_max) {
         if (comm_block_id < comm_sm_count_per_layer) {

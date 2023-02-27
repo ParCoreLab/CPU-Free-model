@@ -242,8 +242,6 @@ kernel3d_general_inner(REAL * __restrict__ input,
   if(!UseSMCache) max_sm_flder=0;
   #define UseRegCache (reg_folder_z!=0)
 
-  const int iz_start = 1;
-
   const int tile_x_with_halo=LOCAL_TILE_X+2*halo;
   const int tile_y_with_halo=LOCAL_TILE_Y+2*halo;
   stencilParaT;

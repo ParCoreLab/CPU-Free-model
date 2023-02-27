@@ -8,8 +8,6 @@
 #include "./common/cuda_common.cuh"
 #include "./common/cuda_computation.cuh"
 #include "./common/jacobi_cuda.cuh"
-#include "./common/jacobi_reference.hpp"
-#include "./common/types.hpp"
 #include "./config.cuh"
 #include "./perksconfig.cuh"
 
@@ -243,8 +241,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         constexpr int dim_block_x = 32;
         constexpr int dim_block_y = 32;
 
-        constexpr int grid_dim_x = 8;
-        const int grid_dim_y = (numSms - 2) / grid_dim_x;
         constexpr int num_flags = 4;
 
         int num_ranks_low = num_devices * chunk_size_low + num_devices - (ny - 2);
@@ -328,9 +324,6 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
                                 cudaMemcpyDeviceToDevice));
         CUDA_RT_CALL(cudaMemcpy((void *)halo_buffer_for_bottom_neighbor[dev_id], a[dev_id],
                                 nx * sizeof(real), cudaMemcpyDeviceToDevice));
-
-        dim3 comp_dim_grid(grid_dim_x, grid_dim_y);
-        dim3 comp_dim_block(dim_block_x, dim_block_y);
 
         dim3 comm_dim_grid(2);
         dim3 comm_dim_block(dim_block_x * dim_block_y);

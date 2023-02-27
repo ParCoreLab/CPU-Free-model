@@ -22,6 +22,8 @@ NV_SRCDIR := src_nvshmem
 NV_OBJDIR := obj_nvshmem
 NV_DEPDIR := $(NV_OBJDIR)/.deps
 
+WARN_FLAGS = "-Wall -Wno-comment -Werror -Wextra"
+
 GENCODE_SM70    := -gencode arch=compute_70,code=sm_70
 GENCODE_SM80    := -gencode arch=compute_80,code=sm_80 -gencode arch=compute_80,code=compute_80
 GENCODE_FLAGS	:= $(GENCODE_SM70) $(GENCODE_SM80)
@@ -29,10 +31,10 @@ GENCODE_FLAGS	:= $(GENCODE_SM70) $(GENCODE_SM80)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 NV_DEPFLAGS = -MT $@ -MMD -MP -MF $(NV_DEPDIR)/$*.d
 
-NVCC_FLAGS = -O2 -dc -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(CXX) -I./include
+NVCC_FLAGS = -O2 -dc -Xcompiler $(WARN_FLAGS) -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(CXX) -I./include
 NVCC_LDFLAGS = -ccbin=$(CXX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart
 
-NVCC_NV_FLAGS = -O2 -dc -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(MPICCX) -I$(NVSHMEM_HOME)/include -I$(MPI_HOME)/include -I./include_nvshmem
+NVCC_NV_FLAGS = -O2 -dc -Xcompiler $(WARN_FLAGS) -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -ccbin=$(MPICCX) -I$(NVSHMEM_HOME)/include -I$(MPI_HOME)/include -I./include_nvshmem
 NVCC_NV_LDFLAGS = -ccbin=$(MPICCX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart -lnvidia-ml -L$(NVSHMEM_HOME)/lib -lnvshmem -L$(MPI_HOME)/lib -lmpi -L$(UCX_HOME)/lib -lucp -lucs -luct -lucm -lmlx5
 
 MAKEFLAGS += -j
@@ -89,3 +91,4 @@ $(NV_DEPS):
 
 include $(wildcard $(DEPS))
 include $(wildcard $(NV_DEPS))
+
