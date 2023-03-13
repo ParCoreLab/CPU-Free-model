@@ -168,56 +168,56 @@ __device__ void __forceinline__ computation(REAL result[RESULT_SIZE],
 {
   #ifndef BOX
   {
-//    _Pragma("unroll")
-//    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
-//    {
+    _Pragma("unroll")
+    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
+    {
 //      _Pragma("unroll")
 //      for(int hl=0; hl<halo; hl++)
 //      {
 //        result[l_y]+=
 //              sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1];
 //      }
-//    }
-//    _Pragma("unroll")
-//    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
-//    {
+    }
+    _Pragma("unroll")
+    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
+    {
 //      _Pragma("unroll")
 //      for(int hl=0; hl<halo; hl++)
 //      {
 //        result[l_y]+=
 //          sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1];
 //      }
-//    }
-//    _Pragma("unroll")
-//    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
-//    {
+    }
+    _Pragma("unroll")
+    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
+    {
 //      _Pragma("unroll")
 //      for(int hl=0; hl<halo; hl++)
 //      {
 //        result[l_y]+=
 //          sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind];
 //      }
-//    }
-//    _Pragma("unroll")
-//    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
-//    {
+    }
+    _Pragma("unroll")
+    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
+    {
 //      _Pragma("unroll")
 //      for(int hl=0; hl<halo; hl++)
 //      {
 //        result[l_y]+=
 //          sm_ptr[0][sm_width*(l_y+sm_y_base-1) + sm_x_ind];
 //      }
-//    }
-//    _Pragma("unroll")
-//    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
-//    {
-//      _Pragma("unroll")
-//      for(int hl=0; hl<halo; hl++)
-//      {
+    }
+    _Pragma("unroll")
+    for(int l_y=0; l_y<RESULT_SIZE; l_y++)
+    {
+      _Pragma("unroll")
+      for(int hl=0; hl<halo; hl++)
+      {
 //        result[l_y]+=1.0f*reg_ptr[REG_BASE-1-hl][l_y];
 //        result[l_y]+=1.0f*reg_ptr[REG_BASE+1+hl][l_y];
-//      }
-//    }
+      }
+    }
   }
   _Pragma("unroll")
   for(int l_y=0; l_y<RESULT_SIZE; l_y++)
@@ -229,20 +229,9 @@ __device__ void __forceinline__ computation(REAL result[RESULT_SIZE],
             + sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1]       // east
             + reg_ptr[REG_BASE-1][l_y]    // top
             + reg_ptr[REG_BASE+1][l_y]    // bottom?
-      );
+          );
 
-//result[l_y] = (
-//                                  sm_ptr[0][sm_width*(l_y+sm_y_base+1) + sm_x_ind]       // north
-//                                  + sm_ptr[0][sm_width*(l_y+sm_y_base-1) + sm_x_ind]       // south
-//                                  + sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind-1]       // west
-//                                  + sm_ptr[0][sm_width*(l_y+sm_y_base) + sm_x_ind+1]       // east
-//                                  + reg_ptr[REG_BASE-1][l_y]    // top
-//                                  + reg_ptr[REG_BASE+1][l_y]    // bottom?
-//                              ) / 6.0f;
-
-//        result[l_y] /= 6.0f;
-
-//      result[l_y] = result[l_y];
+      result[l_y] = result[l_y];
   }
   #else
     // register REAL reg_ptr[REGZ_SIZE][REGY_SIZE][REGX_SIZE];

@@ -1,4 +1,6 @@
 #include <assert.h>
+#include <cooperative_groups.h>
+
 #include "../include_nvshmem/common.h"
 
 namespace cg = cooperative_groups;
@@ -16,13 +18,15 @@ __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__re
                                       const int my_nz, const int nz) {
     for (unsigned int iz = blockIdx.x * blockDim.x + threadIdx.x; iz < my_nz;
          iz += blockDim.x * gridDim.x) {
-        for (unsigned int iy = 0; iy < ny; iy += ny - 1) {
-            const real y0 = sin(2.0 * pi * (offset + iz) / (nz - 1));
-            {
-                for (unsigned int ix = 0; ix < nx; ix += nx - 1) {
-                    a[iz * ny * nx + iy * nx + ix] = y0;
-                    a_new[iz * ny * nx + iy * nx + ix] = y0;
-                }
+        const real y0 = sin(2.0 * pi * (offset + iz) / (nz - 1));
+        for (unsigned int iy = 0; iy < ny; iy++) {
+            for (unsigned int ix = 0; ix < nx; ix++) {
+                a[iz * ny * nx + iy * nx + ix] = y0;
+                a_new[iz * ny * nx + iy * nx + ix] = y0;
+
+                //                a[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix;
+                //                a_new[iz * ny * nx + iy * nx + ix] = iz * ny * nx + iy * nx + ix;
+                //                // + 0.5;
             }
         }
     }
@@ -39,10 +43,10 @@ __global__ void jacobi_kernel_single_gpu(real *__restrict__ const a_new,
 
     if (iz < iz_end && iy < (ny - 1) && ix < (nx - 1)) {
         const real new_val =
+            (real(1) / real(6)) *
             (a[iz * ny * nx + iy * nx + ix + 1] + a[iz * ny * nx + iy * nx + ix - 1] +
              a[iz * ny * nx + (iy + 1) * nx + ix] + a[iz * ny * nx + (iy - 1) * nx + ix] +
-             a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]) /
-            real(6.0);
+             a[(iz + 1) * ny * nx + iy * nx + ix] + a[(iz - 1) * ny * nx + iy * nx + ix]);
 
         a_new[iz * ny * nx + iy * nx + ix] = new_val;
     }
@@ -379,6 +383,7 @@ long long unsigned int parse_nvshmem_symmetric_size(char *value) {
     long long unsigned int units, size;
 
     assert(value != NULL);
+
     if (strchr(value, 'G') != NULL) {
         units = 1e9;
     } else if (strchr(value, 'M') != NULL) {

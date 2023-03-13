@@ -15,13 +15,13 @@ bool get_arg(char **begin, char **end, const std::string &arg) {
 __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
                                       const real pi, const int offset, const int nx, const int ny,
                                       const int my_nz, const int nz) {
-    for (unsigned int iz = blockIdx.x * blockDim.x + threadIdx.x; iz < my_nz;
-         iz += blockDim.x * gridDim.x) {
-        const real y0 = sin(2.0 * pi * (offset + iz) / (nz - 1));
+    for (unsigned int iz = blockIdx.x * blockDim.x + threadIdx.x; iz < my_nz; iz += blockDim.x * gridDim.x) {
         for (unsigned int iy = 0; iy < ny; iy++) {
             for (unsigned int ix = 0; ix < nx; ix++) {
-                a[iz * ny * nx + iy * nx + ix] = y0;
-                a_new[iz * ny * nx + iy * nx + ix] = y0;
+                const real y0 = real(offset + iz) - real(iy) - real(ix);
+
+                a[iz * nx * ny + iy * nx + 0] = y0;
+                a_new[iz * nx * ny + iy * nx + 0] = y0;
             }
         }
     }
