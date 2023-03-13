@@ -145,7 +145,7 @@ __device__ void gpuCopyVector(real *srcA, real *destB, int chunk_size, const cg:
 
 __device__ void gpuSaxpy(real *x, real *y, real a, int chunk_size, bool is_comm_comp_overlap_on,
                          const cg::grid_group &grid) {
-    int grid_size = grid.size() - blockDim.x * int(is_comm_comp_overlap_on);
+    int grid_size = grid.size() - int(is_comm_comp_overlap_on);
 
     for (int i = grid.thread_rank(); i < chunk_size; i += grid_size) {
         y[i] = a * x[i] + y[i];
@@ -180,6 +180,8 @@ __global__ void __launch_bounds__(1024, 1)
     real alpha;
     real negative_alpha;
 
+    // r = (1.0, ..., 1.0) - unit vector
+    // x = (0.0, ..., 0.0) - zero vector
     initVectors(r, x, row_start_idx, chunk_size, num_rows, grid);
 
     if (grid.thread_rank() == last_thread_idx) {
@@ -191,10 +193,6 @@ __global__ void __launch_bounds__(1024, 1)
     // ax0 = Ax0
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, x, ax0,
             row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
-
-    if (grid.thread_rank() == last_thread_idx) {
-        nvshmem_barrier_all();
-    }
 
     cg::sync(grid);
 
@@ -210,20 +208,20 @@ __global__ void __launch_bounds__(1024, 1)
 
     cg::sync(grid);
 
-    // First dot - gamma = r * r
     if (grid.thread_rank() == last_thread_idx) {
         *dot_gamma1 = 0.0;
     }
 
     cg::sync(grid);
 
+    // First dot - gamma = r * r
     gpuDotProduct(r, r, dot_gamma1, cta, chunk_size, grid);
 
     cg::sync(grid);
 
     if (grid.thread_rank() == last_thread_idx) {
+        // First global reduction - Sum up local gamma
         nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
-        nvshmem_barrier_all();
     }
 
     cg::sync(grid);
@@ -234,26 +232,22 @@ __global__ void __launch_bounds__(1024, 1)
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, r, s,
             row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 
-    if (grid.thread_rank() == last_thread_idx) {
-        nvshmem_barrier_all();
-    }
-
     cg::sync(grid);
 
-    // Second dot - delta = p * s
     if (grid.thread_rank() == last_thread_idx) {
         *dot_delta1 = 0.0;
     }
 
     cg::sync(grid);
 
+    // Second dot - delta = p * s
     gpuDotProduct(p, s, dot_delta1, cta, chunk_size, grid);
 
     cg::sync(grid);
 
     if (grid.thread_rank() == last_thread_idx) {
+        // Second global reduction - Sum up local delta
         nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_delta1, dot_delta1, 1);
-        nvshmem_barrier_all();
     }
 
     cg::sync(grid);
@@ -276,19 +270,17 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
+        // First dot - gamma = r * r
         gpuDotProduct(r, r, dot_gamma1, cta, chunk_size, grid);
 
         cg::sync(grid);
 
         if (cta.group_index().x == (grid.num_blocks() - 1)) {
+            // First global reduction - Sum up local gamma
             nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
         } else {
             // x_k = x_(k-1) + alpha_(k-1) * p_(k-1)
             gpuSaxpy(p, x, alpha, chunk_size, true, grid);
-        }
-
-        if (grid.thread_rank() == last_thread_idx) {
-            nvshmem_barrier_all();
         }
 
         cg::sync(grid);
@@ -297,6 +289,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         beta = real_tmp_dot_gamma1 / tmp_dot_gamma0;
 
+        // p_k = r_k + beta_k * p_(k-1)
         gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, chunk_size, grid);
 
         if (grid.thread_rank() == last_thread_idx) {
@@ -305,12 +298,9 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
+        // s_k = Ap_k
         gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, p, s,
                 row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
-
-        if (grid.thread_rank() == last_thread_idx) {
-            nvshmem_barrier_all();
-        }
 
         cg::sync(grid);
 
@@ -320,13 +310,14 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
+        // Second dot - delta = p * s
         gpuDotProduct(p, s, dot_delta1, cta, chunk_size, grid);
 
         cg::sync(grid);
 
         if (grid.thread_rank() == last_thread_idx) {
+            // Second global reduction - Sum up local delta
             nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_delta1, dot_delta1, 1);
-            nvshmem_barrier_all();
         }
 
         cg::sync(grid);

@@ -197,8 +197,12 @@ __global__ void __launch_bounds__(1024, 1)
     real alpha;
     real negative_alpha;
 
+    // r = (1.0, ..., 1.0) - unit vector
+    // x = (0.0, ..., 0.0) - zero vector
     initVectors(r, x, row_start_idx, chunk_size, num_rows, grid);
 
+    // Need barrier here so x is initialized before it's used for SpMV
+    // SpMV on neighbor GPUs may read my x before initVectors is done
     if (grid.thread_rank() == last_thread_idx) {
         nvshmem_barrier_all();
     }
@@ -208,6 +212,8 @@ __global__ void __launch_bounds__(1024, 1)
     // ax0 = AX0
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, x, ax0,
             row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, false, grid);
+
+    cg::sync(grid);
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
@@ -252,6 +258,7 @@ __global__ void __launch_bounds__(1024, 1)
             nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, device_merged_dots,
                                              device_merged_dots, 2);
         } else {
+            // q_k = Aw_k
             gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, w,
                     q, row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, true, grid);
         }

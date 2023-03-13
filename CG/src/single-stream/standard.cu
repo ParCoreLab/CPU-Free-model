@@ -197,6 +197,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     // r0 = b0 - ax0
     // NOTE: b is a unit vector.
+    // NOTE: We use r here because r is also a unit vector at first (r = b0)
     gpuSaxpy(ax0, r, real_negative_one, chunk_size, grid);
 
     cg::sync(grid);
@@ -206,11 +207,13 @@ __global__ void __launch_bounds__(1024, 1)
 
     cg::sync(grid);
 
+    // First dot - gamma = r * r
     gpuDotProduct(r, r, dot_gamma1, cta, chunk_size, grid);
 
     cg::sync(grid);
 
     if (grid.thread_rank() == last_thread_idx) {
+        // Global reduction to add up local gamma dot contributions
         nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
     }
 
@@ -221,6 +224,7 @@ __global__ void __launch_bounds__(1024, 1)
     int k = 0;
 
     while (k < iter_max) {
+        // s_k = Ap_k
         gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, p, s,
                 row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 
@@ -230,6 +234,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
+        // Second dot - delta = p * s
         gpuDotProduct(p, s, dot_delta1, cta, chunk_size, grid);
 
         cg::sync(grid);
@@ -242,10 +247,12 @@ __global__ void __launch_bounds__(1024, 1)
 
         alpha = tmp_dot_gamma0 / (real)*dot_delta1;
 
+        // x_k = x_(k-1) + alpha_(k-1) * p_(k-1)
         gpuSaxpy(p, x, alpha, chunk_size, grid);
 
         negative_alpha = -alpha;
 
+        // r_k = r_(k-1) - alpha_(k-1) * s_(k-1)
         gpuSaxpy(s, r, negative_alpha, chunk_size, grid);
 
         if (grid.thread_rank() == last_thread_idx) {
@@ -254,11 +261,13 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
+        // Second dot - delta = p * s
         gpuDotProduct(r, r, dot_gamma1, cta, chunk_size, grid);
 
         cg::sync(grid);
 
         if (grid.thread_rank() == last_thread_idx) {
+            // Second global reduction - Sum up local delta
             nvshmem_double_sum_reduce(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
         }
 
@@ -274,6 +283,7 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
+        // p_(k+1) = r_(k+1) + beta_k * p_k
         gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, chunk_size, grid);
 
         tmp_dot_gamma0 = real_tmp_dot_gamma1;

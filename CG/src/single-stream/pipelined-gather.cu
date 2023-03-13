@@ -232,6 +232,8 @@ __global__ void __launch_bounds__(1024, 1)
     real alpha;
     real negative_alpha;
 
+    // r = (1.0, ..., 1.0) - unit vector
+    // x = (0.0, ..., 0.0) - zero vector
     initVectors(r, x, row_start_idx, chunk_size, num_rows, grid);
 
     if (grid.thread_rank() == last_thread_idx) {
@@ -260,6 +262,7 @@ __global__ void __launch_bounds__(1024, 1)
 
     cg::sync(grid);
 
+    // w0 = Ar0
     gpuSpMVRemote(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, r,
                   w, row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, grid);
 
@@ -280,33 +283,26 @@ __global__ void __launch_bounds__(1024, 1)
         cg::sync(grid);
 
         // 1. Overlap a) Merged Dot with b) Gathering vector w
-
         if (cta.group_index().x == (grid.num_blocks() - 1)) {
             nvshmemx_double_fcollect_block(NVSHMEM_TEAM_WORLD, gathered_w, w, chunk_size);
         } else {
+            // delta = r * r
+            // gammma = r * w
             gpuDotProductsMerged(r, r, r, w, &device_merged_dots[0], &device_merged_dots[1], cta,
                                  chunk_size, sMemSize, grid);
-        }
-
-        if (grid.thread_rank() == last_thread_idx) {
-            nvshmem_barrier_all();
         }
 
         cg::sync(grid);
 
         // 2. Overlap a) Dot Reduction with b) SpMV Computation
-
         if (cta.group_index().x == (grid.num_blocks() - 1)) {
             nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, device_merged_dots,
                                              device_merged_dots, 2);
         } else {
+            // q_k = Aw_k
             gpuSpMVLocal(device_csrRowIndices, device_csrColIndices, device_csrVal,
                          real_positive_one, gathered_w, q, row_start_idx, chunk_size, num_rows,
                          matrix_is_zero_indexed, grid);
-        }
-
-        if (grid.thread_rank() == last_thread_idx) {
-            nvshmem_barrier_all();
         }
 
         cg::sync(grid);

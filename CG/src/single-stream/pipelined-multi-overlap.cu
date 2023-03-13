@@ -199,6 +199,8 @@ __global__ void __launch_bounds__(1024, 1)
     real alpha;
     real negative_alpha;
 
+    // r = (1.0, ..., 1.0) - unit vector
+    // x = (0.0, ..., 0.0) - zero vector
     initVectors(r, x, row_start_idx, chunk_size, num_rows, grid);
 
     if (grid.thread_rank() == last_thread_idx) {
@@ -210,10 +212,6 @@ __global__ void __launch_bounds__(1024, 1)
     // ax0 = Ax0
     gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, x, ax0,
             row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, false, grid);
-
-    if (grid.thread_rank() == last_thread_idx) {
-        nvshmem_barrier_all();
-    }
 
     cg::sync(grid);
 
@@ -247,19 +245,19 @@ __global__ void __launch_bounds__(1024, 1)
 
         cg::sync(grid);
 
+        // delta = r * r
+        // gammma = r * w
         gpuDotProductsMerged(r, r, r, w, dot_delta1, dot_gamma1, cta, chunk_size, sMemSize, grid);
 
         cg::sync(grid);
 
+        // Overlap reduction for first dot product with SpMV
         if (cta.group_index().x == (grid.num_blocks() - 1)) {
             nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, dot_delta1, dot_delta1, 1);
         } else {
+            // q_k = Aw_k
             gpuSpMV(device_csrRowIndices, device_csrColIndices, device_csrVal, real_positive_one, w,
                     q, row_start_idx, chunk_size, num_rows, matrix_is_zero_indexed, true, grid);
-        }
-
-        if (grid.thread_rank() == last_thread_idx) {
-            nvshmem_barrier_all();
         }
 
         cg::sync(grid);
@@ -272,8 +270,7 @@ __global__ void __launch_bounds__(1024, 1)
             beta = 0.0;
         }
 
-        cg::sync(grid);
-
+        // Overlap reduction for second dot product with Saxpys
         if (cta.group_index().x == (grid.num_blocks() - 1)) {
             nvshmemx_double_sum_reduce_block(NVSHMEM_TEAM_WORLD, dot_gamma1, dot_gamma1, 1);
         } else {
@@ -286,12 +283,6 @@ __global__ void __launch_bounds__(1024, 1)
             // p_k = r_k = beta_k * p_(k-1)
             gpuScaleVectorAndSaxpy(r, p, real_positive_one, beta, chunk_size, true, grid);
         }
-
-        if (grid.thread_rank() == last_thread_idx) {
-            nvshmem_barrier_all();
-        }
-
-        cg::sync(grid);
 
         real_tmp_dot_gamma1 = (real)*dot_gamma1;
 
@@ -309,6 +300,12 @@ __global__ void __launch_bounds__(1024, 1)
 
         // r_(k+1) = r_k - alpha_k * s_k
         gpuSaxpy(s, r, negative_alpha, chunk_size, grid);
+
+        if (grid.thread_rank() == last_thread_idx) {
+            nvshmem_barrier_all();
+        }
+
+        cg::sync(grid);
 
         // w_(k+1) = w_k - alpha_k * z_k
         gpuSaxpy(z, w, negative_alpha, chunk_size, grid);
