@@ -224,7 +224,7 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * 2 + 2;
+    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 2);
     long long unsigned int required_symmetric_heap_size =
             2 * mesh_size_per_rank * sizeof(real) *
             1.1;// Factor 2 is because 2 arrays are allocated - a and a_new
@@ -314,8 +314,8 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
     nvshmem_barrier_all();
 
     // Using chunk_size_high so that it is same across all PEs
-    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
+    a = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
+    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
 
     CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
     CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
@@ -677,7 +677,7 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
 
     double start = MPI_Wtime();
 
-    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *) execute_kernel, executeGridDim,
+    CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch((void *) execute_kernel, executeGridDim,
                                              executeBlockDim, KernelArgs, executeSM,
                                              inner_domain_stream));
 
@@ -747,8 +747,8 @@ int MultiStreamPERKSNvshmem::init(int argc, char *argv[]) {
         }
     }
 
-    CUDA_RT_CALL(cudaFree(a));
-    CUDA_RT_CALL(cudaFree(a_new));
+    nvshmem_free((void *)a);
+    nvshmem_free((void *)a_new);
     CUDA_RT_CALL(cudaFree(iteration_done_flags));
     nvshmem_free((void *) halo_buffer_top);
     nvshmem_free((void *) halo_buffer_bottom);

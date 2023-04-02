@@ -211,7 +211,7 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[]) {
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank = nx * ny * 2 + 2;
+    long long unsigned int mesh_size_per_rank = nx * ny * (((nz - 2) + size - 1) / size + 2);
     long long unsigned int required_symmetric_heap_size =
         2 * mesh_size_per_rank * sizeof(real) *
         1.1;  // Factor 2 is because 2 arrays are allocated - a and a_new
@@ -280,11 +280,11 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[]) {
 
     nvshmem_barrier_all();
 
-    CUDA_RT_CALL(cudaMalloc(&a, nx * ny * (chunk_size + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMalloc(&a_new, nx * ny * (chunk_size + 2) * sizeof(real)));
+    a = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
+    a_new = (real *)nvshmem_malloc(nx * ny * (chunk_size_high + 2) * sizeof(real));
 
-    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
-    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset(a, 0, nx * ny * (chunk_size_high + 2) * sizeof(real)));
+    CUDA_RT_CALL(cudaMemset(a_new, 0, nx * ny * (chunk_size_high + 2) * sizeof(real)));
 
     halo_buffer_top = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
     halo_buffer_bottom = (real *)nvshmem_malloc(2 * nx * ny * sizeof(real));
@@ -356,8 +356,6 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
     CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-    // THE KERNELS ARE SERIALIZED!
-    // perhaps only on V100
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUPeerTilingNvshmem::jacobi_kernel,
                                              comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
                                              inner_domain_stream));
@@ -422,8 +420,8 @@ int MultiGPUPeerTilingNvshmem::init(int argc, char *argv[]) {
         }
     }
 
-    CUDA_RT_CALL(cudaFree(a_new));
-    CUDA_RT_CALL(cudaFree(a));
+    nvshmem_free((void *)a);
+    nvshmem_free((void *)a_new);
     CUDA_RT_CALL(cudaFree(iteration_done_flags));
     nvshmem_free((void *)halo_buffer_top);
     nvshmem_free((void *)halo_buffer_bottom);
