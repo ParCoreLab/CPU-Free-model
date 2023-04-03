@@ -119,7 +119,7 @@ __global__ void __launch_bounds__(1024, 1)
 
             for (; block_count < comm_block_count_per_sm && ix < (nx - 1); ix += blockDim.x) {
                 const real last_row_val =
-                    (real(1) / real(6)) *
+                    (real(1) / real(4)) *
                     (a[(iy_end - 1) * nx + ix + 1] + a[(iy_end - 1) * nx + ix - 1] +
                      a[iy_end * nx + ix] + a[(iy_end - 2) * nx + ix]);
                 a_new[(iy_end - 1) * nx + ix] = last_row_val;
