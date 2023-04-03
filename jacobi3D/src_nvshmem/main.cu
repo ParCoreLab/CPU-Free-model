@@ -1,6 +1,7 @@
 #include <array>
 #include <iostream>
 
+#include "../include_nvshmem/PERKS-nvshmem/multi-stream-perks-nvshmem-block.h"
 #include "../include_nvshmem/PERKS-nvshmem/multi-stream-perks-nvshmem.h"
 #include "../include_nvshmem/baseline/multi-threaded-nvshmem-opt.cuh"
 #include "../include_nvshmem/baseline/multi-threaded-nvshmem.cuh"
@@ -30,9 +31,10 @@ int main(int argc, char *argv[]) {
 
         make_pair("Baseline NVSHMEM (No Computation)",
                   BaselineMultiThreadedNvshmemOptNoCompute::init),
-
         make_pair("Design 1 NVSHMEM (No Compute)", MultiGPUPeerTilingNvshmemNoCompute::init),
+
         make_pair("PERKS NVSHMEM", MultiStreamPERKSNvshmem::init),
+        make_pair("PERKS NVSHMEM Partitioned", MultiStreamPERKSNvshmemBlock::init),
 
         //        make_pair("NVSHMEM Baseline Multi Threaded", BaselineMultiThreadedNvshmem::init),
         //        make_pair("NVSHMEM Single stream multi threaded (one thread block communicates)",
