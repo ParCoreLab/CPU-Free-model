@@ -20,6 +20,8 @@
 
 #include "../include_nvshmem/no-compute/multi-gpu-peer-tiling-no-compute.cuh"
 
+#include "../include_nvshmem/PERKS/multi-stream-perks.cuh"
+
 using std::make_pair;
 
 int main(int argc, char *argv[]) {
@@ -29,6 +31,7 @@ int main(int argc, char *argv[]) {
         make_pair("Design 1 (NVSHMEM)", MultiGPUPeerTilingNvshmem::init),
         make_pair("Design 2 (NVSHMEM)", SSMultiThreadedTwoBlockCommNvshmem::init),
         make_pair("Design 1 Partitioned (NVSHMEM)", MultiGPUMultiBlockPeerTilingNvshmem::init),
+        make_pair("PERKS NVSHMEM", MultiStreamPERKSNVSHMEM::init),
 
         make_pair("Baseline NVSHMEM (No Computation)",
                   BaselineMultiThreadedNvshmemOptNoCompute::init),

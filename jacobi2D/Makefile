@@ -18,6 +18,8 @@ SRCDIR := src
 OBJDIR := obj
 DEPDIR := $(OBJDIR)/.deps
 
+PERKS_WRAPPER := PERKS/*.cu
+
 NV_SRCDIR := src_nvshmem
 NV_OBJDIR := obj_nvshmem
 NV_DEPDIR := $(NV_OBJDIR)/.deps
@@ -49,7 +51,7 @@ NV_SRCS = $(call rwildcard,$(NV_SRCDIR),*.cu)
 NV_OBJS := $(patsubst $(NV_SRCDIR)/%.cu, $(NV_OBJDIR)/%.o, $(NV_SRCS))
 NV_DEPS := $(patsubst $(NV_SRCDIR)/%.cu, $(NV_DEPDIR)/%.d, $(NV_SRCS))
 
-jacobi: $(OBJS)
+jacobi: $(OBJS) $(PERKS_WRAPPER)
 	$(NVCC) $(GENCODE_FLAGS) -o $@ $^ $(NVCC_LDFLAGS)
 
 $(OBJS) : $(OBJDIR)/%.o : $(SRCDIR)/%.cu $(DEPDIR)/%.d | $(DEPDIR)
@@ -57,7 +59,7 @@ $(OBJS) : $(OBJDIR)/%.o : $(SRCDIR)/%.cu $(DEPDIR)/%.d | $(DEPDIR)
 	@mkdir -p $(@D)
 	$(NVCC) $(NVCC_FLAGS) $(DEPFLAGS) -o $@ $<
 
-jacobi_nvshmem: $(NV_OBJS)
+jacobi_nvshmem: $(NV_OBJS) $(PERKS_WRAPPER)
 	$(NVCC) $(GENCODE_FLAGS) -o $@ $^ $(NVCC_NV_LDFLAGS)
 
 $(NV_OBJS) : $(NV_OBJDIR)/%.o : $(NV_SRCDIR)/%.cu $(NV_DEPDIR)/%.d | $(NV_DEPDIR)
