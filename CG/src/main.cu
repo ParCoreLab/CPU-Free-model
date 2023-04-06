@@ -53,14 +53,14 @@ int main(int argc, char *argv[]) {
     bool generate_random_tridiag_matrix = matrix_path_str.empty();
 
     int num_devices = 0;
-    double single_gpu_runtime;
+    double single_gpu_runtime = -1;
 
     CUDA_RT_CALL(cudaGetDeviceCount(&num_devices));
 
     int num_rows = 0;
     int num_cols = 0;
     int nnz = 0;
-    bool matrix_is_zero_indexed;
+    bool matrix_is_zero_indexed{};
 
     int *host_csrRowIndices = NULL;
     int *host_csrColIndices = NULL;
@@ -218,17 +218,16 @@ int main(int argc, char *argv[]) {
         }
 
         CPU::cpuConjugateGrad(iter_max, host_csrRowIndices, host_csrColIndices, host_csrVal,
-                              x_ref_cpu, s_cpu, p_cpu, r_cpu, nnz, num_rows, tol,
-                              matrix_is_zero_indexed);
+                              x_ref_cpu, s_cpu, p_cpu, r_cpu, num_rows, matrix_is_zero_indexed);
     }
 
-    for (int version_idx : versions_indices_to_run) {
+    for (auto version_idx : versions_indices_to_run) {
         auto &selected = versions[version_idx];
 
         if (!silent && local_rank == 0) {
             std::cout << "Versions (select with -v):"
                       << "\n";
-            for (int i = 0; i < versions.size(); ++i) {
+            for (size_t i = 0; i < versions.size(); ++i) {
                 auto &v = versions[i];
                 std::cout << i << ":\t" << v.first << "\n";
             }
@@ -242,7 +241,7 @@ int main(int argc, char *argv[]) {
 
         for (int run_idx = 1; run_idx <= num_runs; run_idx++) {
             selected.second(device_csrRowIndices, device_csrColIndices, device_csrVal, num_rows,
-                            nnz, matrix_is_zero_indexed, num_devices, iter_max, x_final_result,
+                            nnz, matrix_is_zero_indexed, iter_max, x_final_result,
                             single_gpu_runtime, tmp_compare_to_single_gpu, tmp_compare_to_cpu,
                             x_ref_single_gpu, x_ref_cpu);
 

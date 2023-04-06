@@ -356,7 +356,7 @@ __global__ void __launch_bounds__(1024, 1)
 
 int SingleStreamPipelinedGather::init(int *device_csrRowIndices, int *device_csrColIndices,
                                       real *device_csrVal, const int num_rows, const int nnz,
-                                      bool matrix_is_zero_indexed, const int num_devices,
+                                      bool matrix_is_zero_indexed,
                                       const int iter_max, real *x_final_result,
                                       const double single_gpu_runtime, bool compare_to_single_gpu,
                                       bool compare_to_cpu, real *x_ref_single_gpu,
@@ -485,8 +485,8 @@ int SingleStreamPipelinedGather::init(int *device_csrRowIndices, int *device_csr
     bool result_correct_single_gpu = true;
     bool result_correct_cpu = true;
 
-    report_errors(num_rows, x_ref_single_gpu, x_ref_cpu, x_final_result, row_start_global_idx,
-                  row_end_global_idx, npes, single_gpu_runtime, start, stop, compare_to_single_gpu,
+    report_errors(x_ref_single_gpu, x_ref_cpu, x_final_result, row_start_global_idx,
+                  row_end_global_idx, compare_to_single_gpu,
                   compare_to_cpu, result_correct_single_gpu, result_correct_cpu);
 
     nvshmem_barrier_all();

@@ -21,7 +21,7 @@ endif
 
 MAKEFLAGS += -j
 
-WARN_FLAGS = "-Wall -Wno-comment -Wextra"
+WARN_FLAGS = "-Wall -Wno-comment -Werror -Wextra"
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 

@@ -75,9 +75,8 @@ void genTridiag(int *I, int *J, real *val, int N, int nnz) {
     I[N] = nnz;
 }
 
-void report_errors(const int num_rows, real *x_ref_single_gpu, real *x_ref_cpu, real *x,
-                   int row_start_idx, int row_end_idx, const int num_devices,
-                   const double single_gpu_runtime, const double start, const double stop,
+void report_errors(real *x_ref_single_gpu, real *x_ref_cpu, real *x,
+                   int row_start_idx, int row_end_idx,
                    const bool compare_to_single_gpu, const bool compare_to_cpu,
                    bool &result_correct_single_gpu, bool &result_correct_cpu) {
     result_correct_single_gpu = true;
@@ -609,7 +608,7 @@ __global__ void resetLocalDotProducts(double *dot_result_delta, double *dot_resu
 }
 
 double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device_csrColIndices,
-                      real *device_csrVal, real *x_ref, int num_rows, int nnz,
+                      real *device_csrVal, [[maybe_unused]] real *x_ref, int num_rows, int nnz,
                       bool matrix_is_zero_indexed) {
     real *device_x;
     real *device_r;
@@ -783,8 +782,8 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
 }  // namespace SingleGPUDiscretePipelined
 
 namespace CPU {
-void cpuSpMV(int *rowInd, int *colInd, real *val, int nnz, int num_rows, real alpha,
-             real *inputVecX, real *outputVecY, bool matrix_is_zero_indexed) {
+void cpuSpMV(int *rowInd, int *colInd, real *val, int num_rows, real alpha,
+             real *inputVecX, bool matrix_is_zero_indexed) {
     for (int i = 0; i < num_rows; i++) {
         int row_elem = rowInd[i] - int(!matrix_is_zero_indexed);
         int next_row_elem = rowInd[i + 1] - int(!matrix_is_zero_indexed);
@@ -822,8 +821,8 @@ void saxpy(real *x, real *y, real a, int size) {
 }
 
 void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csrColIndices,
-                      real *host_csrVal, real *x, real *Ax, real *p, real *r, int nnz, int num_rows,
-                      real tol, bool matrix_is_zero_indexed) {
+                      real *host_csrVal, real *x, real *Ax, real *p, real *r, int num_rows,
+                      bool matrix_is_zero_indexed) {
     int max_iter = iter_max;
 
     real alpha = 1.0;
@@ -833,7 +832,7 @@ void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csr
     real a;
     real na;
 
-    cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, nnz, num_rows, alpha, x, Ax,
+    cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, num_rows, alpha, x,
             matrix_is_zero_indexed);
     saxpy(Ax, r, alpham1, num_rows);
 
@@ -851,8 +850,7 @@ void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csr
             for (int i = 0; i < num_rows; i++) p[i] = r[i];
         }
 
-        cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, nnz, num_rows, alpha, p, Ax,
-                matrix_is_zero_indexed);
+        cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, num_rows, alpha, p, matrix_is_zero_indexed);
 
         real dot = dotProduct(p, Ax, num_rows);
         a = r1 / dot;

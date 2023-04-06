@@ -24,7 +24,6 @@ NV_OBJS := $(patsubst $(NV_SRCDIR)/%.cu, $(NV_OBJDIR)/%.o, $(NV_SRCS))
 NV_DEPS := $(patsubst $(NV_SRCDIR)/%.cu, $(NV_DEPDIR)/%.d, $(NV_SRCS))
 
 cg: $(NV_OBJS) $(NV_OBJDIR)/mmio.c.o $(NV_OBJDIR)/mmio_wrapper.o
-	#$(NVCC) $(GENCODE_FLAGS) -o $@ $^ $(NVCC_NV_LDFLAGS)
 	$(LINK_NVSHMEM)
 
 $(NV_OBJS) : $(NV_OBJDIR)/%.o : $(NV_SRCDIR)/%.cu $(NV_DEPDIR)/%.d | $(NV_DEPDIR)
