@@ -21,6 +21,7 @@ endif
 
 MAKEFLAGS += -j
 
+# Can't compile CUDA with -Wpedantic
 WARN_FLAGS = "-Wall -Wno-comment -Werror -Wextra"
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
@@ -31,14 +32,14 @@ GENCODE_FLAGS	:= $(GENCODE_SM70) $(GENCODE_SM80)
 
 DEP_FLAGS = -MT $@ -MMD -MP -MF
 
-NVCC_FLAGS_GENERIC = -O2 -dc -Xcompiler $(WARN_FLAGS) -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17 -I./include
+NVCC_FLAGS_GENERIC = -O2 -dc -Xcompiler $(WARN_FLAGS) -Xcompiler -fopenmp $(GENCODE_FLAGS) -std=c++17
 
 # Regular
-NVCC_FLAGS = $(NVCC_FLAGS_GENERIC) -ccbin=$(CXX)
+NVCC_FLAGS = $(NVCC_FLAGS_GENERIC) -ccbin=$(CXX) -I./include
 NVCC_LDFLAGS = -ccbin=$(CXX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart
 
 # NVSHMEM
-NVCC_NV_FLAGS = $(NVCC_FLAGS_GENERIC) -ccbin=$(MPICCX) -I$(NVSHMEM_HOME)/include -I$(MPI_HOME)/include -I./include_nvshmem
+NVCC_NV_FLAGS = $(NVCC_FLAGS_GENERIC) -ccbin=$(MPICCX) -isystem $(NVSHMEM_HOME)/include -isystem $(MPI_HOME)/include -I./include_nvshmem
 NVCC_NV_LDFLAGS = -ccbin=$(MPICCX) -lgomp -L$(CUDA_HOME)/lib64 -lcuda -lcudart -lnvidia-ml -L$(NVSHMEM_HOME)/lib -lnvshmem -L$(MPI_HOME)/lib -lmpi -L$(UCX_HOME)/lib -lucp -lucs -luct -lucm -lmlx5
 
 # Example
