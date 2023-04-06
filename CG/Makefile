@@ -5,7 +5,7 @@ BUILD_ROOT ?= bin
 OBJ_ROOT ?= $(BUILD_ROOT)/obj
 
 NV_SRCDIR := $(SELF_DIR)/src
-NV_OBJDIR := $(BUILD_ROOT)
+NV_OBJDIR := $(OBJ_ROOT)
 NV_DEPDIR := $(NV_OBJDIR)/.deps
 
 .DEFAULT_GOAL := cg

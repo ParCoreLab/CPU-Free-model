@@ -50,30 +50,7 @@ SRCS_3D_NVSHMEM = $(call rwildcard,$(SRC_DIR_3D_NVSHMEM),*.cu)
 OBJS_3D_NVSHMEM := $(patsubst $(SRC_DIR_3D_NVSHMEM)/%.cu, $(OBJ_DIR_3D_NVSHMEM)/%.o, $(SRCS_3D_NVSHMEM))
 DEPS_3D_NVSHMEM := $(patsubst $(SRC_DIR_3D_NVSHMEM)/%.cu, $(DEP_DIR_3D_NVSHMEM)/%.d, $(SRCS_3D_NVSHMEM))
 # =========================================================================
-
-define LINK =
-	@mkdir -p $(BUILD_ROOT)
-	$(NVCC) $(GENCODE_FLAGS) -o $(BUILD_ROOT)/$@ $^ $(NVCC_LDFLAGS)
-endef
-
-define COMPILE =
-	@mkdir -p "$(dir $(1)/$*)"
-	@mkdir -p $(@D)
-	$(NVCC) $(NVCC_FLAGS) $(DEP_FLAGS) $(1)/$*.d -o $@ $<
-endef
-
-define LINK_NVSHMEM =
-	@mkdir -p $(BUILD_ROOT)
-	$(NVCC) $(GENCODE_FLAGS) -o $(BUILD_ROOT)/$@ $^ $(NVCC_NV_LDFLAGS)
-endef
-
-define COMPILE_NVSHMEM =
-	@mkdir -p "$(dir $(1)/$*)"
-	@mkdir -p $(@D)
-	$(NVCC) $(NVCC_NV_FLAGS) $(DEP_FLAGS) $(1)/$*.d -o $@ $<
-endef
-
-all: jacobi jacobi_nvshmem
+stencil: jacobi jacobi_nvshmem
 jacobi: jacobi2D jacobi3D
 jacobi_nvshmem: jacobi2D_nvshmem jacobi3D_nvshmem
 
