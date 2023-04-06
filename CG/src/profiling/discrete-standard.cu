@@ -367,8 +367,8 @@ int ProfilingDiscreteStandard::init(int *device_csrRowIndices, int *device_csrCo
     bool result_correct_cpu = true;
 
     report_errors(x_ref_single_gpu, x_ref_cpu, x_final_result, row_start_global_idx,
-                  row_end_global_idx, compare_to_single_gpu,
-                  compare_to_cpu, result_correct_single_gpu, result_correct_cpu);
+                  row_end_global_idx, compare_to_single_gpu, compare_to_cpu,
+                  result_correct_single_gpu, result_correct_cpu);
 
     nvshmem_barrier_all();
 

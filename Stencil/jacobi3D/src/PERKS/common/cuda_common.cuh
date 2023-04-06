@@ -5,19 +5,19 @@
 #ifndef CUDACOMMON
 #define CUDACOMMON
 
-//#ifndef __CUDA_ARCH__
+// #ifndef __CUDA_ARCH__
 #define PERKS_ARCH 000
-//#else
-//    #if __CUDA_ARCH__==800
-//        #define PERKS_ARCH 800
-//    #elif __CUDA_ARCH__==700
-//        #define PERKS_ARCH 700
-//    #elif __CUDA_ARCH__==600
-//        #define PERKS_ARCH 600
-//    #else
-//        #error "unsupport"
-//    #endif
-//#endif
+// #else
+//     #if __CUDA_ARCH__==800
+//         #define PERKS_ARCH 800
+//     #elif __CUDA_ARCH__==700
+//         #define PERKS_ARCH 700
+//     #elif __CUDA_ARCH__==600
+//         #define PERKS_ARCH 600
+//     #else
+//         #error "unsupport"
+//     #endif
+// #endif
 
 #ifdef ASYNCSM
 // #if PERKS_ARCH<800
@@ -48,9 +48,9 @@ extern __host__ __device__ __forceinline__ int CEIL(int a, int b) {
             exit(-1);                                                          \
         }                                                                      \
     } while (0)
-//#ifndef PERKS_CUDA_HEADER
-//#define PERKS_CUDA_HEADER
-// template<class REAL>
+// #ifndef PERKS_CUDA_HEADER
+// #define PERKS_CUDA_HEADER
+//  template<class REAL>
 
 // this is where the aimed implementation located
 // template<class REAL>
@@ -59,7 +59,7 @@ extern __host__ __device__ __forceinline__ int CEIL(int a, int b) {
 //#define PERKS_DECLARE_INITIONIZATION_ITERATIVE(_type) \
     void jacobi_iterative(_type*,int,int,_type*, int);
 
-//#endif
+// #endif
 
 // init register array of ARRAY
 

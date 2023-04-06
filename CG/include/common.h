@@ -32,9 +32,8 @@ T get_argval(char **begin, char **end, const std::string &arg, const T default_v
 // convert NVSHMEM_SYMMETRIC_SIZE string to long long unsigned int
 long long unsigned int parse_nvshmem_symmetric_size(char *value);
 
-void report_errors(real *x_ref_single_gpu, real *x_ref_cpu, real *x,
-                   int row_start_idx, int row_end_idx,
-                   const bool compare_to_single_gpu, const bool compare_to_cpu,
+void report_errors(real *x_ref_single_gpu, real *x_ref_cpu, real *x, int row_start_idx,
+                   int row_end_idx, const bool compare_to_single_gpu, const bool compare_to_cpu,
                    bool &result_correct_single_gpu, bool &result_correct_cpu);
 
 void report_runtime(const int num_devices, const double single_gpu_runtime, const double start,
@@ -121,10 +120,11 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
 
 // This is for running it as a separate version
 typedef int (*initfunc_t)(int *device_csrRowIndices, int *device_csrColIndices, real *device_csrVal,
-const int num_rows, const int nnz, bool matrix_is_zero_indexed, const int iter_max,
-real *x_final_result, const double single_gpu_runtime,
-[[maybe_unused]] bool compare_to_single_gpu, [[maybe_unused]] bool compare_to_cpu,
-real *x_ref_single_gpu, [[maybe_unused]] real *x_ref_cpu);
+                          const int num_rows, const int nnz, bool matrix_is_zero_indexed,
+                          const int iter_max, real *x_final_result, const double single_gpu_runtime,
+                          [[maybe_unused]] bool compare_to_single_gpu,
+                          [[maybe_unused]] bool compare_to_cpu, real *x_ref_single_gpu,
+                          [[maybe_unused]] real *x_ref_cpu);
 
 int init(int *device_csrRowIndices, int *device_csrColIndices, real *device_csrVal,
          const int num_rows, const int nnz, bool matrix_is_zero_indexed, const int iter_max,
@@ -134,8 +134,8 @@ int init(int *device_csrRowIndices, int *device_csrColIndices, real *device_csrV
 }  // namespace SingleGPUDiscreteStandard
 
 namespace CPU {
-void cpuSpMV(int *rowInd, int *colInd, real *val, int num_rows, real alpha,
-             real *inputVecX, bool matrix_is_zero_indexed);
+void cpuSpMV(int *rowInd, int *colInd, real *val, int num_rows, real alpha, real *inputVecX,
+             bool matrix_is_zero_indexed);
 
 real dotProduct(real *vecA, real *vecB, int size);
 

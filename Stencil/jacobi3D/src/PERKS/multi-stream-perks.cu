@@ -11,17 +11,15 @@
 
 // perks stuff
 // DON'T CHANGE THE ORDER
-#include "config.cuh"
 #include "./common/cuda_common.cuh"
 #include "./common/cuda_computation.cuh"
-//#include "./common/jacobi_cuda.cuh"
-//#include "./common/jacobi_reference.hpp"
-//#include "./common/types.hpp"
+// #include "./common/jacobi_cuda.cuh"
+// #include "./common/jacobi_reference.hpp"
+// #include "./common/types.hpp"
 #include "./perksconfig.cuh"
 
 #include "../../include/PERKS/multi-stream-perks.cuh"
 #include "../../include/common.h"
-
 
 namespace cg = cooperative_groups;
 
@@ -203,8 +201,8 @@ __global__ void __launch_bounds__(1024, 1)
 }
 }  // namespace MultiStreamPERKS
 
-//#pragma clang diagnostic push
-//#pragma ide diagnostic ignored "openmp-use-default-none"
+// #pragma clang diagnostic push
+// #pragma ide diagnostic ignored "openmp-use-default-none"
 int MultiStreamPERKS::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
     const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
@@ -263,7 +261,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         if (bdimx == 128) blkpsm = min(blkpsm, 2);
     }
 
-//    const int LOCAL_ITEM_PER_THREAD = isDoubleTile ? ITEM_PER_THREAD * 2 : ITEM_PER_THREAD;
+    //    const int LOCAL_ITEM_PER_THREAD = isDoubleTile ? ITEM_PER_THREAD * 2 : ITEM_PER_THREAD;
 
 #undef __PRINT__
 #define PERSISTENTLAUNCH
@@ -299,16 +297,16 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         constexpr int dim_block_y = 32;
         constexpr int dim_block_z = 1;
 
-//        constexpr int comp_tile_size_x = dim_block_x;
-//        constexpr int comp_tile_size_y = dim_block_y;
+        //        constexpr int comp_tile_size_x = dim_block_x;
+        //        constexpr int comp_tile_size_y = dim_block_y;
 
         constexpr int comm_tile_size_x = dim_block_x;
         constexpr int comm_tile_size_y = dim_block_z * dim_block_y;
 
-//        constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
-//        constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
+        //        constexpr int grid_dim_x = (comp_tile_size_x + dim_block_x - 1) / dim_block_x;
+        //        constexpr int grid_dim_y = (comp_tile_size_y + dim_block_y - 1) / dim_block_y;
 
-//        int max_thread_blocks_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
+        //        int max_thread_blocks_z = (numSms - 2) / (grid_dim_x * grid_dim_y);
 
         int num_comm_tiles_x = nx / comm_tile_size_x + (nx % comm_tile_size_x != 0);
         int num_comm_tiles_y = ny / comm_tile_size_y + (ny % comm_tile_size_y != 0);
@@ -693,7 +691,7 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
         int sharememory2 = sharememory1 + sizeof(REAL) * (max_sm_flder) * (TILE_Y)*TILE_X;
         executeSM = sharememory2 + basic_sm_space;
 
-//        int minHeight = (max_sm_flder + reg_folder_z + 2 * NOCACHE_Z) * executeGridDim.z;
+        //        int minHeight = (max_sm_flder + reg_folder_z + 2 * NOCACHE_Z) * executeGridDim.z;
 
         if (executeGridDim.z * (2 * HALO + 1) > unsigned(nz)) printf("JESSE 4\n");
 
@@ -766,4 +764,4 @@ int MultiStreamPERKS::init(int argc, char *argv[]) {
 
     return 0;
 }
-//#pragma clang diagnostic pop
+// #pragma clang diagnostic pop

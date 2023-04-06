@@ -75,9 +75,8 @@ void genTridiag(int *I, int *J, real *val, int N, int nnz) {
     I[N] = nnz;
 }
 
-void report_errors(real *x_ref_single_gpu, real *x_ref_cpu, real *x,
-                   int row_start_idx, int row_end_idx,
-                   const bool compare_to_single_gpu, const bool compare_to_cpu,
+void report_errors(real *x_ref_single_gpu, real *x_ref_cpu, real *x, int row_start_idx,
+                   int row_end_idx, const bool compare_to_single_gpu, const bool compare_to_cpu,
                    bool &result_correct_single_gpu, bool &result_correct_cpu) {
     result_correct_single_gpu = true;
     result_correct_cpu = true;
@@ -782,8 +781,8 @@ double run_single_gpu(const int iter_max, int *device_csrRowIndices, int *device
 }  // namespace SingleGPUDiscretePipelined
 
 namespace CPU {
-void cpuSpMV(int *rowInd, int *colInd, real *val, int num_rows, real alpha,
-             real *inputVecX, bool matrix_is_zero_indexed) {
+void cpuSpMV(int *rowInd, int *colInd, real *val, int num_rows, real alpha, real *inputVecX,
+             bool matrix_is_zero_indexed) {
     for (int i = 0; i < num_rows; i++) {
         int row_elem = rowInd[i] - int(!matrix_is_zero_indexed);
         int next_row_elem = rowInd[i + 1] - int(!matrix_is_zero_indexed);
@@ -850,7 +849,8 @@ void cpuConjugateGrad(const int iter_max, int *host_csrRowIndices, int *host_csr
             for (int i = 0; i < num_rows; i++) p[i] = r[i];
         }
 
-        cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, num_rows, alpha, p, matrix_is_zero_indexed);
+        cpuSpMV(host_csrRowIndices, host_csrColIndices, host_csrVal, num_rows, alpha, p,
+                matrix_is_zero_indexed);
 
         real dot = dotProduct(p, Ax, num_rows);
         a = r1 / dot;

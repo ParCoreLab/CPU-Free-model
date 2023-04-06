@@ -42,10 +42,10 @@ __global__ void __launch_bounds__(1024, 1)
                          a[(iz - 1) * ny * nx + iy * nx + ix]);
                     block_count++;
                 }
-                block_count += (ix-threadIdx.x) < (nx - 1);
+                block_count += (ix - threadIdx.x) < (nx - 1);
                 ix = (threadIdx.x + 1);
             }
-            block_count += (iy-threadIdx.y) < (ny - 1);
+            block_count += (iy - threadIdx.y) < (ny - 1);
             iy = (threadIdx.y + 1);
         }
 
@@ -118,7 +118,7 @@ __global__ void __launch_bounds__(1024, 1)
                     a_new[iz_start * ny * nx + iy * nx + ix] = first_row_val;
                     block_count++;
                 }
-                block_count += (ix-threadIdx.x) < (nx - 1);
+                block_count += (ix - threadIdx.x) < (nx - 1);
                 ix = (threadIdx.x + 1);
             }
 
@@ -156,7 +156,7 @@ __global__ void __launch_bounds__(1024, 1)
                     a_new[(iz_end - 1) * ny * nx + iy * nx + ix] = last_row_val;
                     block_count++;
                 }
-                block_count += (ix-threadIdx.x) < (nx - 1);
+                block_count += (ix - threadIdx.x) < (nx - 1);
                 ix = (threadIdx.x + 1);
             }
 
@@ -416,13 +416,13 @@ int MultiGPUMultiBlockPeerTilingNvshmem::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
     CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)MultiGPUMultiBlockPeerTilingNvshmem::jacobi_kernel,
-                                             comp_dim_grid, comp_dim_block, kernelArgsInner, 0,
-                                             inner_domain_stream));
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel(
+        (void *)MultiGPUMultiBlockPeerTilingNvshmem::jacobi_kernel, comp_dim_grid, comp_dim_block,
+        kernelArgsInner, 0, inner_domain_stream));
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)MultiGPUMultiBlockPeerTilingNvshmem::boundary_sync_kernel, comm_dim_grid, comm_dim_block,
-        kernelArgsBoundary, 0, boundary_sync_stream));
+        (void *)MultiGPUMultiBlockPeerTilingNvshmem::boundary_sync_kernel, comm_dim_grid,
+        comm_dim_block, kernelArgsBoundary, 0, boundary_sync_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaGetLastError());
