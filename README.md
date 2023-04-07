@@ -30,17 +30,6 @@ Communication Overhead             |  Overlap Percentage
 :-------------------------:|:-------------------------:
 <img src="Plots/Images/2D_Weak_Scaling_No_Compute_16384x16384__.png" alt="drawing" width="400" />  |  <img src="Plots/Images/8 GPUs (2048x4096).png" alt="drawing" width="400" />
 
-### 2d5p Jacobi Stencil
-
-![](Plots/Images/2D_Weak_Scaling_256x256.png)
-
-### 2d7p Jacobi Stencil
-
-![](Plots/Images/3D_Weak_Scaling_256x256x256.png)
-
-### Conjugate Gradient
-![](Plots/Images/matrix_speedup_table_8%20GPUs.png)
-
 ---
 
 ## Dependencies
@@ -163,6 +152,21 @@ $ mpirun -np 8 ./bin/jacobi3D_nvshmem -s -v 1 -nx 512 -ny 512 -nz 512 -niter 100
 ### Multi-Node Launch (NVHSMEM only)
 
 No special parameters need to be set for multi-node launch. 
+
+---
+
+## Results
+
+### 2d5p Jacobi Stencil
+
+![](Plots/Images/2D_Weak_Scaling_256x256.png)
+
+### 2d7p Jacobi Stencil
+
+![](Plots/Images/3D_Weak_Scaling_256x256x256.png)
+
+### Conjugate Gradient
+![](Plots/Images/matrix_speedup_table_8%20GPUs.png)
 
 [//]: # (### TODO List)
 
