@@ -136,7 +136,7 @@ int MultiStreamPERKSNVSHMEM::init(int argc, char *argv[]) {
     // PERKS config
 
     // 128 or 256
-//    int bdimx = 128;
+    //    int bdimx = 128;
     int bdimx = 256;
     int blkpsm = 100;
 
@@ -492,8 +492,8 @@ int MultiStreamPERKSNVSHMEM::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)MultiStreamPERKSNVSHMEM::boundary_sync_kernel, comm_dim_grid,
-        comm_dim_block, kernelArgsBoundary, 0, boundary_sync_stream));
+        (void *)MultiStreamPERKSNVSHMEM::boundary_sync_kernel, comm_dim_grid, comm_dim_block,
+        kernelArgsBoundary, 0, boundary_sync_stream));
 
     CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)execute_kernel, executeGridDim,
                                              executeBlockDim, kernelArgsInner, executeSM,

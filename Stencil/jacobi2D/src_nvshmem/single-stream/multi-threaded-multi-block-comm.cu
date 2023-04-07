@@ -100,7 +100,7 @@ __global__ void __launch_bounds__(1024, 1)
                                                a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
                     block_count++;
                 }
-                block_count += (ix-threadIdx.x) < (nx - 1);
+                block_count += (ix - threadIdx.x) < (nx - 1);
                 ix = (threadIdx.x + 1);
             }
         }

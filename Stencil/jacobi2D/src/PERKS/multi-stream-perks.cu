@@ -5,11 +5,11 @@
 
 #include "../../PERKS/config.cuh"
 
+#include "../../PERKS/common/cuda_common.cuh"
 #include "../../PERKS/common/cuda_computation.cuh"
+#include "../../PERKS/common/jacobi_cuda.cuh"
 #include "../../PERKS/config.cuh"
 #include "../../PERKS/perksconfig.cuh"
-#include "../../PERKS/common/cuda_common.cuh"
-#include "../../PERKS/common/jacobi_cuda.cuh"
 
 namespace cg = cooperative_groups;
 
