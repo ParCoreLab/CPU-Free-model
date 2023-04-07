@@ -3,13 +3,13 @@
 
 #include "../../include/PERKS/multi-stream-perks.cuh"
 
-#include "config.cuh"
+#include "../../PERKS/config.cuh"
 
-#include "./common/cuda_common.cuh"
-#include "./common/cuda_computation.cuh"
-#include "./common/jacobi_cuda.cuh"
-#include "./config.cuh"
-#include "./perksconfig.cuh"
+#include "../../PERKS/common/cuda_computation.cuh"
+#include "../../PERKS/config.cuh"
+#include "../../PERKS/perksconfig.cuh"
+#include "../../PERKS/common/cuda_common.cuh"
+#include "../../PERKS/common/jacobi_cuda.cuh"
 
 namespace cg = cooperative_groups;
 

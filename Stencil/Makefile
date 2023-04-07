@@ -7,6 +7,8 @@ OBJ_ROOT ?= $(BUILD_ROOT)/obj
 VERSION_2D = $(SELF_DIR)/jacobi2D
 VERSION_3D = $(SELF_DIR)/jacobi3D
 
+2D_PERKS_WRAPPER = $(VERSION_2D)/PERKS/*.cu
+
 # =========================================================================
 # 2D
 SRC_DIR_2D = $(VERSION_2D)/src/
@@ -55,7 +57,7 @@ jacobi: jacobi2D jacobi3D
 jacobi_nvshmem: jacobi2D_nvshmem jacobi3D_nvshmem
 
 # =========================================================================
-jacobi2D: $(OBJS_2D)
+jacobi2D: $(OBJS_2D) $(2D_PERKS_WRAPPER)
 	$(LINK)
 
 jacobi3D: $(OBJS_3D)
@@ -69,7 +71,7 @@ $(OBJS_3D) : $(OBJ_DIR_3D)/%.o : $(SRC_DIR_3D)/%.cu $(DEP_DIR_3D)/%.d | $(DEP_DI
 # =========================================================================
 
 # =========================================================================
-jacobi2D_nvshmem: $(OBJS_2D_NVSHMEM)
+jacobi2D_nvshmem: $(OBJS_2D_NVSHMEM) $(2D_PERKS_WRAPPER)
 	$(LINK_NVSHMEM)
 
 jacobi3D_nvshmem: $(OBJS_3D_NVSHMEM)

@@ -1,57 +1,19 @@
 /* Copyright (c) 2017-2018, NVIDIA CORPORATION. All rights reserved.
  */
-#include "../../include_nvshmem/multi-stream/multi-gpu-multi-block-tiling.cuh"
+
+#include "../../include_nvshmem/PERKS/multi-stream-perks.cuh"
+
+#include "../../PERKS/config.cuh"
+
+#include "../../PERKS/common/cuda_common.cuh"
+#include "../../PERKS/common/cuda_computation.cuh"
+#include "../../PERKS/common/jacobi_cuda.cuh"
+#include "../../PERKS/config.cuh"
+#include "../../PERKS/perksconfig.cuh"
 
 namespace cg = cooperative_groups;
 
-namespace MultiGPUMultiBlockPeerTilingNvshmem {
-
-__global__ void __launch_bounds__(1024, 1)
-    jacobi_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
-                  const int comp_block_count_per_sm, const int tile_count_x, const int iter_max,
-                  volatile int *iteration_done) {
-    cg::thread_block cta = cg::this_thread_block();
-    cg::grid_group grid = cg::this_grid();
-
-    int iter = 0;
-
-    const int comp_start_iy = ((blockIdx.x * comp_block_count_per_sm / tile_count_x) * blockDim.y +
-                               threadIdx.y + iy_start + 1);
-    const int comp_start_ix =
-        ((blockIdx.x * comp_block_count_per_sm) % tile_count_x) * blockDim.x + threadIdx.x + 1;
-
-    while (iter < iter_max) {
-        int iy = comp_start_iy;
-        int ix = comp_start_ix;
-        int block_count = 0;
-
-        for (; block_count < comp_block_count_per_sm && iy < (iy_end - 1); iy += blockDim.y) {
-            for (; block_count < comp_block_count_per_sm && ix < (nx - 1); ix += blockDim.x) {
-                a_new[iy * nx + ix] =
-                    (real(1) / real(4)) * (a[iy * nx + ix + 1] + a[iy * nx + ix - 1] +
-                                           a[(iy + 1) * nx + ix] + a[(iy - 1) * nx + ix]);
-                block_count++;
-            }
-            block_count += (ix-threadIdx.x) < (nx - 1);
-            ix = (threadIdx.x + 1);
-        }
-
-        real *temp_pointer = a_new;
-        a_new = a;
-        a = temp_pointer;
-
-        iter++;
-
-        cg::sync(grid);
-        if (!grid.thread_rank()) {
-            while (iteration_done[0] != iter) {
-            }
-            iteration_done[1] = iter;
-        }
-        cg::sync(grid);
-    }
-}
-
+namespace MultiStreamPERKSNVSHMEM {
 __global__ void __launch_bounds__(1024, 1)
     boundary_sync_kernel(real *a_new, real *a, const int iy_start, const int iy_end, const int nx,
                          const int comm_sm_count_per_layer, const int comm_block_count_per_sm,
@@ -152,12 +114,12 @@ __global__ void __launch_bounds__(1024, 1)
         }
     }
 }
-}  // namespace MultiGPUMultiBlockPeerTilingNvshmem
+}  // namespace MultiStreamPERKSNVSHMEM
 
-int MultiGPUMultiBlockPeerTilingNvshmem::init(int argc, char *argv[]) {
+int MultiStreamPERKSNVSHMEM::init(int argc, char *argv[]) {
     const int iter_max = get_argval<int>(argv, argv + argc, "-niter", 1000);
-    const int nx = get_argval<int>(argv, argv + argc, "-nx", 512);
-    const int ny = get_argval<int>(argv, argv + argc, "-ny", 512);
+    const int nx = get_argval<int>(argv, argv + argc, "-nx", 16384);
+    const int ny = get_argval<int>(argv, argv + argc, "-ny", 16384);
     const bool compare_to_single_gpu = get_arg(argv, argv + argc, "-compare");
 
     real *a;
@@ -170,6 +132,78 @@ int MultiGPUMultiBlockPeerTilingNvshmem::init(int argc, char *argv[]) {
     real *a_h;
 
     double runtime_serial_non_persistent = 0.0;
+
+    // PERKS config
+
+    // 128 or 256
+//    int bdimx = 128;
+    int bdimx = 256;
+    int blkpsm = 100;
+
+    // damnit
+    if (blkpsm <= 0) blkpsm = 100;
+
+    bool useSM = true;
+    bool isDoubleTile = true;
+
+    // Change this later
+    int ptx = 800;
+
+    int REG_FOLDER_Y = 0;
+
+    if (blkpsm * bdimx >= 2 * 256) {
+        if (useSM) {
+            if (ptx == 800)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 128, 800, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 128, 800, true, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 128, 700, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 128, 700, true, real>::val);
+        } else {
+            if (ptx == 800)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 128, 800, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 128, 800, false, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 128, 700, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 128, 700, false, real>::val);
+        }
+    } else {
+        if (useSM) {
+            if (ptx == 800)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 256, 800, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 256, 800, true, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y = isDoubleTile
+                                   ? (regfolder<HALO, true, 256, 700, true, real, 2 * RTILE_Y>::val)
+                                   : (regfolder<HALO, true, 256, 700, true, real>::val);
+        } else {
+            if (ptx == 800)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 256, 800, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 256, 800, false, real>::val);
+            if (ptx == 700)
+                REG_FOLDER_Y =
+                    isDoubleTile ? (regfolder<HALO, true, 256, 700, false, real, 2 * RTILE_Y>::val)
+                                 : (regfolder<HALO, true, 256, 700, false, real>::val);
+        }
+    }
+
+    auto execute_kernel =
+        isDoubleTile ? (blkpsm * bdimx >= 2 * 256
+                            ? (useSM ? kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 128, true>
+                                     : kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 128, false>)
+                            : (useSM ? kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 256, true>
+                                     : kernel_general_wrapper<real, 2 * RTILE_Y, HALO, 256, false>))
+                     : (blkpsm * bdimx >= 2 * 256
+                            ? (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 128, true>
+                                     : kernel_general_wrapper<real, RTILE_Y, HALO, 128, false>)
+                            : (useSM ? kernel_general_wrapper<real, RTILE_Y, HALO, 256, true>
+                                     : kernel_general_wrapper<real, RTILE_Y, HALO, 256, false>));
 
     int rank = 0, size = 1;
     MPI_CALL(MPI_Init(&argc, &argv));
@@ -290,8 +324,6 @@ int MultiGPUMultiBlockPeerTilingNvshmem::init(int argc, char *argv[]) {
 
     int total_num_flags = 2 * 2 * comm_sm_count_per_layer;
 
-    const int comp_block_count_per_sm =
-        comp_total_tile_count / comp_sm_count + (comp_total_tile_count % comp_sm_count != 0);
     const int comm_block_count_per_sm = comm_layer_tile_count / comm_sm_count_per_layer +
                                         (comm_layer_tile_count % comm_sm_count_per_layer != 0);
 
@@ -338,10 +370,101 @@ int MultiGPUMultiBlockPeerTilingNvshmem::init(int argc, char *argv[]) {
     dim3 comm_dim_grid(comm_sm_count_per_layer * 2);
     dim3 comm_dim_block(dim_block_x * dim_block_y);
 
-    void *kernelArgsInner[] = {
-        (void *)&a_new,        (void *)&a,        (void *)&iy_start,
-        (void *)&iy_end,       (void *)&nx,       (void *)&comp_block_count_per_sm,
-        (void *)&tile_count_x, (void *)&iter_max, (void *)&iteration_done_flags};
+    // More PERKS config
+    const int LOCAL_RTILE_Y = isDoubleTile ? RTILE_Y * 2 : RTILE_Y;
+
+    int sm_count;
+    cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, 0);
+
+    // Reserve 2 for the boundary kernel
+    sm_count -= (comm_sm_count_per_layer * 2);
+
+    real *L2_cache3;
+    real *L2_cache4;
+    size_t L2_utage_2 = sizeof(real) * (ny)*2 * (nx / bdimx) * HALO;
+
+    CUDA_RT_CALL(cudaMalloc(&L2_cache3, L2_utage_2 * 2));
+    L2_cache4 = L2_cache3 + (ny)*2 * (nx / bdimx) * HALO;
+
+    // initialize shared memory
+    int maxSharedMemory;
+    CUDA_RT_CALL(
+        cudaDeviceGetAttribute(&maxSharedMemory, cudaDevAttrMaxSharedMemoryPerMultiprocessor, 0));
+
+    int SharedMemoryUsed = maxSharedMemory - 1024;
+    CUDA_RT_CALL(cudaFuncSetAttribute(execute_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize,
+                                      SharedMemoryUsed));
+
+    size_t executeSM = 0;
+
+    int basic_sm_space = (LOCAL_RTILE_Y + 2 * HALO) * (bdimx + 2 * HALO) + 1;
+
+    size_t sharememory_basic = (basic_sm_space) * sizeof(real);
+    executeSM = sharememory_basic;
+    {
+#define halo HALO
+        executeSM += (HALO * 2 * ((REG_FOLDER_Y)*LOCAL_RTILE_Y + isBOX)) * sizeof(real);
+#undef halo
+    }
+
+    int numBlocksPerSm_current = 1000;
+
+    CUDA_RT_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm_current,
+                                                               execute_kernel, bdimx, executeSM));
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+    // printf("");
+    // int smbound=SharedMemoryUsed/executeSM;
+    // printf("%d,%d,%d\n",numBlocksPerSm_current,blkpsm,smbound);
+    if (blkpsm != 0) {
+        //            blkpsm = 1;
+
+        numBlocksPerSm_current = min(numBlocksPerSm_current, blkpsm);
+    }
+
+    dim3 block_dim(bdimx);
+    dim3 grid_dim(nx / bdimx, sm_count * numBlocksPerSm_current / (nx / bdimx));
+
+    dim3 executeBlockDim = block_dim;
+    dim3 executeGridDim = grid_dim;
+
+#define halo HALO
+
+    size_t max_sm_flder = 0;
+    int tmp0 = SharedMemoryUsed / sizeof(real) / numBlocksPerSm_current;
+    int tmp1 = 2 * HALO * isBOX;
+    int tmp2 = basic_sm_space;
+    int tmp3 = 2 * HALO * (REG_FOLDER_Y)*LOCAL_RTILE_Y;
+    int tmp4 = 2 * HALO * (bdimx + 2 * HALO);
+    tmp0 = tmp0 - tmp1 - tmp2 - tmp3 - tmp4;
+    tmp0 = tmp0 > 0 ? tmp0 : 0;
+    max_sm_flder = (tmp0) / (bdimx + 4 * HALO) / LOCAL_RTILE_Y;
+    // printf("smflder is %d\n",max_sm_flder);
+    if (!useSM) max_sm_flder = 0;
+    if (useSM && max_sm_flder == 0) {
+        std::cout << "Jesse" << std::endl;
+    }
+
+    size_t sm_cache_size = max_sm_flder == 0 ? 0
+                                             : (max_sm_flder * LOCAL_RTILE_Y + 2 * HALO) *
+                                                   (bdimx + 2 * HALO) * sizeof(real);
+    size_t y_axle_halo =
+        (HALO * 2 * ((max_sm_flder + REG_FOLDER_Y) * LOCAL_RTILE_Y + isBOX)) * sizeof(real);
+    executeSM = sharememory_basic + y_axle_halo;
+    executeSM += sm_cache_size;
+    // =====================================================================================
+    const auto chunk_size_local = chunk_size;
+
+    void *kernelArgsInner[] = {(void *)&a,
+                               (void *)&chunk_size_local,
+                               (void *)&nx,
+                               (void *)&iy_start,
+                               (void *)&iy_end,
+                               (void *)&a_new,
+                               (void *)&L2_cache3,
+                               (void *)&L2_cache4,
+                               (void *)&iter_max,
+                               (void *)&max_sm_flder,
+                               (void *)&iteration_done_flags};
 
     void *kernelArgsBoundary[] = {(void *)&a_new,
                                   (void *)&a,
@@ -368,13 +491,13 @@ int MultiGPUMultiBlockPeerTilingNvshmem::init(int argc, char *argv[]) {
     CUDA_RT_CALL(cudaStreamCreate(&inner_domain_stream));
     CUDA_RT_CALL(cudaStreamCreate(&boundary_sync_stream));
 
-    CUDA_RT_CALL(cudaLaunchCooperativeKernel(
-        (void *)MultiGPUMultiBlockPeerTilingNvshmem::jacobi_kernel, comp_dim_grid, comp_dim_block,
-        kernelArgsInner, 0, inner_domain_stream));
-
     CUDA_RT_CALL((cudaError_t)nvshmemx_collective_launch(
-        (void *)MultiGPUMultiBlockPeerTilingNvshmem::boundary_sync_kernel, comm_dim_grid,
+        (void *)MultiStreamPERKSNVSHMEM::boundary_sync_kernel, comm_dim_grid,
         comm_dim_block, kernelArgsBoundary, 0, boundary_sync_stream));
+
+    CUDA_RT_CALL(cudaLaunchCooperativeKernel((void *)execute_kernel, executeGridDim,
+                                             executeBlockDim, kernelArgsInner, executeSM,
+                                             inner_domain_stream));
 
     CUDA_RT_CALL(cudaDeviceSynchronize());
     CUDA_RT_CALL(cudaGetLastError());

@@ -3,16 +3,16 @@
 
 #include <assert.h>
 #include <cooperative_groups.h>
-#include <mpi.h>
 #include <nvshmem.h>
 #include <nvshmemx.h>
+#include <mpi.h>
 #include <omp.h>
 
-#include <assert.h>
-#include <algorithm>
 #include <iostream>
+#include <algorithm>
 #include <sstream>
 #include <string>
+#include <assert.h>
 
 typedef float real;
 
@@ -135,4 +135,4 @@ const int num_colors = sizeof(colors) / sizeof(uint32_t);
         }                                                                                   \
     }
 
-#endif  // INC_3D_STENCIL_NVSHMEM_COMMON_H
+#endif // INC_3D_STENCIL_NVSHMEM_COMMON_H

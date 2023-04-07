@@ -78,10 +78,10 @@ __global__ void __launch_bounds__(1024, 1)
                 iter + 1, NVSHMEM_SIGNAL_SET, top);
         } else if (blockIdx.x >= gridDim.x - 2 * comm_sm_count_per_layer) {
             if (!cta.thread_rank()) {
-                nvshmem_signal_wait_until(is_done_computing_flags +
-                                              cur_iter_mod * 2 * comm_sm_count_per_layer +
-                                              comm_sm_count_per_layer + comm_block_idx,
-                                          NVSHMEM_CMP_EQ, iter);
+                nvshmem_signal_wait_until(
+                    is_done_computing_flags + cur_iter_mod * 2 * comm_sm_count_per_layer +
+                        comm_sm_count_per_layer + comm_block_idx,
+                    NVSHMEM_CMP_EQ, iter);
             }
             cg::sync(cta);
 
@@ -133,10 +133,10 @@ __global__ void __launch_bounds__(1024, 1)
                                                    a[(iz - 1) * ny * nx + iy * nx + ix]);
                         block_count++;
                     }
-                    block_count += (ix - threadIdx.x) < (nx - 1);
+                    block_count += (ix-threadIdx.x) < (nx - 1);
                     ix = (threadIdx.x + 1);
                 }
-                block_count += (iy - threadIdx.y) < (ny - 1);
+                block_count += (iy-threadIdx.y) < (ny - 1);
                 iy = (threadIdx.y + 1);
             }
         }

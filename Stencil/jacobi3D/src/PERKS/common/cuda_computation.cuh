@@ -4,10 +4,8 @@
 #define SYNC (true)
 #define NOSYNC (false)
 
-#define HALO (1)
-
-// #undef TILE_Y
-//  #define USESM
+//#undef TILE_Y
+// #define USESM
 
 // #ifdef USESM
 //   #define USESMSET (true)

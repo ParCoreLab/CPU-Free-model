@@ -15,8 +15,7 @@ bool get_arg(char **begin, char **end, const std::string &arg) {
 __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
                                       const real pi, const int offset, const int nx, const int ny,
                                       const int my_nz, const int nz) {
-    for (unsigned int iz = blockIdx.x * blockDim.x + threadIdx.x; iz < my_nz;
-         iz += blockDim.x * gridDim.x) {
+    for (unsigned int iz = blockIdx.x * blockDim.x + threadIdx.x; iz < my_nz; iz += blockDim.x * gridDim.x) {
         for (unsigned int iy = 0; iy < ny; iy++) {
             for (unsigned int ix = 0; ix < nx; ix++) {
                 const real y0 = real(offset + iz) - real(iy) - real(ix);

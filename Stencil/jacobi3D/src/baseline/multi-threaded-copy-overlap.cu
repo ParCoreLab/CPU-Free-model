@@ -158,7 +158,7 @@ int BaselineMultiThreadedCopyOverlap::init(int argc, char *argv[]) {
         CUDA_RT_CALL(cudaEventCreateWithFlags(push_top_done[1] + dev_id, cudaEventDisableTiming));
         CUDA_RT_CALL(
             cudaEventCreateWithFlags(push_bottom_done[1] + dev_id, cudaEventDisableTiming));
-        CUDA_RT_CALL(cudaEventCreateWithFlags(&reset_l2norm_done, cudaEventDisableTiming));
+         CUDA_RT_CALL(cudaEventCreateWithFlags(&reset_l2norm_done, cudaEventDisableTiming));
 
         const int top = dev_id > 0 ? dev_id - 1 : (num_devices - 1);
         int canAccessPeer = 0;
@@ -191,7 +191,7 @@ int BaselineMultiThreadedCopyOverlap::init(int argc, char *argv[]) {
         double start = omp_get_wtime();
 
         while (iter < iter_max) {
-            CUDA_RT_CALL(cudaEventRecord(reset_l2norm_done, compute_stream));
+             CUDA_RT_CALL(cudaEventRecord(reset_l2norm_done, compute_stream));
 // need to wait for other threads due to std::swap(a_new[dev_id],a); and event
 // sharing
 #pragma omp barrier
@@ -204,14 +204,14 @@ int BaselineMultiThreadedCopyOverlap::init(int argc, char *argv[]) {
             CUDA_RT_CALL(cudaGetLastError());
 
             // Compute boundaries
-            CUDA_RT_CALL(cudaStreamWaitEvent(push_top_stream, reset_l2norm_done, 0));
+             CUDA_RT_CALL(cudaStreamWaitEvent(push_top_stream, reset_l2norm_done, 0));
             CUDA_RT_CALL(
                 cudaStreamWaitEvent(push_top_stream, push_bottom_done[(iter % 2)][top], 0));
             jacobi_kernel<<<{unsigned(nx) / 16 + 1, unsigned(ny) / 16 + 1}, {16, 16}, 0,
                             push_top_stream>>>(a_new[dev_id], a, iz_start, (iz_start + 1), ny, nx);
             CUDA_RT_CALL(cudaGetLastError());
 
-            CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream, reset_l2norm_done, 0));
+             CUDA_RT_CALL(cudaStreamWaitEvent(push_bottom_stream, reset_l2norm_done, 0));
             CUDA_RT_CALL(
                 cudaStreamWaitEvent(push_bottom_stream, push_top_done[(iter % 2)][bottom], 0));
             jacobi_kernel<<<{unsigned(nx) / 16 + 1, unsigned(ny) / 16 + 1}, {16, 16}, 0,
