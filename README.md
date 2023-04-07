@@ -161,7 +161,7 @@ No special parameters need to be set for multi-node launch.
 
 ![](Plots/Images/2D_Weak_Scaling_256x256.png)
 
-### 2d7p Jacobi Stencil
+### 3d7p Jacobi Stencil
 
 ![](Plots/Images/3D_Weak_Scaling_256x256x256.png)
 
