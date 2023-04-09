@@ -9,6 +9,8 @@
 
 #include <cooperative_groups.h>
 
+#define HALO (1)
+
 // perks stuff
 // DON'T CHANGE THE ORDER
 #include "./common/cuda_common.cuh"

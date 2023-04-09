@@ -6,6 +6,8 @@
 #include <nvshmemx.h>
 #include "../../include_nvshmem/PERKS-nvshmem/multi-stream-perks-nvshmem.h"
 
+#define HALO (1)
+
 #include "./common/cuda_common.cuh"
 #include "./common/cuda_computation.cuh"
 #include "./common/jacobi_cuda.cuh"
