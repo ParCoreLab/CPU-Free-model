@@ -26,8 +26,8 @@ WARN_FLAGS = "-Wall -Wno-comment -Werror -Wextra"
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 
-GENCODE_SM70    := -gencode arch=compute_70,code=sm_70
-GENCODE_SM80    := -gencode arch=compute_80,code=sm_80 -gencode arch=compute_80,code=compute_80
+GENCODE_SM70    := -gencode 'arch=compute_70,code=sm_70'
+GENCODE_SM80    := -gencode 'arch=compute_80,code=sm_80' -gencode 'arch=compute_80,code=compute_80'
 GENCODE_FLAGS	:= $(GENCODE_SM70) $(GENCODE_SM80)
 
 DEP_FLAGS = -MT $@ -MMD -MP -MF
