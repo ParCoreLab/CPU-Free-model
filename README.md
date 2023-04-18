@@ -10,7 +10,7 @@
 [//]: # (    <p> Multi-GPU Communication Schemes for IterativeSolvers: When CPUs are Not in Charge </p>)
 [//]: # (</h3>)
 
-# Multi-GPU Communication Schemes for IterativeSolvers: When CPUs are Not in Charge
+# Multi-GPU Communication Schemes for Iterative Solvers: When CPUs are Not in Charge
 
 ---
 
