@@ -180,7 +180,15 @@ No special parameters need to be set for multi-node launch.
 ## Citing
 
 ```bibtex
-@misc{stuff}
+@inproceedings{CPU-Free-Model,
+author = {Ismayilov, Ismayil and Baydamirli, Javid and Sa\u{g}bili, Do\u{g}an and Wahib, Mohamed and Unat, Didem},
+title = {Multi-GPU Communication Schemes for Iterative Solvers: When CPUs Are Not in Charge},
+year = {2023},
+url = {https://doi.org/10.1145/3577193.3593713},
+doi = {10.1145/3577193.3593713},
+booktitle = {Proceedings of the 37th International Conference on Supercomputing},
+series = {ICS '23}
+}
 ```
 
 ---
