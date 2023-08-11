@@ -6,6 +6,7 @@
 #include "../include/baseline/discrete-standard.cuh"
 #include "../include/profiling/discrete-pipelined.cuh"
 #include "../include/profiling/discrete-standard.cuh"
+#include "../include/single-stream/pipelined-gather.cuh"
 #include "../include/single-stream/pipelined-multi-overlap.cuh"
 #include "../include/single-stream/pipelined.cuh"
 #include "../include/single-stream/standard-saxpy-overlap.cuh"
@@ -30,6 +31,7 @@ int main(int argc, char *argv[]) {
         make_pair("Profiling Discrete Standard", ProfilingDiscreteStandard::init),
         make_pair("Profiling Discrete Pipelined", ProfilingDiscretePipelined::init),
         make_pair("Single GPU Discrete Standard", SingleGPUDiscreteStandard::init),
+        make_pair("Single Stream Pipelined Gather", SingleStreamPipelinedGather::init),
     };
 
     std::string versions_to_run_string = get_argval<std::string>(argv, argv + argc, "-v", "0");
@@ -142,8 +144,7 @@ int main(int argc, char *argv[]) {
     // Set symmetric heap size for nvshmem based on problem size
     // Its default value in nvshmem is 1 GB which is not sufficient
     // for large mesh sizes
-    long long unsigned int mesh_size_per_rank =
-        num_rows / num_devices + (num_rows % num_devices != 0);
+    long long unsigned int mesh_size_per_rank = num_rows / size + (num_rows % size != 0);
 
     long long unsigned int required_symmetric_heap_size =
         8 * mesh_size_per_rank * sizeof(real) * 1.1;
@@ -170,6 +171,7 @@ int main(int argc, char *argv[]) {
 
         setenv("NVSHMEM_SYMMETRIC_SIZE", symmetric_heap_size_str, 1);
     }
+
     nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr);
 
     CUDA_RT_CALL(cudaMallocHost(&x_final_result, num_rows * sizeof(real)));
