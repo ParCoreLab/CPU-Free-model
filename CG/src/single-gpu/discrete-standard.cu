@@ -57,10 +57,12 @@ namespace cg = cooperative_groups;
 // This should only be run with a single GPU
 int SingleGPUDiscreteStandard::init(int *device_csrRowIndices, int *device_csrColIndices,
                                     real *device_csrVal, const int num_rows, const int nnz,
-                                    bool matrix_is_zero_indexed, const int num_devices,
-                                    const int iter_max, real *x_final_result,
-                                    const double single_gpu_runtime, bool compare_to_single_gpu,
-                                    bool compare_to_cpu, real *x_ref_single_gpu, real *x_ref_cpu) {
+                                    bool matrix_is_zero_indexed, const int iter_max,
+                                    [[maybe_unused]] real *x_final_result,
+                                    [[maybe_unused]] const double single_gpu_runtime,
+                                    [[maybe_unused]] bool compare_to_single_gpu,
+                                    [[maybe_unused]] bool compare_to_cpu, real *x_ref_single_gpu,
+                                    [[maybe_unused]] real *x_ref_cpu) {
     // This version should be run with 1 GPU only but adding this check here just in case.
     int mype = nvshmem_my_pe();
 

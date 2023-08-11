@@ -101,8 +101,8 @@ __global__ void resetLocalDotProduct(double *dot_result) {
 }  // namespace ProfilingDiscreteStandard
 
 int ProfilingDiscreteStandard::init(int *device_csrRowIndices, int *device_csrColIndices,
-                                    real *device_csrVal, const int num_rows, const int nnz,
-                                    bool matrix_is_zero_indexed, const int num_devices,
+                                    real *device_csrVal, const int num_rows,
+                                    [[maybe_unused]] const int nnz, bool matrix_is_zero_indexed,
                                     const int iter_max, real *x_final_result,
                                     const double single_gpu_runtime, bool compare_to_single_gpu,
                                     bool compare_to_cpu, real *x_ref_single_gpu, real *x_ref_cpu) {
@@ -356,7 +356,7 @@ int ProfilingDiscreteStandard::init(int *device_csrRowIndices, int *device_csrCo
     double stop = MPI_Wtime();
 
     if (compare_to_single_gpu || compare_to_cpu) {
-        // Need to do this when when num_rows % npes != 0
+        // Need to do this when num_rows % npes != 0
         int num_elems_to_copy = row_end_global_idx - row_start_global_idx;
 
         CUDA_RT_CALL(cudaMemcpy(x_final_result + row_start_global_idx, device_x,
@@ -366,9 +366,9 @@ int ProfilingDiscreteStandard::init(int *device_csrRowIndices, int *device_csrCo
     bool result_correct_single_gpu = true;
     bool result_correct_cpu = true;
 
-    report_errors(num_rows, x_ref_single_gpu, x_ref_cpu, x_final_result, row_start_global_idx,
-                  row_end_global_idx, npes, single_gpu_runtime, start, stop, compare_to_single_gpu,
-                  compare_to_cpu, result_correct_single_gpu, result_correct_cpu);
+    report_errors(x_ref_single_gpu, x_ref_cpu, x_final_result, row_start_global_idx,
+                  row_end_global_idx, compare_to_single_gpu, compare_to_cpu,
+                  result_correct_single_gpu, result_correct_cpu);
 
     nvshmem_barrier_all();
 

@@ -7,6 +7,10 @@ __pycache__/
 *.o
 *.out
 
+bin/
+obj/
+build/
+
 cg
 jacobi
 jacobi_nvshmem
