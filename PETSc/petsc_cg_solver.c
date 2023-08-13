@@ -22,7 +22,7 @@ int main(int argc, char **args) {
 
     PetscFunctionBeginUser;
     PetscCall(PetscInitialize(&argc, &args, (char *)0, help));
-    PetscCall(PetscOptionsGetString(NULL, NULL, "-matrix_filename", matrix_filename,
+    PetscCall(PetscOptionsGetString(NULL, NULL, "-matrix_path", matrix_filename,
                                     sizeof(matrix_filename), NULL));
 
     PetscCall(PetscViewerBinaryOpen(PETSC_COMM_WORLD, matrix_filename, FILE_MODE_READ, &viewer));
@@ -42,8 +42,7 @@ int main(int argc, char **args) {
        performance. See the matrix chapter of the users manual for details.
     */
     PetscCall(MatCreate(PETSC_COMM_WORLD, &A));
-    // Change this to 'MATMPIAIJCUSPARSE' when you do CUDA
-    PetscCall(MatSetType(A, MATMPIAIJ));
+    PetscCall(MatSetType(A, MATMPIAIJCUSPARSE));
     PetscCall(MatSetOption(A, MAT_SYMMETRIC, PETSC_TRUE));
     PetscCall(MatLoad(A, viewer));
     PetscCall(MatGetLocalSize(A, &num_rows, &num_cols));
@@ -60,7 +59,7 @@ int main(int argc, char **args) {
     PetscCall(KSPSetInitialGuessNonzero(cg_solver, PETSC_FALSE));
     PetscCall(KSPGetPC(cg_solver, &preconditioner));
     PetscCall(PCSetType(preconditioner, PCNONE));
-    PetscCall(KSPSetTolerances(cg_solver, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, 10));
+    PetscCall(KSPSetTolerances(cg_solver, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, 5000));
     PetscCall(KSPSetNormType(cg_solver, KSP_NORM_NONE));
     PetscCall(KSPSetConvergenceTest(cg_solver, KSPConvergedSkip, NULL, NULL));
 
@@ -84,13 +83,6 @@ int main(int argc, char **args) {
                         Check the solution and clean up
        - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
     PetscCall(KSPGetIterationNumber(cg_solver, &its));
-
-    /*
-       Print convergence information.  PetscPrintf() produces a single
-       print statement from all processes that share a communicator.
-       An alternative is PetscFPrintf(), which prints to a file.
-    */
-    PetscCall(PetscPrintf(PETSC_COMM_WORLD, "Iiterations %d", its));
 
     /*
        Free work space.  All PETSc objects should be destroyed when they
