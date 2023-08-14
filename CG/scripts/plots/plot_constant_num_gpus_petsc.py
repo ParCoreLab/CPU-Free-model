@@ -43,7 +43,7 @@ VERSIONS_TO_KEEP = [
     'CPU-Free Pipelined CG (Ours)'
 ]
 
-MODULE_DIR = get_module_dir('PETs')
+MODULE_DIR = get_module_dir('PETSc')
 
 dir_path = dirname(realpath(__file__))
 

@@ -78,7 +78,7 @@ MATRICES_TO_PLOT = [
     'G3_circuit',
 ]
 
-MODULE_DIR = get_module_dir('Strong Scaling')
+MODULE_DIR = get_module_dir('PETSc')
 
 dir_path = dirname(realpath(__file__))
 
@@ -90,7 +90,7 @@ plt.rcParams.update({
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 colors = rotate(colors, 1)
 
-plots = len(MATRIX_NAMES)
+plots = len(LARGE_MATRICES_TO_PLOT)
 fig, axes = plt.subplots(math.ceil(plots / 3), 3, layout='constrained')
 fig.set_size_inches(18, 3 * math.ceil(plots / 3))
 
@@ -108,7 +108,7 @@ single_gpu_baseline_standard_runtimes = pd.read_csv(
     single_gpu_runtimes_csv, index_col='Matrix')['Runtime']
 single_gpu_baseline_standard_runtimes = single_gpu_baseline_standard_runtimes.sort_index()
 
-for ax, matrix_name in zip(axes.flatten(), MATRIX_NAMES):
+for ax, matrix_name in zip(axes.flatten(), LARGE_MATRICES_TO_PLOT):
     per_matrix_data = data.loc[data['Matrix'] == matrix_name]
     per_matrix_data = per_matrix_data.drop(columns=['Matrix'])
     per_matrix_data = per_matrix_data.T
