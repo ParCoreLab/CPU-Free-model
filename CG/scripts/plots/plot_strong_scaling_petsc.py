@@ -90,7 +90,7 @@ plt.rcParams.update({
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 colors = rotate(colors, 1)
 
-plots = len(MEDIUM_SMALL_MATRICES_TO_PLOT)
+plots = len(MATRIX_NAMES)
 fig, axes = plt.subplots(math.ceil(plots / 3), 3, layout='constrained')
 fig.set_size_inches(18, 3 * math.ceil(plots / 3))
 
@@ -108,14 +108,14 @@ single_gpu_baseline_standard_runtimes = pd.read_csv(
     single_gpu_runtimes_csv, index_col='Matrix')['Runtime']
 single_gpu_baseline_standard_runtimes = single_gpu_baseline_standard_runtimes.sort_index()
 
-for ax, matrix_name in zip(axes.flatten(), MEDIUM_SMALL_MATRICES_TO_PLOT):
+for ax, matrix_name in zip(axes.flatten(), MATRIX_NAMES):
     per_matrix_data = data.loc[data['Matrix'] == matrix_name]
-    per_matrix_data = per_matrix_data.drop(columns=['Matrix', '1 GPU'])
+    per_matrix_data = per_matrix_data.drop(columns=['Matrix'])
     per_matrix_data = per_matrix_data.T
     per_matrix_data = pd.DataFrame(
         per_matrix_data, columns=VERSIONS_TO_KEEP)
 
-    per_matrix_data['Single GPU Standard CG'] = single_gpu_baseline_standard_runtimes[matrix_name]
+    # per_matrix_data['Single GPU Standard CG'] = single_gpu_baseline_standard_runtimes[matrix_name]
 
     tmp_axes = per_matrix_data.plot(
         ax=ax, linewidth=1.5, logy=False, color=colors)
@@ -133,11 +133,11 @@ for ax, matrix_name in zip(axes.flatten(), MEDIUM_SMALL_MATRICES_TO_PLOT):
         if '(baseline)' in line.get_label().lower():
             line.set_linestyle('dashed')
 
-        if 'single gpu' in line.get_label().lower():
-            line.set_linestyle('dashdot')
-            line.set_color('black')
-            line.set_marker('x')
-            line.set_linewidth(1.5)
+        # if 'single gpu' in line.get_label().lower():
+        #     line.set_linestyle('dashdot')
+        #     line.set_color('black')
+        #     line.set_marker('x')
+        #     line.set_linewidth(1.5)
 
     tmp_axes.get_legend().remove()
     wrap_labels(tmp_axes, 10)
