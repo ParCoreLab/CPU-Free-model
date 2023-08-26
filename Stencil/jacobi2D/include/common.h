@@ -9,6 +9,7 @@
 #include <string>
 
 #include <cooperative_groups.h>
+#include <cuda_runtime.h>
 
 #include <cmath>
 #include <cstdio>
