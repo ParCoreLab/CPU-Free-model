@@ -188,7 +188,14 @@ No special parameters need to be set for multi-node launch.
 
 ## Acknowledgement
 
-CPU-Free Stencil versions adapted from NVIDIA [multi-gpu-programming-models](https://github.com/NVIDIA/multi-gpu-programming-models) repo.
+---
 
-PERKS code adapted from [neozhang307/PERKS](https://github.com/neozhang307/PERKS).
+This project has received funding from the European Research
+Council (ERC) under the European Union’s Horizon 2020 research
+and innovation programme (grant agreement No 949587).
+
+---
+
+- CPU-Free Stencil versions adapted from NVIDIA [multi-gpu-programming-models](https://github.com/NVIDIA/multi-gpu-programming-models) repo.
+- PERKS code adapted from [neozhang307/PERKS](https://github.com/neozhang307/PERKS).
  
