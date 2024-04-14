@@ -48,7 +48,7 @@ Communication Overhead             |  Overlap Percentage
 1. Sample spack installation
 
 ```bash
-$ spack install nvshmem +gpu_initiated_suppot +cuda +gdrcopy +ucx +mpi ^openmpi +cuda fabrics=ucx ^ucx +cuda +gdrcopy +dm +thread_multiple
+$ spack install nvshmem +gpu_initiated_support +cuda +gdrcopy +ucx +mpi ^openmpi +cuda fabrics=ucx ^ucx +cuda +gdrcopy +dm +thread_multiple
 ```
 
 2. Sample environment variables for Makefile
